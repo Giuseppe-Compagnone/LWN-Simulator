@@ -14,11 +14,11 @@ node_modules/
 /coverage
 
 # next.js
-/.next/
-/out/
-/dist/
-/generated/
-/assets/
+**/.next/
+**/out/
+**/dist/
+**/generated/
+**/assets/
 
 # production
 /build

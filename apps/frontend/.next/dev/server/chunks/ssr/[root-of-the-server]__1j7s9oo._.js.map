@@ -1,7 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///home/giuseppe/Documenti/GitHub/LWN-Simulator/apps/frontend/src/app/layout.tsx"],"sourcesContent":["import \"./style.css\";\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode;\n}>) {\n  return (\n    <html lang=\"en\">\n      <body>{children}</body>\n    </html>\n  );\n}\n"],"names":["RootLayout","children","lang"],"mappings":";;;;;;;AAEe,SAASA,WAAW,EACjCC,QAAQ,EAGR;IACA,qBACE,kQAAC;QAAKC,MAAK;kBACT,cAAA,kQAAC;sBAAMD;;;;;;;;;;;AAGb"}},
-    {"offset": {"line": 35, "column": 0}, "map": {"version":3,"sources":["file:///home/giuseppe/Documenti/GitHub/LWN-Simulator/apps/frontend/node_modules/next/src/server/route-modules/app-page/vendored/rsc/react-jsx-dev-runtime.ts"],"sourcesContent":["module.exports = (\n  require('../../module.compiled') as typeof import('../../module.compiled')\n).vendored['react-rsc']!.ReactJsxDevRuntime\n"],"names":["module","exports","require","vendored","ReactJsxDevRuntime"],"mappings":"AAAAA,OAAOC,OAAO,GACZC,QAAQ,0IACRC,QAAQ,CAAC,YAAY,CAAEC,kBAAkB","ignoreList":[0]}}]
-}

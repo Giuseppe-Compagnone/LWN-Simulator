@@ -11,7 +11,9 @@
   "scripts": {
     "dev": "concurrently \"yarn dev:frontend\" \"yarn dev:backend\"",
     "dev:frontend": "yarn workspace frontend dev",
-    "dev:backend": "cd apps/backend && go run cmd/server/main.go"
+    "dev:backend": "cd apps/backend && go run cmd/server/main.go",
+    "build:desktop": "./scripts/build-desktop.sh",
+    "build:server": "./scripts/build-server.sh"
   },
   "devDependencies": {
     "concurrently": "^10.0.3"

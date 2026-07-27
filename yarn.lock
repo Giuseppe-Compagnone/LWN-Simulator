@@ -4339,7 +4339,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "desktop@workspace:apps/desktop"
   dependencies:
-    electron: "npm:^38.0.0"
+    electron: "npm:38.0.0"
     electron-builder: "npm:^26.0.12"
   languageName: unknown
   linkType: soft
@@ -4504,16 +4504,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron@npm:^38.0.0":
-  version: 38.8.6
-  resolution: "electron@npm:38.8.6"
+"electron@npm:38.0.0":
+  version: 38.0.0
+  resolution: "electron@npm:38.0.0"
   dependencies:
     "@electron/get": "npm:^2.0.0"
     "@types/node": "npm:^22.7.7"
     extract-zip: "npm:^2.0.1"
   bin:
     electron: cli.js
-  checksum: 10c0/4e3c02a01b99a77d715a28ec1b1053382860c3100a735adae5784387e38f7cb800313aeb2c9d292297f37237b57b8660bafcf913360a6b68865a45642a495264
+  checksum: 10c0/df3e4eaead2b0de4612a1b593f46667dfd4aff4755727371b5630aada40094cddf82b3837ce0ba3babed8c503275da59187f11da9f4ab26cd20e1362dc103ea6
   languageName: node
   linkType: hard
 

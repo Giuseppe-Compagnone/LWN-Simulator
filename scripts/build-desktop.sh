@@ -33,6 +33,12 @@ cd "$ROOT_DIR/packages/contracts"
 
 yarn build
 
+echo "Building components"
+
+cd "$ROOT_DIR/packages/ui-components"
+
+yarn build
+
 echo "Building frontend"
 
 cd "$ROOT_DIR/apps/frontend"
