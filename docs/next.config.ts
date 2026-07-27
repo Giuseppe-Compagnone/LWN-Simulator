@@ -7,15 +7,15 @@ const withNextra = nextra({
   contentDirBasePath: "/",
 });
 
-const isProd = process.env.NODE_ENV === "production";
+const isGithubPages = process.env.NEXT_PUBLIC_GITHUB_PAGES === "true";
 
 const nextConfig: NextConfig = withNextra({
   reactStrictMode: true,
   output: "export",
 
-  ...(isProd && {
-    basePath: "/nome-repo",
-    assetPrefix: "/nome-repo/",
+  ...(isGithubPages && {
+    basePath: "/LWN-Simulator",
+    assetPrefix: "/LWN-Simulator/",
   }),
 
   images: {

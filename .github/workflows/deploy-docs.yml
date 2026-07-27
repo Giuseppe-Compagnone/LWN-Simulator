@@ -36,7 +36,11 @@ jobs:
       - name: Build docs
         run: yarn build
         env:
-          GITHUB_ACTIONS: true
+          NODE_ENV: production
+          NEXT_PUBLIC_GITHUB_PAGES: true
+
+      - name: Verify export
+        run: ls -la out
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

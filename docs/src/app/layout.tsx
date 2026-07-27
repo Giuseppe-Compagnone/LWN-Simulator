@@ -29,7 +29,7 @@ export default async function RootLayout({
             />
           }
           pageMap={await getPageMap()}
-          docsRepositoryBase="https://example.com"
+          docsRepositoryBase="https://giuseppe-compagnone.github.io/LWN-Simulator/"
           editLink="Edit this page on GitHub"
           sidebar={{ defaultMenuCollapseLevel: 1, autoCollapse: true }}
           footer={footer}
