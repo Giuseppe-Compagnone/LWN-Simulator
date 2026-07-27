@@ -6,8 +6,8 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Nextra 4",
-  description: "Nextra 4 is here.",
+  title: "LWN Simulator Docs",
+  description: "Documentation of LWN Simulator",
 };
 
 const footer = <Footer>MIT {new Date().getFullYear()} © Nextra.</Footer>;
