@@ -1,0 +1,26 @@
+// Shared
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+a {
+  text-decoration: none;
+}
+
+img {
+  max-height: 100%;
+  max-width: 100%;
+}
+
+body,
+html {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  min-height: 100vh;
+}
