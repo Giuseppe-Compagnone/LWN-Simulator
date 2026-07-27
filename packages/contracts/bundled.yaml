@@ -1,0 +1,15 @@
+openapi: 3.0.3
+info:
+  title: LWN Simulator API
+  version: 1.0.0
+  description: API contract for LWN Simulator
+paths: {}
+components:
+  schemas:
+    Response:
+      type: object
+      properties:
+        time:
+          type: string
+      required:
+        - time

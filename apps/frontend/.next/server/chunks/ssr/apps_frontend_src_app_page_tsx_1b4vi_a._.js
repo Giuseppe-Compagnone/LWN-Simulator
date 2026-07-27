@@ -1,0 +1,3 @@
+module.exports=[60724,a=>{"use strict";var b=a.i(87924),c=a.i(72131);a.s(["default",0,function(){let[a,d]=(0,c.useState)(!0),[e,f]=(0,c.useState)(null),g=async()=>{d(!0);let a=await fetch("http://localhost:8080/api/status"),b=await a.json();console.log("Data",b),f(b),d(!1)};return(0,c.useEffect)(()=>{g()},[]),(0,b.jsx)("div",{children:a?"Loading...":e?.time})}])}];
+
+//# sourceMappingURL=apps_frontend_src_app_page_tsx_1b4vi_a._.js.map

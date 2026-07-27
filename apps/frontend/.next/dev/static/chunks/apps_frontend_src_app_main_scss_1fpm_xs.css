@@ -1,0 +1,19 @@
+/* [project]/apps/frontend/src/app/main.scss.css [app-client] (css) */
+body {
+  background: red;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  display: flex;
+}
+
+/*# sourceMappingURL=apps_frontend_src_app_main_scss_1fpm_xs.css.map*/

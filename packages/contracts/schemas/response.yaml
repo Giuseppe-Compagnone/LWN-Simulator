@@ -1,0 +1,10 @@
+Response:
+  type: object
+
+  properties:
+    time:
+      type: string
+      # x-go-name: ID
+
+  required:
+    - time

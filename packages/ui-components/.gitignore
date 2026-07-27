@@ -1,7 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-node_modules/
+/node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -16,9 +16,6 @@ node_modules/
 # next.js
 /.next/
 /out/
-/dist/
-/generated/
-/assets/
 
 # production
 /build
@@ -43,4 +40,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-releases/**
+*storybook.log
+storybook-static

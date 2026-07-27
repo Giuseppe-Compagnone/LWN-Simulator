@@ -1,0 +1,5 @@
+{"timestamp":"00:00:00.518","source":"Server","level":"LOG","message":""}
+{"timestamp":"00:00:05.991","source":"Browser","level":"INFO","message":"%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"}
+{"timestamp":"00:00:06.044","source":"Browser","level":"ERROR","message":"unhandledRejection: TypeError: NetworkError when attempting to fetch resource."}
+{"timestamp":"00:00:06.045","source":"Server","level":"ERROR","message":"[browser] \"\\u001b[31m⨯ unhandledRejection: TypeError: NetworkError when attempting to fetch resource.\\u001b[39m\\n\\u001b[31m\\u001b[39m\""}
+{"timestamp":"00:00:06.045","source":"Browser","level":"ERROR","message":"\u001b[31m⨯ unhandledRejection: TypeError: NetworkError when attempting to fetch resource.\u001b[39m\n\u001b[31m\u001b[39m"}

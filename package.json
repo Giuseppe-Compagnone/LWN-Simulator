@@ -1,0 +1,20 @@
+{
+  "name": "lwn-simulator",
+  "version": "2.0.0",
+  "private": true,
+  "main": "index.js",
+  "license": "MIT",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"yarn dev:frontend\" \"yarn dev:backend\"",
+    "dev:frontend": "yarn workspace frontend dev",
+    "dev:backend": "cd apps/backend && go run cmd/server/main.go"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.3"
+  },
+  "packageManager": "yarn@4.17.1"
+}

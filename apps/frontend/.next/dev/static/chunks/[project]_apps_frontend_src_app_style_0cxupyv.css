@@ -1,0 +1,15 @@
+/* [project]/apps/frontend/src/app/style.css [app-client] (css) */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  display: flex;
+}
+
+/*# sourceMappingURL=%5Bproject%5D_apps_frontend_src_app_style_0cxupyv.css.map*/

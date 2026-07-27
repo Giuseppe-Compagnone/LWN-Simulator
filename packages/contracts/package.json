@@ -1,0 +1,19 @@
+{
+  "name": "contracts",
+  "version": "1.0.0",
+  "private": true,
+  "types": "./generated/models.ts",
+  "scripts": {
+    "build": "yarn clean && yarn generate:bundle && yarn generate:ts && yarn generate:go && yarn generate:models",
+    "clean": "rm -rf generated",
+    "generate:ts": "openapi-typescript bundled.yaml -o generated/openapi.ts",
+    "generate:models": "node scripts/generate-models.mjs",
+    "generate:bundle": "redocly bundle openapi.yaml -o bundled.yaml",
+    "generate:go": "oapi-codegen -config oapi-codegen.yaml bundled.yaml"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.8.0",
+    "openapi-typescript-codegen": "^0.31.0",
+    "typescript": "5.7.3"
+  }
+}
