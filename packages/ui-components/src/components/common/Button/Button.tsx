@@ -19,6 +19,7 @@ const Button = (props: ButtonProps) => {
       }}
       className={cn(
         "button",
+        props.className,
         type,
         props.block && "block",
         isLoading && "loading",

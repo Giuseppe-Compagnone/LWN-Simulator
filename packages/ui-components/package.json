@@ -31,6 +31,7 @@
     "sass": "^1.102.0"
   },
   "devDependencies": {
+    "@storybook/addon-docs": "10.5.5",
     "@storybook/nextjs-vite": "^10.5.4",
     "@types/node": "^20",
     "@types/react": "^19.2.17",

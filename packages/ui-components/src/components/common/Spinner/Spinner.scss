@@ -1,8 +1,18 @@
 // Spinner
 
-.spinner {
-  --color-1: #fff;
+body.light {
+  .spinner {
+    --color-1: #000;
+  }
+}
 
+body.dark {
+  .spinner {
+    --color-1: #fff;
+  }
+}
+
+.spinner {
   position: relative;
   display: inline-block;
   width: calc(48 * var(--size));

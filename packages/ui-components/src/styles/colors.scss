@@ -1,6 +1,6 @@
 // Colors
 
-body.dark {
+.dark {
   --primary-color: #38bdf8;
   --secondary-color: #f59e0b;
   --primary-text-color: #c6c6cd;
@@ -8,14 +8,16 @@ body.dark {
   --primary-bg-color: #031427;
   --secondary-bg-color: #102034;
   --tertiary-bg-color: #1b2b3f;
+  --border-color: #45464d;
 }
 
-body.light {
+.light {
   --primary-color: #005cff;
   --secondary-color: #c53903;
   --primary-text-color: #424656;
   --secondary-text-color: #191c1e;
-  --primary-bg-color: #f5f7f9;
+  --primary-bg-color: #f7f9fb;
   --secondary-bg-color: #f2f4f6;
   --tertiary-bg-color: #fff;
+  --border-color: #c3c5d9;
 }

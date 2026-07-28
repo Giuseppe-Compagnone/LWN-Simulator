@@ -1,7 +1,9 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 import type { Preview } from "@storybook/nextjs-vite";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-expect-error
 import "../src/styles/main.scss";
+// @ts-expect-error
+import "./storybook.scss";
 
 const preview: Preview = {
   globalTypes: {
@@ -18,11 +20,13 @@ const preview: Preview = {
 
   decorators: [
     (Story, context) => {
-      document.body.classList.remove("light", "dark");
-      document.body.classList.add(context.globals.theme);
-      document.body.style.padding = "1rem";
+      const theme = context.globals.theme;
 
-      return <Story />;
+      return (
+        <div className={`sb-wrapper-custom ${theme}`}>
+          <Story />
+        </div>
+      );
     },
   ],
   parameters: {

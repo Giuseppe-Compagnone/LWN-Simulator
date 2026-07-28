@@ -3,7 +3,7 @@ import { SpinnerProps, SpinnerSize, SpinnerType } from "./Spinner.types";
 
 const Spinner = (props: SpinnerProps) => {
   const size = props.size || SpinnerSize.Md;
-  const type = props.type || SpinnerType;
+  const type = props.type || SpinnerType.Primary;
 
   return (
     <span
