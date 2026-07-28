@@ -23,5 +23,9 @@ const config: StorybookConfig = {
       shouldRemoveUndefinedFromOptional: true,
     },
   },
+  viteFinal: async (config) => {
+    config.base = "/LWN-Simulator/storybook/";
+    return config;
+  },
 };
 export default config;
