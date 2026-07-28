@@ -13,19 +13,22 @@ function getAbsolutePath(value: string) {
 }
 const config: StorybookConfig = {
   stories: ["../src/**/*.mdx", "../src/**/*.stories.@(js|jsx|mjs|ts|tsx)"],
+
   addons: ["@storybook/addon-docs"],
+
   framework: getAbsolutePath("@storybook/nextjs-vite"),
+
   staticDirs: ["../public"],
-  typescript: {
-    reactDocgen: "react-docgen-typescript",
-    reactDocgenTypescriptOptions: {
-      shouldExtractLiteralValuesFromEnum: true,
-      shouldRemoveUndefinedFromOptional: true,
-    },
-  },
+
   viteFinal: async (config) => {
     config.base = "/LWN-Simulator/storybook/";
+
     return config;
   },
+
+  managerHead: (head) => `
+    ${head}
+    <base href="/LWN-Simulator/storybook/">
+  `,
 };
 export default config;

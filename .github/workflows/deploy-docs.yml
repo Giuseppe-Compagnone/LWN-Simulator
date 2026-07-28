@@ -36,7 +36,7 @@ jobs:
             packages/ui-components/yarn.lock
 
       # ----------------------------
-      # Build Nextra
+      # Nextra
       # ----------------------------
 
       - name: Install docs dependencies
@@ -56,7 +56,7 @@ jobs:
           cp -r docs/out/* pages/docs/
 
       # ----------------------------
-      # Build Storybook
+      # Storybook
       # ----------------------------
 
       - name: Install Storybook dependencies
@@ -73,7 +73,7 @@ jobs:
           cp -r packages/ui-components/storybook-static/* pages/storybook/
 
       # ----------------------------
-      # Root redirect /
+      # Redirect /
       # ----------------------------
 
       - name: Create root redirect
@@ -83,28 +83,22 @@ jobs:
           <html>
             <head>
               <meta charset="utf-8">
-              <meta http-equiv="refresh" content="0; url=/docs/">
-              <link rel="canonical" href="/docs/">
+              <meta http-equiv="refresh" content="0; url=./docs/">
               <title>Redirecting...</title>
             </head>
             <body>
-              Redirecting to documentation...
+              Redirecting...
             </body>
           </html>
           EOF
 
       # ----------------------------
-      # Debug artifact
+      # Verify
       # ----------------------------
 
       - name: Verify artifact
         run: |
-          echo "Generated Pages artifact:"
-          find pages -maxdepth 2 -type f | head -50
-
-      # ----------------------------
-      # Upload GitHub Pages artifact
-      # ----------------------------
+          find pages -maxdepth 2 -type f | sort | head -100
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
