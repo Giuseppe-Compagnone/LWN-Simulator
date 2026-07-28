@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 
 import Table from "./Table";
+import { TableRecord } from "./Table.types";
 
 const meta = {
   title: "ui-components/widget/Table",
@@ -17,16 +18,16 @@ type Story = StoryObj<typeof meta>;
 const testRecords = [
   {
     items: [
+      { label: "age", content: "30" },
       { label: "id", content: "0" },
       { label: "name", content: "John" },
-      { label: "age", content: "30" },
+      { label: "wrong", content: "Wrong" },
     ],
   },
   {
     items: [
       { label: "id", content: "1" },
       { label: "name", content: "Anna" },
-      { label: "age", content: "25" },
     ],
   },
   {
@@ -372,4 +373,31 @@ export const SimpleTable: Story = {
     rowLabels: ["id", "name", "age"],
     records: testRecords.slice(0, 5),
   },
+};
+
+export const ClickableTable: Story = {
+  args: {
+    rowLabels: ["id", "name", "age"],
+    records: testRecords.slice(0, 5),
+    onRowClick: async (row: TableRecord) => {
+      await new Promise<void>((resolve) => {
+        setTimeout(() => {
+          console.table(row);
+          resolve();
+        }, 2000);
+      });
+    },
+  },
+};
+
+export const ScrollableTable: Story = {
+  args: {
+    rowLabels: ["id", "name", "age"],
+    records: testRecords,
+  },
+  render: (args) => (
+    <div style={{ height: "calc(100vh - 4rem)" }}>
+      <Table {...args} />
+    </div>
+  ),
 };

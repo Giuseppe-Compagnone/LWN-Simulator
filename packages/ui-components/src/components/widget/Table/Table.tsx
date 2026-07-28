@@ -1,8 +1,14 @@
+import { useState } from "react";
 import { TableProps } from "./Table.types";
 import useTable from "./useTable";
+import { Spinner } from "@/components/common";
+import cn from "classnames";
 
 const Table = (props: TableProps) => {
   const tableLogic = useTable({ ...props });
+
+  //States
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   return (
     <table className="table">
@@ -27,13 +33,22 @@ const Table = (props: TableProps) => {
         </tr>
       </thead>
       <tbody className="table-rows">
+        <div className={cn("loading-wrapper", isLoading && "visible")}>
+          {isLoading && <Spinner />}
+        </div>
         {tableLogic.records.map((row, i) => {
           return (
-            <tr key={i} className="table-row">
+            <tr
+              key={i}
+              className={cn("table-row", props.onRowClick && "clickable")}
+              onClick={async () => {
+                setIsLoading(true);
+                await props.onRowClick?.(row);
+                setIsLoading(false);
+              }}
+            >
               {props.rowLabels.map((label, j) => {
                 const item = row.items.find((val) => val.label == label);
-
-                if (!item) return <></>;
 
                 return (
                   <td
@@ -47,7 +62,7 @@ const Table = (props: TableProps) => {
                           : "flex-start",
                     }}
                   >
-                    {item.content}
+                    {item && item.content}
                   </td>
                 );
               })}

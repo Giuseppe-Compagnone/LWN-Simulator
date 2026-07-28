@@ -13,6 +13,7 @@ export interface TableProps {
   rowLabels: Array<string>;
   records: Array<TableRecord>;
   orderBy?: string;
+  onRowClick?: (row: TableRecord) => void | Promise<void>;
 }
 
 export interface useTableProps extends TableProps {
