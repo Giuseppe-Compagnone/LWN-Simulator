@@ -20,6 +20,7 @@ const preview: Preview = {
     (Story, context) => {
       document.body.classList.remove("light", "dark");
       document.body.classList.add(context.globals.theme);
+      document.body.style.padding = "1rem";
 
       return <Story />;
     },
