@@ -1,8 +1,19 @@
 import { JSX } from "react/jsx-runtime";
 
+export enum TableRecordItemSort {
+  Numeric = 1,
+  Alphabetic,
+}
+
+export interface TableLabel {
+  value: string;
+  sort?: TableRecordItemSort;
+}
+
 export interface TableRecordItem {
   label: string;
-  content: JSX.Element | string;
+  value: string;
+  content?: JSX.Element;
 }
 
 export interface TableRecord {
@@ -10,10 +21,11 @@ export interface TableRecord {
 }
 
 export interface TableProps {
-  rowLabels: Array<string>;
+  rowLabels: Array<TableLabel>;
   records: Array<TableRecord>;
   orderBy?: string;
   onRowClick?: (row: TableRecord) => void | Promise<void>;
+  pageSize?: number;
 }
 
 export interface useTableProps extends TableProps {
@@ -22,4 +34,6 @@ export interface useTableProps extends TableProps {
 
 export interface TableLogic {
   records: Array<TableRecord>;
+  toggleSort: () => void;
+  sortedUp: boolean;
 }

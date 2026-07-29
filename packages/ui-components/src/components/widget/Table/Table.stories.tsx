@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 
 import Table from "./Table";
-import { TableRecord } from "./Table.types";
+import { TableRecord, TableRecordItemSort } from "./Table.types";
 
 const meta = {
   title: "ui-components/widget/Table",
@@ -18,366 +18,358 @@ type Story = StoryObj<typeof meta>;
 const testRecords = [
   {
     items: [
-      { label: "age", content: "30" },
-      { label: "id", content: "0" },
-      { label: "name", content: "John" },
-      { label: "wrong", content: "Wrong" },
+      { label: "age", value: "30" },
+      { label: "id", value: "0", content: <strong>00</strong> },
+      { label: "name", value: "John" },
+      { label: "wrong", value: "Wrong" },
     ],
   },
   {
     items: [
-      { label: "id", content: "1" },
-      { label: "name", content: "Anna" },
+      { label: "id", value: "1" },
+      { label: "name", value: "Anna" },
     ],
   },
   {
     items: [
-      { label: "id", content: "2" },
-      { label: "name", content: "Marco" },
-      { label: "age", content: "42" },
+      { label: "id", value: "2" },
+      { label: "name", value: "Marco" },
+      { label: "age", value: "42" },
     ],
   },
   {
     items: [
-      { label: "id", content: "3" },
-      { label: "name", content: "Laura" },
-      { label: "age", content: "28" },
+      { label: "name", value: "Laura" },
+      { label: "age", value: "28" },
     ],
   },
   {
     items: [
-      { label: "id", content: "4" },
-      { label: "name", content: "David" },
-      { label: "age", content: "35" },
+      { label: "id", value: "4" },
+      { label: "name", value: "David" },
+      { label: "age", value: "35" },
     ],
   },
   {
     items: [
-      { label: "id", content: "5" },
-      { label: "name", content: "Sofia" },
-      { label: "age", content: "31" },
+      { label: "id", value: "5" },
+      { label: "name", value: "Sofia" },
+      { label: "age", value: "31" },
     ],
   },
   {
     items: [
-      { label: "id", content: "6" },
-      { label: "name", content: "Luca" },
-      { label: "age", content: "22" },
+      { label: "id", value: "6" },
+      { label: "name", value: "Luca" },
+      { label: "age", value: "22" },
     ],
   },
   {
     items: [
-      { label: "id", content: "7" },
-      { label: "name", content: "Emma" },
-      { label: "age", content: "27" },
+      { label: "id", value: "7" },
+      { label: "name", value: "Emma" },
+      { label: "age", value: "27" },
     ],
   },
   {
     items: [
-      { label: "id", content: "8" },
-      { label: "name", content: "Alex" },
-      { label: "age", content: "39" },
+      { label: "id", value: "8" },
+      { label: "name", value: "Alex" },
+      { label: "age", value: "39" },
     ],
   },
   {
     items: [
-      { label: "id", content: "9" },
-      { label: "name", content: "Giulia" },
-      { label: "age", content: "24" },
+      { label: "id", value: "9" },
+      { label: "name", value: "Giulia" },
+      { label: "age", value: "24" },
     ],
   },
   {
     items: [
-      { label: "id", content: "10" },
-      { label: "name", content: "Tom" },
-      { label: "age", content: "45" },
+      { label: "name", value: "Tom" },
+      { label: "age", value: "45" },
     ],
   },
   {
     items: [
-      { label: "id", content: "11" },
-      { label: "name", content: "Elena" },
-      { label: "age", content: "33" },
+      { label: "id", value: "11" },
+      { label: "name", value: "Elena" },
+      { label: "age", value: "33" },
     ],
   },
   {
     items: [
-      { label: "id", content: "12" },
-      { label: "name", content: "Paul" },
-      { label: "age", content: "29" },
+      { label: "id", value: "12" },
+      { label: "name", value: "Paul" },
+      { label: "age", value: "29" },
     ],
   },
   {
     items: [
-      { label: "id", content: "13" },
-      { label: "name", content: "Sara" },
-      { label: "age", content: "36" },
+      { label: "id", value: "13" },
+      { label: "name", value: "Sara" },
+      { label: "age", value: "36" },
     ],
   },
   {
     items: [
-      { label: "id", content: "14" },
-      { label: "name", content: "Mike" },
-      { label: "age", content: "41" },
+      { label: "id", value: "14" },
+      { label: "name", value: "Mike" },
+      { label: "age", value: "41" },
     ],
   },
   {
     items: [
-      { label: "id", content: "15" },
-      { label: "name", content: "Chiara" },
-      { label: "age", content: "26" },
+      { label: "id", value: "15" },
+      { label: "name", value: "Chiara" },
+      { label: "age", value: "26" },
     ],
   },
   {
     items: [
-      { label: "id", content: "16" },
-      { label: "name", content: "Andrea" },
-      { label: "age", content: "38" },
+      { label: "id", value: "16" },
+      { label: "name", value: "Andrea" },
+      { label: "age", value: "38" },
     ],
   },
   {
     items: [
-      { label: "id", content: "17" },
-      { label: "name", content: "Nina" },
-      { label: "age", content: "23" },
+      { label: "id", value: "17" },
+      { label: "name", value: "Nina" },
+      { label: "age", value: "23" },
     ],
   },
   {
     items: [
-      { label: "id", content: "18" },
-      { label: "name", content: "Robert" },
-      { label: "age", content: "50" },
+      { label: "id", value: "18" },
+      { label: "name", value: "Robert" },
+      { label: "age", value: "50" },
     ],
   },
   {
     items: [
-      { label: "id", content: "19" },
-      { label: "name", content: "Marta" },
-      { label: "age", content: "32" },
+      { label: "name", value: "Marta" },
+      { label: "age", value: "32" },
     ],
   },
   {
     items: [
-      { label: "id", content: "20" },
-      { label: "name", content: "Kevin" },
-      { label: "age", content: "37" },
+      { label: "id", value: "20" },
+      { label: "name", value: "Kevin" },
+      { label: "age", value: "37" },
     ],
   },
   {
     items: [
-      { label: "id", content: "21" },
-      { label: "name", content: "Alice" },
-      { label: "age", content: "34" },
+      { label: "id", value: "21" },
+      { label: "name", value: "Alice" },
+      { label: "age", value: "34" },
     ],
   },
   {
     items: [
-      { label: "id", content: "22" },
-      { label: "name", content: "Fabio" },
-      { label: "age", content: "40" },
+      { label: "id", value: "22" },
+      { label: "name", value: "Fabio" },
+      { label: "age", value: "40" },
     ],
   },
   {
     items: [
-      { label: "id", content: "23" },
-      { label: "name", content: "Maya" },
-      { label: "age", content: "21" },
+      { label: "id", value: "23" },
+      { label: "name", value: "Maya" },
+      { label: "age", value: "21" },
     ],
   },
   {
     items: [
-      { label: "id", content: "24" },
-      { label: "name", content: "Chris" },
-      { label: "age", content: "44" },
+      { label: "id", value: "24" },
+      { label: "name", value: "Chris" },
+      { label: "age", value: "44" },
     ],
   },
   {
     items: [
-      { label: "id", content: "25" },
-      { label: "name", content: "Paola" },
-      { label: "age", content: "30" },
+      { label: "id", value: "25" },
+      { label: "name", value: "Paola" },
+      { label: "age", value: "30" },
     ],
   },
   {
     items: [
-      { label: "id", content: "26" },
-      { label: "name", content: "Leo" },
-      { label: "age", content: "27" },
+      { label: "name", value: "Leo" },
+      { label: "age", value: "27" },
     ],
   },
   {
     items: [
-      { label: "id", content: "27" },
-      { label: "name", content: "Irene" },
-      { label: "age", content: "35" },
+      { label: "id", value: "27" },
+      { label: "name", value: "Irene" },
+      { label: "age", value: "35" },
     ],
   },
   {
     items: [
-      { label: "id", content: "28" },
-      { label: "name", content: "Daniel" },
-      { label: "age", content: "43" },
+      { label: "id", value: "28" },
+      { label: "name", value: "Daniel" },
+      { label: "age", value: "43" },
     ],
   },
   {
     items: [
-      { label: "id", content: "29" },
-      { label: "name", content: "Valentina" },
-      { label: "age", content: "28" },
+      { label: "id", value: "29" },
+      { label: "name", value: "Valentina" },
+      { label: "age", value: "28" },
     ],
   },
   {
     items: [
-      { label: "id", content: "30" },
-      { label: "name", content: "Simon" },
-      { label: "age", content: "31" },
+      { label: "id", value: "30" },
+      { label: "name", value: "Simon" },
+      { label: "age", value: "31" },
     ],
   },
   {
     items: [
-      { label: "id", content: "31" },
-      { label: "name", content: "Clara" },
-      { label: "age", content: "26" },
+      { label: "id", value: "31" },
+      { label: "name", value: "Clara" },
+      { label: "age", value: "26" },
     ],
   },
   {
     items: [
-      { label: "id", content: "32" },
-      { label: "name", content: "Matteo" },
-      { label: "age", content: "39" },
+      { label: "id", value: "32" },
+      { label: "name", value: "Matteo" },
+      { label: "age", value: "39" },
     ],
   },
   {
     items: [
-      { label: "id", content: "33" },
-      { label: "name", content: "Olivia" },
-      { label: "age", content: "29" },
+      { label: "id", value: "33" },
+      { label: "name", value: "Olivia" },
+      { label: "age", value: "29" },
     ],
   },
   {
     items: [
-      { label: "id", content: "34" },
-      { label: "name", content: "James" },
-      { label: "age", content: "46" },
+      { label: "id", value: "34" },
+      { label: "name", value: "James" },
+      { label: "age", value: "46" },
     ],
   },
   {
     items: [
-      { label: "id", content: "35" },
-      { label: "name", content: "Beatrice" },
-      { label: "age", content: "25" },
+      { label: "id", value: "35" },
+      { label: "name", value: "Beatrice" },
+      { label: "age", value: "25" },
     ],
   },
   {
     items: [
-      { label: "id", content: "36" },
-      { label: "name", content: "Marco" },
-      { label: "age", content: "48" },
+      { label: "id", value: "36" },
+      { label: "age", value: "48" },
     ],
   },
   {
     items: [
-      { label: "id", content: "37" },
-      { label: "name", content: "Isabel" },
-      { label: "age", content: "37" },
+      { label: "id", value: "37" },
+      { label: "age", value: "37" },
     ],
   },
   {
     items: [
-      { label: "id", content: "38" },
-      { label: "name", content: "Ryan" },
-      { label: "age", content: "33" },
+      { label: "id", value: "38" },
+      { label: "age", value: "33" },
     ],
   },
   {
     items: [
-      { label: "id", content: "39" },
-      { label: "name", content: "Francesca" },
-      { label: "age", content: "42" },
+      { label: "id", value: "39" },
+      { label: "name", value: "Francesca" },
+      { label: "age", value: "42" },
     ],
   },
   {
     items: [
-      { label: "id", content: "40" },
-      { label: "name", content: "George" },
-      { label: "age", content: "36" },
+      { label: "id", value: "40" },
+      { label: "name", value: "George" },
+      { label: "age", value: "36" },
     ],
   },
   {
     items: [
-      { label: "id", content: "41" },
-      { label: "name", content: "Elisa" },
-      { label: "age", content: "24" },
+      { label: "id", value: "41" },
+      { label: "name", value: "Elisa" },
+      { label: "age", value: "24" },
     ],
   },
   {
     items: [
-      { label: "id", content: "42" },
-      { label: "name", content: "Victor" },
-      { label: "age", content: "52" },
+      { label: "id", value: "42" },
+      { label: "name", value: "Victor" },
+      { label: "age", value: "52" },
     ],
   },
   {
     items: [
-      { label: "id", content: "43" },
-      { label: "name", content: "Noemi" },
-      { label: "age", content: "30" },
+      { label: "id", value: "43" },
+      { label: "name", value: "Noemi" },
+      { label: "age", value: "30" },
     ],
   },
   {
     items: [
-      { label: "id", content: "44" },
-      { label: "name", content: "Henry" },
-      { label: "age", content: "47" },
+      { label: "id", value: "44" },
+      { label: "name", value: "Henry" },
+      { label: "age", value: "47" },
     ],
   },
   {
     items: [
-      { label: "id", content: "45" },
-      { label: "name", content: "Alice" },
-      { label: "age", content: "28" },
+      { label: "id", value: "45" },
+      { label: "name", value: "Alice" },
+      { label: "age", value: "28" },
     ],
   },
   {
     items: [
-      { label: "id", content: "46" },
-      { label: "name", content: "Stefano" },
-      { label: "age", content: "34" },
+      { label: "id", value: "46" },
+      { label: "name", value: "Stefano" },
+      { label: "age", value: "34" },
     ],
   },
   {
     items: [
-      { label: "id", content: "47" },
-      { label: "name", content: "Laura" },
-      { label: "age", content: "40" },
+      { label: "id", value: "47" },
+      { label: "name", value: "Laura" },
+      { label: "age", value: "40" },
     ],
   },
   {
     items: [
-      { label: "id", content: "48" },
-      { label: "name", content: "Thomas" },
-      { label: "age", content: "38" },
+      { label: "name", value: "Thomas" },
+      { label: "age", value: "38" },
     ],
   },
   {
     items: [
-      { label: "id", content: "49" },
-      { label: "name", content: "Elena" },
-      { label: "age", content: "27" },
+      { label: "id", value: "49" },
+      { label: "name", value: "Elena" },
+      { label: "age", value: "27" },
     ],
   },
 ];
 
 export const SimpleTable: Story = {
   args: {
-    rowLabels: ["id", "name", "age"],
+    rowLabels: [{ value: "id" }, { value: "name" }, { value: "age" }],
     records: testRecords.slice(0, 5),
   },
 };
 
 export const ClickableTable: Story = {
   args: {
-    rowLabels: ["id", "name", "age"],
+    rowLabels: [{ value: "id" }, { value: "name" }, { value: "age" }],
     records: testRecords.slice(0, 5),
     onRowClick: async (row: TableRecord) => {
       await new Promise<void>((resolve) => {
@@ -392,8 +384,42 @@ export const ClickableTable: Story = {
 
 export const ScrollableTable: Story = {
   args: {
-    rowLabels: ["id", "name", "age"],
+    rowLabels: [{ value: "id" }, { value: "name" }, { value: "age" }],
     records: testRecords,
+  },
+  render: (args) => (
+    <div style={{ height: "calc(100vh - 4rem)" }}>
+      <Table {...args} />
+    </div>
+  ),
+};
+
+export const AlphabeticSortedTable: Story = {
+  args: {
+    rowLabels: [
+      { value: "id", sort: TableRecordItemSort.Numeric },
+      { value: "name" },
+      { value: "age" },
+    ],
+    records: testRecords,
+    orderBy: "id",
+  },
+  render: (args) => (
+    <div style={{ height: "calc(100vh - 4rem)" }}>
+      <Table {...args} />
+    </div>
+  ),
+};
+
+export const NumericSortedTable: Story = {
+  args: {
+    rowLabels: [
+      { value: "id" },
+      { value: "name", sort: TableRecordItemSort.Alphabetic },
+      { value: "age" },
+    ],
+    records: testRecords,
+    orderBy: "name",
   },
   render: (args) => (
     <div style={{ height: "calc(100vh - 4rem)" }}>

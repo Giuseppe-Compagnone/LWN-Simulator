@@ -18,15 +18,35 @@ const Table = (props: TableProps) => {
             return (
               <th
                 key={i}
-                className="table-label"
+                className={cn("table-label")}
+                onClick={
+                  props.orderBy == label.value
+                    ? () => {
+                        tableLogic.toggleSort();
+                      }
+                    : undefined
+                }
                 style={{
-                  textAlign:
-                    label.length > 1 && i == label.length - 1
-                      ? "right"
-                      : "left",
+                  justifyContent:
+                    label.value.length > 1 && i == label.value.length - 1
+                      ? "flex-end"
+                      : "flex-start",
+                  cursor: props.orderBy == label.value ? "pointer" : "default",
                 }}
               >
-                {label}
+                {label.value}
+                {props.orderBy == label.value && (
+                  <span
+                    className="material-symbols-outlined"
+                    style={{
+                      transform: tableLogic.sortedUp
+                        ? "unset"
+                        : "rotateX(180deg)",
+                    }}
+                  >
+                    arrow_upward
+                  </span>
+                )}
               </th>
             );
           })}
@@ -48,7 +68,7 @@ const Table = (props: TableProps) => {
               }}
             >
               {props.rowLabels.map((label, j) => {
-                const item = row.items.find((val) => val.label == label);
+                const item = row.items.find((val) => val.label == label.value);
 
                 return (
                   <td
@@ -62,7 +82,7 @@ const Table = (props: TableProps) => {
                           : "flex-start",
                     }}
                   >
-                    {item && item.content}
+                    {item && (item.content || item.value)}
                   </td>
                 );
               })}

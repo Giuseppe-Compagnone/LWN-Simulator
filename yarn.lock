@@ -7120,6 +7120,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"material-symbols@npm:^0.45.9":
+  version: 0.45.9
+  resolution: "material-symbols@npm:0.45.9"
+  checksum: 10c0/d8e0f5d1aa2960b7e7a3b6bd6a1caa1524b6a20aca63f4937dadab00e8e6e2b59ec3ce5b9cf0730e76b5da824b9b5c6eb2a7713f3e7f79c5835ed60dcb9b1bfe
+  languageName: node
+  linkType: hard
+
 "math-intrinsics@npm:^1.1.0":
   version: 1.1.0
   resolution: "math-intrinsics@npm:1.1.0"
@@ -10090,6 +10097,7 @@ __metadata:
     eslint: "npm:^9"
     eslint-config-next: "npm:16.2.12"
     eslint-plugin-storybook: "npm:^10.5.4"
+    material-symbols: "npm:^0.45.9"
     next: "npm:16.2.12"
     react: "npm:19.2.4"
     react-dom: "npm:19.2.4"
@@ -10104,6 +10112,7 @@ __metadata:
     vite: "npm:^8.1.5"
   peerDependencies:
     contracts: "workspace:*"
+    material-symbols: ^0.45.9
   languageName: unknown
   linkType: soft
 

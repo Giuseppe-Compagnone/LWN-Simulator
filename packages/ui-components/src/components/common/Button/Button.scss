@@ -1,5 +1,7 @@
 // Button
 
+@use "../../../styles/breakpoints" as *;
+
 .button {
   position: relative;
   display: flex;
@@ -36,7 +38,7 @@
     pointer-events: none;
   }
 
-  &:hover {
+  @include hover {
     filter: brightness(1.5);
   }
 
