@@ -427,3 +427,15 @@ export const NumericSortedTable: Story = {
     </div>
   ),
 };
+
+export const PaginatedTable: Story = {
+  args: {
+    rowLabels: [
+      { value: "id" },
+      { value: "name", sort: TableRecordItemSort.Alphabetic },
+      { value: "age" },
+    ],
+    records: testRecords,
+    pageSize: 7,
+  },
+};

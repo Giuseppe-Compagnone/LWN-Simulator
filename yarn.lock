@@ -8342,7 +8342,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-docgen-typescript@npm:^2.2.2":
+"react-docgen-typescript@npm:^2.2.2, react-docgen-typescript@npm:^2.4.0":
   version: 2.4.0
   resolution: "react-docgen-typescript@npm:2.4.0"
   peerDependencies:
@@ -10100,6 +10100,7 @@ __metadata:
     material-symbols: "npm:^0.45.9"
     next: "npm:16.2.12"
     react: "npm:19.2.4"
+    react-docgen-typescript: "npm:^2.4.0"
     react-dom: "npm:19.2.4"
     sass: "npm:^1.102.0"
     storybook: "npm:^10.5.4"

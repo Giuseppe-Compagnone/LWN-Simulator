@@ -14,6 +14,14 @@ const config: StorybookConfig = {
 
   framework: getAbsolutePath("@storybook/nextjs-vite"),
 
+  typescript: {
+    reactDocgen: "react-docgen-typescript",
+  },
+
+  features: {
+    argTypeTargetsV7: true,
+  },
+
   staticDirs: ["../public"],
 
   viteFinal: async (config, { configType }) => {

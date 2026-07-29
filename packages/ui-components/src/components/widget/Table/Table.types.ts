@@ -28,12 +28,16 @@ export interface TableProps {
   pageSize?: number;
 }
 
-export interface useTableProps extends TableProps {
-  records: Array<TableRecord>;
-}
+export interface useTableProps extends TableProps {}
 
 export interface TableLogic {
   records: Array<TableRecord>;
   toggleSort: () => void;
   sortedUp: boolean;
+  pagesAmount: number;
+  currentPage: number;
+  nextPage: () => void;
+  prevPage: () => void;
+  setCurrentPage: (page: number) => void;
+  visiblePages: number[];
 }

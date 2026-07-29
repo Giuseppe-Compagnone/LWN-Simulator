@@ -41,6 +41,7 @@
     "eslint-config-next": "16.2.12",
     "eslint-plugin-storybook": "^10.5.4",
     "material-symbols": "^0.45.9",
+    "react-docgen-typescript": "^2.4.0",
     "storybook": "^10.5.4",
     "stylelint": "^17.14.1",
     "stylelint-config-standard-scss": "^17.0.0",

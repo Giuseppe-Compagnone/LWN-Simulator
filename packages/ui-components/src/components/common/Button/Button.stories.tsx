@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 
 import Button from "./Button";
-import { ButtonFont, ButtonType } from "./Button.types";
+import { ButtonFont, ButtonLayout, ButtonType } from "./Button.types";
 
 const meta = {
   title: "ui-components/common/Button",
@@ -45,7 +45,7 @@ export const BlockButton: Story = {
   args: {
     value: "Button Text",
     type: ButtonType.Outlined,
-    block: true,
+    layout: ButtonLayout.Block,
     font: ButtonFont.Secondary,
   },
 };
@@ -62,5 +62,24 @@ export const LoadingButton: Story = {
         }, 2000);
       });
     },
+  },
+};
+
+export const IconButton: Story = {
+  args: {
+    value: <span className="material-symbols-outlined">chevron_right</span>,
+    type: ButtonType.Outlined,
+    font: ButtonFont.Secondary,
+    layout: ButtonLayout.Icon,
+  },
+};
+
+export const DisabledButton: Story = {
+  args: {
+    value: "Button Text",
+    onClick: () => {
+      console.log("Click");
+    },
+    disabled: true,
   },
 };

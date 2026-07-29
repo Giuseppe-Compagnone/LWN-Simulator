@@ -1,11 +1,17 @@
 import { useState } from "react";
-import { ButtonFont, ButtonProps, ButtonType } from "./Button.types";
+import {
+  ButtonFont,
+  ButtonLayout,
+  ButtonProps,
+  ButtonType,
+} from "./Button.types";
 import cn from "classnames";
 import Spinner, { SpinnerSize, SpinnerType } from "../Spinner";
 
 const Button = (props: ButtonProps) => {
   const type = props.type || ButtonType.Primary;
   const font = props.font || ButtonFont.Primary;
+  const layout = props.layout || ButtonLayout.Default;
 
   //States
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -21,7 +27,8 @@ const Button = (props: ButtonProps) => {
         "button",
         props.className,
         type,
-        props.block && "block",
+        layout,
+        props.disabled && "disabled",
         isLoading && "loading",
       )}
       style={{ fontFamily: `var(${font})` }}
