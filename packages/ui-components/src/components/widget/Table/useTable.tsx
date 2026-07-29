@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { TableLogic, TableRecordItemSort, useTableProps } from "./Table.types";
+import { TableLogic, TableRecordItemSort, UseTableProps } from "./Table.types";
 
-const useTable = (props: useTableProps): TableLogic => {
+const useTable = (props: UseTableProps): TableLogic => {
   // States
   const [sortedUp, setSortedUp] = useState<boolean>(true);
   const [currentPage, setCurrentPage] = useState<number>(1);

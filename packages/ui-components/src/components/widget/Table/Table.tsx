@@ -99,7 +99,7 @@ const Table = (props: TableProps) => {
             );
           })}
         </tbody>
-        {props.pageSize && (
+        {props.pageSize ? (
           <div className="paginator">
             <span>
               Page {tableLogic.currentPage} of {tableLogic.pagesAmount}
@@ -155,6 +155,8 @@ const Table = (props: TableProps) => {
               />
             </div>
           </div>
+        ) : (
+          <div className="table-footer" />
         )}
       </table>
     </div>
