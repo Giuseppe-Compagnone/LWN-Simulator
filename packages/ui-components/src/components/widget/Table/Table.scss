@@ -1,5 +1,6 @@
 // Table
 
+@use "./components/components";
 @use "../../../styles/breakpoints" as *;
 
 .table {
@@ -119,56 +120,11 @@
     }
   }
 
-  .table-footer,
-  .paginator {
+  .table-footer {
     width: 100%;
     min-height: 65px;
     max-height: 65px;
     background: var(--tertiary-bg-color);
     border-top: 1px solid var(--border-color);
-  }
-
-  .paginator {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1rem;
-
-    .pages {
-      display: flex;
-      align-items: center;
-      gap: calc(var(--gap) / 3);
-
-      .page-placeholder {
-        width: 30px;
-      }
-
-      .page {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 30px;
-        aspect-ratio: 1/1;
-        border-radius: var(--radius-sm);
-        cursor: pointer;
-        transition: all 0.2s ease-in-out;
-
-        &:not(.current) {
-          @include hover {
-            background: color-mix(
-              in srgb,
-              var(--primary-color) 50%,
-              transparent
-            );
-          }
-        }
-
-        &.current {
-          background: var(--primary-color);
-          color: var(--tertiary-bg-color);
-          cursor: default;
-        }
-      }
-    }
   }
 }

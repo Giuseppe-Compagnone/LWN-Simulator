@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { TableProps } from "./Table.types";
 import useTable from "./useTable";
-import { Button, ButtonLayout, ButtonType, Spinner } from "@/components/common";
 import cn from "classnames";
+import { TablePaginator } from "./components";
+import { Spinner } from "@/components/common";
 
 const Table = (props: TableProps) => {
   const tableLogic = useTable({ ...props });
@@ -100,61 +101,7 @@ const Table = (props: TableProps) => {
           })}
         </tbody>
         {props.pageSize ? (
-          <div className="paginator">
-            <span>
-              Page {tableLogic.currentPage} of {tableLogic.pagesAmount}
-            </span>
-            <div className="pages">
-              <Button
-                value={
-                  <span className="material-symbols-outlined">
-                    chevron_left
-                  </span>
-                }
-                type={ButtonType.Outlined}
-                layout={ButtonLayout.Icon}
-                onClick={() => {
-                  tableLogic.prevPage();
-                }}
-                disabled={tableLogic.currentPage == 1}
-              />
-              {tableLogic.visiblePages.map((page, i) => {
-                return page >= 1 && page <= tableLogic.pagesAmount ? (
-                  <div
-                    key={i}
-                    className={cn(
-                      "page",
-                      page === tableLogic.currentPage && "current",
-                    )}
-                    onClick={
-                      page == tableLogic.currentPage
-                        ? undefined
-                        : () => {
-                            tableLogic.setCurrentPage(page);
-                          }
-                    }
-                  >
-                    {page}
-                  </div>
-                ) : (
-                  <div key={i} className="page-placeholder" />
-                );
-              })}
-              <Button
-                value={
-                  <span className="material-symbols-outlined">
-                    chevron_right
-                  </span>
-                }
-                type={ButtonType.Outlined}
-                layout={ButtonLayout.Icon}
-                onClick={() => {
-                  tableLogic.nextPage();
-                }}
-                disabled={tableLogic.currentPage == tableLogic.pagesAmount}
-              />
-            </div>
-          </div>
+          <TablePaginator tableLogic={tableLogic} />
         ) : (
           <div className="table-footer" />
         )}
