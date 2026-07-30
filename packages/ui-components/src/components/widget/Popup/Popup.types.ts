@@ -10,6 +10,7 @@ export interface UsePopupProps {}
 
 export interface PopupLogic {
   isOpen: boolean;
+  isVisible: boolean;
   openPopup: () => void;
   closePopup: () => void;
 }
