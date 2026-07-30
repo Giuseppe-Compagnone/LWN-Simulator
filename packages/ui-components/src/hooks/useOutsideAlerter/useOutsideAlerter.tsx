@@ -1,7 +1,7 @@
 import { useEffect } from "react";
-import { UseOutisideAlerterProps } from "./useOutsideAlerter.types";
+import { UseOutsideAlerterProps } from "./useOutsideAlerter.types";
 
-const useOutsideAlerter = (props: UseOutisideAlerterProps) => {
+const useOutsideAlerter = (props: UseOutsideAlerterProps) => {
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (
