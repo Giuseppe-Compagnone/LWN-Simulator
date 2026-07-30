@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { PropsWithChildren } from "react";
 
 /**
  * Defines the available layout variants for a card component.
@@ -25,12 +25,7 @@ export enum CardType {
 /**
  * Properties for configuring a card component.
  */
-export interface CardProps {
-  /**
-   * Content rendered inside the card.
-   */
-  children?: ReactNode;
-
+export interface CardProps extends PropsWithChildren {
   /**
    * Additional CSS class names applied to the card element.
    */
