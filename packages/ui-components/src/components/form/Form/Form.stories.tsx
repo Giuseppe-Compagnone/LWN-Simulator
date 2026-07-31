@@ -4,6 +4,7 @@ import Form from "./Form";
 import { textField } from "./components/TextFormField/textField";
 import { Card, CardLayout } from "@/components/layout";
 import { textAreaField } from "./components";
+import { selectField } from "./components/SelectFormField";
 
 const meta = {
   title: "ui-components/form/Form",
@@ -46,6 +47,30 @@ export const SimpleForm: Story = {
         placeholder: "About you",
         resize: true,
         charsMax: 20,
+      }),
+      selectField({
+        name: "hobby",
+        label: "Favorite Hobby",
+        value: "",
+        placeholder: "Your favorite hobby...",
+        options: [
+          {
+            value: "drawing",
+            displayed: <>Drawing</>,
+          },
+          {
+            value: "running",
+            displayed: (
+              <>
+                Running
+                <span className="material-symbols-outlined">sprint</span>
+              </>
+            ),
+          },
+          {
+            value: "fishing",
+          },
+        ],
       }),
     ],
     onSubmit: (values) => {

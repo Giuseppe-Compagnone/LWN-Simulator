@@ -1,5 +1,7 @@
 // Popup
 
+@use "../../../styles/breakpoints" as *;
+
 .popup {
   position: absolute;
   top: 0;
@@ -34,7 +36,7 @@
         cursor: pointer;
         transition: all 0.2s ease-in-out;
 
-        &:hover {
+        @include hover {
           filter: brightness(1.5);
         }
       }
