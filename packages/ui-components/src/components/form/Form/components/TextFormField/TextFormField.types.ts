@@ -5,3 +5,8 @@ export interface TextFormFieldProps extends FormFieldProps {
   setValue(value: string): void;
   masked?: boolean;
 }
+
+export interface TextFieldOptions extends Omit<
+  TextFormFieldProps,
+  "render" | "setValue"
+> {}

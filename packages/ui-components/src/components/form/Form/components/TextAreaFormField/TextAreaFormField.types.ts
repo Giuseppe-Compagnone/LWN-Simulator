@@ -6,3 +6,8 @@ export interface TextAreaFormFieldProps extends FormFieldProps {
   resize?: boolean;
   charsMax?: number;
 }
+
+export interface TextAreaFieldOptions extends Omit<
+  TextAreaFormFieldProps,
+  "render" | "setValue"
+> {}

@@ -1,18 +1,19 @@
 import { JSX } from "react/jsx-runtime";
 import { FormFieldProps } from "../..";
 
-export interface SelectOption {
+export interface RadioOption {
   value: string;
   displayed?: JSX.Element;
 }
 
-export interface SelectFormFieldProps extends FormFieldProps {
+export interface RadioFormFieldProps extends FormFieldProps {
   value: string | null;
   setValue(value: string | null): void;
-  options: Array<SelectOption>;
+  options: Array<RadioOption>;
+  placeholder?: undefined;
 }
 
-export interface SelectFieldOptions extends Omit<
-  SelectFormFieldProps,
+export interface RadioFieldOptions extends Omit<
+  RadioFormFieldProps,
   "render" | "setValue"
 > {}

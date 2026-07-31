@@ -5,6 +5,7 @@ import { textField } from "./components/TextFormField/textField";
 import { Card, CardLayout } from "@/components/layout";
 import { textAreaField } from "./components";
 import { selectField } from "./components/SelectFormField";
+import { radioField } from "./components/RadioFormField/RadioField";
 
 const meta = {
   title: "ui-components/form/Form",
@@ -69,6 +70,34 @@ export const SimpleForm: Story = {
           },
           {
             value: "fishing",
+          },
+        ],
+      }),
+      radioField({
+        name: "color",
+        label: "Favorite Color",
+        value: "",
+        options: [
+          {
+            value: "red",
+            displayed: <>Red</>,
+          },
+          {
+            value: "green",
+            displayed: (
+              <>
+                Green
+                <span
+                  className="material-symbols-outlined"
+                  style={{ color: "green", fontVariationSettings: "'FILL' 1" }}
+                >
+                  square
+                </span>
+              </>
+            ),
+          },
+          {
+            value: "blue",
           },
         ],
       }),

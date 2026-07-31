@@ -13,6 +13,7 @@ const TextAreaFormField = (props: TextAreaFormFieldProps) => {
           props.setValue(e.target.value);
         }}
         placeholder={props.placeholder}
+        name={props.name}
         style={{ resize: props.resize ? "vertical" : "none" }}
       />
       {props.charsMax && (

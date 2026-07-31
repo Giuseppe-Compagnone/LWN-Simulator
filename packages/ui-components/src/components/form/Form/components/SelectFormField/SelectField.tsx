@@ -1,11 +1,9 @@
 import SelectFormField from "./SelectFormField";
 import { FormField } from "../../Form.types";
-import { SelectFormFieldProps } from "./SelectFormField.types";
-
-interface SelectFieldOptions extends Omit<
+import {
+  SelectFieldOptions,
   SelectFormFieldProps,
-  "render" | "setValue"
-> {}
+} from "./SelectFormField.types";
 
 export const selectField = (props: SelectFieldOptions): FormField => {
   return {

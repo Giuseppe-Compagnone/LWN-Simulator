@@ -1,11 +1,6 @@
 import TextFormField from "./TextFormField";
 import { FormField } from "../../Form.types";
-import { TextFormFieldProps } from "./TextFormField.types";
-
-interface TextFieldOptions extends Omit<
-  TextFormFieldProps,
-  "render" | "setValue"
-> {}
+import { TextFieldOptions, TextFormFieldProps } from "./TextFormField.types";
 
 export const textField = (props: TextFieldOptions): FormField => {
   return {
