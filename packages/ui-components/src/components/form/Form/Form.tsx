@@ -28,8 +28,8 @@ const Form = (props: FormProps) => {
         </div>
       ))}
       <Button
-        {...(props.button || { value: "Submit" })}
-        className={cn("form-button", props.button?.className)}
+        {...(props.submitButton || { value: "Submit" })}
+        className={cn("form-button", props.submitButton?.className)}
         onClick={(e) => {
           e?.preventDefault();
           props.onSubmit(formLogic.values);
