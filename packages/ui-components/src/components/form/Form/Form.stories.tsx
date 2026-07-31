@@ -3,6 +3,7 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import Form from "./Form";
 import { textField } from "./components/TextFormField/textField";
 import { Card, CardLayout } from "@/components/layout";
+import { textAreaField } from "./components";
 
 const meta = {
   title: "ui-components/form/Form",
@@ -37,6 +38,14 @@ export const SimpleForm: Story = {
         value: "",
         placeholder: "Your Password",
         masked: true,
+      }),
+      textAreaField({
+        name: "desc",
+        label: "Description",
+        value: "",
+        placeholder: "About you",
+        resize: true,
+        charsMax: 20,
       }),
     ],
     onSubmit: (values) => {
