@@ -1,3 +1,4 @@
-import { FormFieldComponent } from "../../Form.types";
-
-export interface TextFormFieldProps extends FormFieldComponent {}
+export interface TextFormFieldProps {
+  value: string;
+  setValue(value: string): void;
+}

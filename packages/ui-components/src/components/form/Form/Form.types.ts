@@ -1,25 +1,30 @@
-export enum FormFieldType {
-  Text = 1,
+import { ButtonProps } from "@/components/common";
+import { ReactNode } from "react";
+
+export type FormValue = string | number | boolean | Date | null;
+
+export interface FormFieldProps {
+  value: FormValue;
+  setValue(value: FormValue): void;
 }
 
 export interface FormField {
-  type: FormFieldType;
   name: string;
   label: string;
-  value: string;
+  value: FormValue;
+
+  render(props: FormFieldProps): ReactNode;
 }
 
 export interface FormProps {
-  fields: Array<FormField>;
+  fields: FormField[];
+  onSubmit(values: Record<string, FormValue>): void | Promise<void>;
+  button?: ButtonProps;
 }
 
 export interface UseFormProps extends FormProps {}
 
 export interface FormLogic {
-  fields: Array<FormField>;
-  setFields: (fields: Array<FormField>) => void;
-}
-
-export interface FormFieldComponent {
-  field: FormField;
+  values: Record<string, FormValue>;
+  setValue(name: string, value: FormValue): void;
 }

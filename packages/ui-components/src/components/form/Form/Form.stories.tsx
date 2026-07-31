@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 
 import Form from "./Form";
-import { FormFieldType } from "./Form.types";
+import { textField } from "./components/TextFormField/textField";
 
 const meta = {
   title: "ui-components/form/Form",
@@ -18,12 +18,14 @@ type Story = StoryObj<typeof meta>;
 export const SimpleForm: Story = {
   args: {
     fields: [
-      {
-        type: FormFieldType.Text,
+      textField({
         name: "name",
         label: "Name",
-        value: "a",
-      },
+        value: "",
+      }),
     ],
+    onSubmit: (values) => {
+      console.table(values);
+    },
   },
 };

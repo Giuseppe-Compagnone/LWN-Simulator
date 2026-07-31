@@ -1,12 +1,24 @@
 import { useState } from "react";
-import { FormField, FormLogic, UseFormProps } from "./Form.types";
+import { FormField, FormLogic, FormValue } from "./Form.types";
+
+interface UseFormProps {
+  fields: FormField[];
+}
 
 export const useForm = (props: UseFormProps): FormLogic => {
-  // States
-  const [fields, setFields] = useState<Array<FormField>>(props.fields);
+  const [values, setValues] = useState<Record<string, FormValue>>(() =>
+    Object.fromEntries(props.fields.map((field) => [field.name, field.value])),
+  );
+
+  const setValue = (name: string, value: FormValue) => {
+    setValues((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
 
   return {
-    fields,
-    setFields,
+    values,
+    setValue,
   };
 };

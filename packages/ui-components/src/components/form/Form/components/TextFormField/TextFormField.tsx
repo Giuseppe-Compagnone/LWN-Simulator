@@ -2,7 +2,10 @@ import { TextFormFieldProps } from "./TextFormField.types";
 
 const TextFormField = (props: TextFormFieldProps) => {
   return (
-    <input type="text" name={props.field.name} value={props.field.value} />
+    <input
+      value={props.value}
+      onChange={(e) => props.setValue(e.target.value)}
+    />
   );
 };
 
