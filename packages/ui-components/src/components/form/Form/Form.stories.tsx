@@ -22,12 +22,21 @@ export const SimpleForm: Story = {
       textField({
         name: "name",
         label: "Name",
-        value: "",
+        value: "Name",
+        info: "Your Name",
       }),
       textField({
         name: "last",
         label: "Last Name",
         value: "",
+        placeholder: "Your last name",
+      }),
+      textField({
+        name: "pass",
+        label: "Password",
+        value: "",
+        placeholder: "Your Password",
+        masked: true,
       }),
     ],
     onSubmit: (values) => {

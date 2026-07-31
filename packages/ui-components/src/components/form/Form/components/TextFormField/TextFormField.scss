@@ -13,4 +13,8 @@
   &:focus {
     border-color: var(--primary-color);
   }
+
+  &::placeholder {
+    color: var(--secondary-text-color);
+  }
 }

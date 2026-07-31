@@ -7,7 +7,7 @@ const Form = (props: FormProps) => {
   const formLogic = useForm({ ...props });
 
   return (
-    <form className="form">
+    <form className="form" noValidate>
       {props.fields.map((field) => (
         <div className="form-field-wrapper" key={field.name}>
           <label className="field-label" htmlFor={field.name}>
@@ -15,9 +15,16 @@ const Form = (props: FormProps) => {
           </label>
 
           {field.render({
+            ...field,
             value: formLogic.values[field.name],
             setValue: (v) => formLogic.setValue(field.name, v),
           })}
+          {field.info && (
+            <div className="field-info">
+              <span className="material-symbols-outlined icon">info</span>
+              <span>{field.info}</span>
+            </div>
+          )}
         </div>
       ))}
       <Button

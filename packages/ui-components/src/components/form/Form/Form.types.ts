@@ -3,8 +3,7 @@ import { ReactNode } from "react";
 
 export type FormValue = string | number | boolean | Date | null;
 
-export interface FormFieldProps {
-  value: FormValue;
+export interface FormFieldProps extends Omit<FormField, "render"> {
   setValue(value: FormValue): void;
 }
 
@@ -12,6 +11,8 @@ export interface FormField {
   name: string;
   label: string;
   value: FormValue;
+  placeholder?: string;
+  info?: string;
 
   render(props: FormFieldProps): ReactNode;
 }

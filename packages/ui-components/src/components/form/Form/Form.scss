@@ -15,7 +15,7 @@
     display: flex;
     justify-content: center;
     flex-direction: column;
-    gap: var(--gap);
+    gap: calc(var(--gap) / 2);
     width: 100%;
     transition: all 0.2s ease-in-out;
 
@@ -24,8 +24,23 @@
       font-size: font-size(lg);
     }
 
+    .field-info {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+
+      span {
+        color: var(--secondary-text-color);
+        font-size: font-size(xs);
+      }
+
+      .icon {
+        font-size: font-size(md);
+      }
+    }
+
     &:focus-within {
-      margin-left: 1rem;
+      padding-left: 0.5rem;
     }
   }
 
