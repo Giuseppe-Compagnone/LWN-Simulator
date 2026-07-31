@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import Form from "./Form";
 import { textField } from "./components/TextFormField/textField";
 import { Card, CardLayout } from "@/components/layout";
-import { textAreaField } from "./components";
+import { checkboxField, textAreaField } from "./components";
 import { selectField } from "./components/SelectFormField";
 import { radioField } from "./components/RadioFormField/RadioField";
 
@@ -98,6 +98,29 @@ export const SimpleForm: Story = {
           },
           {
             value: "blue",
+          },
+        ],
+      }),
+      checkboxField({
+        name: "skills",
+        label: "Your Skills",
+        value: [],
+        options: [
+          {
+            value: "html",
+            displayed: <>HTML</>,
+          },
+          {
+            value: "css",
+            displayed: (
+              <>
+                CSS
+                <span className="material-symbols-outlined">css</span>
+              </>
+            ),
+          },
+          {
+            value: "js",
           },
         ],
       }),

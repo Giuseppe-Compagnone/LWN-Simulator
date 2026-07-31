@@ -1,7 +1,7 @@
-// RadioFormField
+// CheckboxFormField
 @use "../../../../../styles/breakpoints" as *;
 
-.radio-form-field {
+.checkbox-form-field {
   gap: var(--gap);
 
   .choice {
@@ -18,7 +18,7 @@
       display: none;
     }
 
-    .radio-icon {
+    .checkbox-icon {
       color: var(--secondary-text-color);
     }
 

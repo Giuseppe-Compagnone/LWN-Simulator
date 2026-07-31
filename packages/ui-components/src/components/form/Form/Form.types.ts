@@ -1,7 +1,7 @@
 import { ButtonProps } from "@/components/common";
 import { ReactNode } from "react";
 
-export type FormValue = string | number | boolean | Date | null;
+export type FormValue = string | number | boolean | Date | null | Array<string>;
 
 export interface FormFieldProps extends Omit<FormField, "render"> {
   setValue(value: FormValue): void;

@@ -21,9 +21,6 @@ const RadioFormField = (props: RadioFormFieldProps) => {
             <input
               className="radio-option"
               type="radio"
-              onChange={() => {
-                props.setValue(opt.value);
-              }}
               checked={props.value == opt.value}
               placeholder={props.placeholder}
               name={props.name}
