@@ -6,35 +6,49 @@ import "../src/styles/main.scss";
 import "./storybook.scss";
 import { ArgTypesEnhancer } from "storybook/internal/types";
 
-const enumEnhancer: ArgTypesEnhancer = (context) => {
-  const argTypes = context.argTypes;
+const enumEnhancer: ArgTypesEnhancer = ({ argTypes }) => {
+  return Object.fromEntries(
+    Object.entries(argTypes).map(([name, argType]) => {
+      const type = argType.type;
 
-  Object.entries(argTypes).forEach(([_name, argType]) => {
-    const control = argType.control;
+      if (
+        type?.name === "enum" &&
+        Array.isArray(type.value) &&
+        type.value.length > 0
+      ) {
+        const originalValues = type.value.map(String);
 
-    if (
-      control &&
-      typeof control === "object" &&
-      "type" in control &&
-      control.type === "object"
-    ) {
-      const defaultValue = argType.defaultValue;
-
-      if (defaultValue && typeof defaultValue === "object") {
-        const values = Object.values(defaultValue);
-
-        if (values.every((value) => typeof value === "string")) {
-          argType.control = {
-            type: "radio",
-          };
-
-          argType.options = values.map((v) => v.replaceAll("-", " ").trim());
-        }
+        return [
+          name,
+          {
+            ...argType,
+            control: {
+              type: "radio",
+            },
+            options: originalValues.map((v) =>
+              v
+                .replaceAll('"', "")
+                .replace(/^.*\./, "")
+                .replaceAll("-", " ")
+                .replace(/^\s*([a-z])/, (c) => c.toUpperCase()),
+            ),
+            mapping: Object.fromEntries(
+              originalValues.map((value, index) => [
+                originalValues[index]
+                  .replaceAll('"', "")
+                  .replace(/^.*\./, "")
+                  .replaceAll("-", " ")
+                  .replace(/^\s*([a-z])/, (c) => c.toUpperCase()),
+                value.replaceAll('"', ""),
+              ]),
+            ),
+          },
+        ];
       }
-    }
-  });
 
-  return argTypes;
+      return [name, argType];
+    }),
+  );
 };
 
 const preview: Preview = {
