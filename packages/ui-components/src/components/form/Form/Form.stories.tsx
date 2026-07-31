@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 
 import Form from "./Form";
 import { textField } from "./components/TextFormField/textField";
+import { Card, CardLayout } from "@/components/layout";
 
 const meta = {
   title: "ui-components/form/Form",
@@ -23,9 +24,19 @@ export const SimpleForm: Story = {
         label: "Name",
         value: "",
       }),
+      textField({
+        name: "last",
+        label: "Last Name",
+        value: "",
+      }),
     ],
     onSubmit: (values) => {
       console.table(values);
     },
   },
+  render: (args) => (
+    <Card layout={CardLayout.Padded}>
+      <Form {...args} />
+    </Card>
+  ),
 };
