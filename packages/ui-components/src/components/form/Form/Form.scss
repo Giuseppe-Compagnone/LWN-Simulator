@@ -19,9 +19,19 @@
     width: 100%;
     transition: all 0.2s ease-in-out;
 
-    .field-label {
-      font-weight: 600;
-      font-size: font-size(lg);
+    .form-field-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+
+      .field-label {
+        font-weight: 600;
+        font-size: font-size(lg);
+      }
+
+      .error {
+        color: red;
+      }
     }
 
     .field-info {

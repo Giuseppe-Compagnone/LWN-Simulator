@@ -33,6 +33,7 @@ const CheckboxFormField = (props: CheckboxFormFieldProps) => {
               checked={
                 Array.isArray(props.value) && props.value.includes(opt.value)
               }
+              readOnly
               placeholder={props.placeholder}
               name={props.name}
             />

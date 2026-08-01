@@ -22,6 +22,7 @@ const RadioFormField = (props: RadioFormFieldProps) => {
               className="radio-option"
               type="radio"
               checked={props.value == opt.value}
+              readOnly
               placeholder={props.placeholder}
               name={props.name}
             />

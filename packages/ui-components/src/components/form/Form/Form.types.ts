@@ -50,6 +50,16 @@ export interface FormField {
    */
   info?: string;
 
+  format?: RegExp;
+
+  error: string | null;
+
+  required?: boolean;
+
+  disabled?: boolean;
+
+  active?: boolean;
+
   /**
    * Custom renderer used to define the field UI.
    *
@@ -94,11 +104,7 @@ export interface UseFormProps extends FormProps {}
  * State and actions exposed by the form logic hook.
  */
 export interface FormLogic {
-  /**
-   * Current values of all form fields indexed by field name.
-   */
-  values: Record<string, FormValue>;
-
+  fieldsState: Record<string, FormField>;
   /**
    * Updates the value of a specific field.
    *
@@ -106,4 +112,5 @@ export interface FormLogic {
    * @param value New value assigned to the field.
    */
   setValue(name: string, value: FormValue): void;
+  validate: () => boolean;
 }

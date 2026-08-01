@@ -8,15 +8,19 @@ const Form = (props: FormProps) => {
 
   return (
     <form className="form" noValidate>
-      {props.fields.map((field) => (
+      {Object.values(formLogic.fieldsState).map((field) => (
         <div className="form-field-wrapper" key={field.name}>
-          <label className="field-label" htmlFor={field.name}>
-            {field.label}
-          </label>
+          <div className="form-field-header">
+            <label className="field-label" htmlFor={field.name}>
+              {field.label}
+              {field.required && "*"}
+            </label>
+            <div className="error">{field.error}</div>
+          </div>
 
           {field.render({
             ...field,
-            value: formLogic.values[field.name],
+            value: formLogic.fieldsState[field.name].value,
             setValue: (v) => formLogic.setValue(field.name, v),
           })}
           {field.info && (
@@ -32,7 +36,16 @@ const Form = (props: FormProps) => {
         className={cn("form-button", props.submitButton?.className)}
         onClick={(e) => {
           e?.preventDefault();
-          props.onSubmit(formLogic.values);
+          const isValid = formLogic.validate();
+          if (isValid)
+            props.onSubmit(
+              Object.fromEntries(
+                Object.values(formLogic.fieldsState).map((field) => [
+                  field.name,
+                  field.value,
+                ]),
+              ),
+            );
         }}
       />
     </form>
