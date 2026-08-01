@@ -59,5 +59,11 @@ export interface RadioFieldOptions extends Omit<
   RadioFormFieldProps,
   "render" | "setValue" | "disabled"
 > {
+  /**
+   * Determines whether the field is disabled.
+   *
+   * Can be a static value or a function evaluated dynamically from the
+   * current form state.
+   */
   disabled?: boolean | ((fieldsState: Record<string, FormField>) => boolean);
 }

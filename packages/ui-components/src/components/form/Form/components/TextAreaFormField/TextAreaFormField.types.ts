@@ -21,7 +21,7 @@ export interface TextAreaFormFieldProps extends FormFieldProps {
   /**
    * Enables resizing of the textarea element.
    *
-   * When enabled, the user can manually adjust the textarea vertically.
+   * When enabled, the user can manually adjust the textarea height.
    *
    * @default false
    */
@@ -30,7 +30,7 @@ export interface TextAreaFormFieldProps extends FormFieldProps {
   /**
    * Maximum number of characters allowed in the field.
    *
-   * When provided, input exceeding this limit should be prevented
+   * When provided, input exceeding this limit is prevented.
    */
   charsMax?: number;
 }
@@ -40,10 +40,19 @@ export interface TextAreaFormFieldProps extends FormFieldProps {
  *
  * Excludes rendering logic and value update handling, which are managed
  * internally by the form system.
+ *
+ * The `disabled` property supports both static and dynamic behavior based
+ * on the current form state.
  */
 export interface TextAreaFieldOptions extends Omit<
   TextAreaFormFieldProps,
   "render" | "setValue" | "disabled"
 > {
+  /**
+   * Determines whether the field is disabled.
+   *
+   * Can be a static value or a function evaluated dynamically from the
+   * current form state.
+   */
   disabled?: boolean | ((fieldsState: Record<string, FormField>) => boolean);
 }

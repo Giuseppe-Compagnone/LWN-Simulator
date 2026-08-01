@@ -64,7 +64,7 @@ export const useForm = (props: UseFormProps): FormLogic => {
           console.log(field.name, field.error);
         }
 
-        if (field.validations && isValid) {
+        if (field.validations && field.value && isValid) {
           for (let i = 0; i < field.validations.length; i++) {
             const validation = field.validations[i];
 

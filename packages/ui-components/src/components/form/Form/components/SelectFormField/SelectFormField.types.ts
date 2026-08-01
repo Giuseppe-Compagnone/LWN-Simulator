@@ -40,7 +40,15 @@ export interface SelectFormFieldProps extends FormFieldProps {
    * Available options displayed by the select field.
    */
   options: Array<SelectOption>;
+
+  /**
+   * Select fields do not support value formatting.
+   */
   format?: undefined;
+
+  /**
+   * Select fields do not support custom validation rules.
+   */
   validations?: undefined;
 }
 
@@ -49,10 +57,19 @@ export interface SelectFormFieldProps extends FormFieldProps {
  *
  * Excludes rendering logic and value update handling, which are managed
  * internally by the form system.
+ *
+ * The `disabled` property supports both static and dynamic behavior based
+ * on the current form state.
  */
 export interface SelectFieldOptions extends Omit<
   SelectFormFieldProps,
   "render" | "setValue" | "disabled"
 > {
+  /**
+   * Determines whether the field is disabled.
+   *
+   * Can be a static value or a function evaluated dynamically from the
+   * current form state.
+   */
   disabled?: boolean | ((fieldsState: Record<string, FormField>) => boolean);
 }

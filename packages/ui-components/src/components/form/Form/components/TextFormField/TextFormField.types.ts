@@ -1,4 +1,4 @@
-import { FormField, FormFieldProps } from "../..";
+import { FormField, FormFieldProps } from "../../Form.types";
 
 /**
  * Properties for configuring a text-based form field.
@@ -33,10 +33,19 @@ export interface TextFormFieldProps extends FormFieldProps {
  *
  * Excludes rendering logic and value update handling, which are managed
  * internally by the form system.
+ *
+ * The `disabled` property supports both static and dynamic behavior based
+ * on the current form state.
  */
 export interface TextFieldOptions extends Omit<
   TextFormFieldProps,
   "render" | "setValue" | "disabled"
 > {
+  /**
+   * Determines whether the field is disabled.
+   *
+   * Can be a static value or a function evaluated dynamically from the
+   * current form state.
+   */
   disabled?: boolean | ((fieldsState: Record<string, FormField>) => boolean);
 }
