@@ -47,6 +47,9 @@ const Form = (props: FormProps) => {
               ),
             );
         }}
+        disabled={
+          !!Object.values(formLogic.fieldsState).find((field) => field.error)
+        }
       />
     </form>
   );

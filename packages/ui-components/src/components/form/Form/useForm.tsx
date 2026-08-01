@@ -14,8 +14,23 @@ export const useForm = (props: UseFormProps): FormLogic => {
   // Functions
   const setValue = (name: string, value: FormValue) => {
     setFieldsState((prev) => {
-      prev[name].value = value;
-      prev[name].error = null;
+      const field = prev[name];
+      field.value = value;
+      field.error = null;
+
+      if (field.validations && field.value) {
+        for (let i = 0; i < field.validations.length; i++) {
+          const validation = field.validations[i];
+
+          if (!validation.realtime) continue;
+
+          const isValid = validation.rule.test(field.value as string);
+          if (!isValid) {
+            field.error = validation.error;
+            break;
+          }
+        }
+      }
 
       return { ...prev };
     });
@@ -31,11 +46,11 @@ export const useForm = (props: UseFormProps): FormLogic => {
         field.error = "This field is required";
       }
 
-      if (field.validations && field.value && isValid) {
+      if (field.validations && isValid) {
         for (let i = 0; i < field.validations.length; i++) {
           const validation = field.validations[i];
 
-          isValid = validation.rule.test(field.value as string);
+          isValid = validation.rule.test((field.value as string) || "");
           if (!isValid) {
             field.error = validation.error;
             break;
