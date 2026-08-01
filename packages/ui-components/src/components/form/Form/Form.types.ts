@@ -69,7 +69,7 @@ export interface FormField {
 
   disabled?: boolean | ((fieldsState: Record<string, FormField>) => boolean);
 
-  active?: boolean;
+  display?: boolean | ((fieldsState: Record<string, FormField>) => boolean);
 
   /**
    * Custom renderer used to define the field UI.
@@ -124,6 +124,10 @@ export interface FormLogic {
    */
   setValue(name: string, value: FormValue): void;
   isFieldDisabled: (
+    field: FormField,
+    fieldsState: Record<string, FormField>,
+  ) => boolean;
+  isFieldDisplayed: (
     field: FormField,
     fieldsState: Record<string, FormField>,
   ) => boolean;

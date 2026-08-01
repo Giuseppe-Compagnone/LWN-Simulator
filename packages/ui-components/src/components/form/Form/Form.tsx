@@ -2,53 +2,68 @@ import { Button } from "@/components/common";
 import { FormProps } from "./Form.types";
 import { useForm } from "./useForm";
 import cn from "classnames";
+import { useEffect, useMemo, useRef } from "react";
+import { AnimatedField } from "./components";
 
 const Form = (props: FormProps) => {
   const formLogic = useForm({ ...props });
 
+  // Memos
+  const visibleFields = useMemo(
+    () =>
+      Object.values(formLogic.fieldsState).filter((field) => {
+        if (field.display === undefined) return true;
+
+        return typeof field.display === "function"
+          ? field.display(formLogic.fieldsState)
+          : field.display;
+      }),
+    [formLogic.fieldsState],
+  );
+
+  // Refs
+  const mounted = useRef(false);
+
+  // Effects
+  useEffect(() => {
+    mounted.current = true;
+  }, []);
+
   return (
     <form className="form" noValidate>
       {Object.values(formLogic.fieldsState).map((field) => (
-        <div className="form-field-wrapper" key={field.name}>
-          <div className="form-field-header">
-            <label className="field-label" htmlFor={field.name}>
-              {field.label}
-              {field.required && "*"}
-            </label>
-            <div className="error">{field.error}</div>
-          </div>
-
-          {field.render({
-            ...field,
-            value: formLogic.fieldsState[field.name].value,
-            setValue: (v) => formLogic.setValue(field.name, v),
-            disabled: formLogic.isFieldDisabled(field, formLogic.fieldsState),
-          })}
-          {field.info && (
-            <div className="field-info">
-              <span className="material-symbols-outlined icon">info</span>
-              <span>{field.info}</span>
-            </div>
-          )}
-        </div>
+        <AnimatedField
+          key={field.name}
+          field={field}
+          visible={visibleFields.some((visible) => visible.name === field.name)}
+          formLogic={formLogic}
+        />
       ))}
+
       <Button
         {...(props.submitButton || { value: "Submit" })}
         className={cn("form-button", props.submitButton?.className)}
         onClick={(e) => {
           e?.preventDefault();
+
           const isValid = formLogic.validate();
-          if (isValid)
+
+          if (isValid) {
             props.onSubmit(
               Object.fromEntries(
                 Object.values(formLogic.fieldsState)
                   .filter(
                     (field) =>
-                      !formLogic.isFieldDisabled(field, formLogic.fieldsState),
+                      !formLogic.isFieldDisabled(
+                        field,
+                        formLogic.fieldsState,
+                      ) &&
+                      formLogic.isFieldDisplayed(field, formLogic.fieldsState),
                   )
                   .map((field) => [field.name, field.value]),
               ),
             );
+          }
         }}
         disabled={
           !!Object.values(formLogic.fieldsState).find(

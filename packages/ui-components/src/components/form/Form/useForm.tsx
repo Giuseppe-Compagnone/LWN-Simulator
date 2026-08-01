@@ -41,15 +41,27 @@ export const useForm = (props: UseFormProps): FormLogic => {
       : !!field.disabled;
   };
 
+  const isFieldDisplayed = (
+    field: FormField,
+    fieldsState: Record<string, FormField>,
+  ) => {
+    if (typeof field.display === "function") {
+      return field.display(fieldsState);
+    }
+
+    return field.display ?? true;
+  };
+
   const validate = () => {
     const tmp = { ...fieldsState };
     let isValid = true;
 
     Object.values(tmp).forEach((field) => {
-      if (!!isFieldDisabled(field, fieldsState)) {
+      if (!isFieldDisabled(field, fieldsState)) {
         if (field.required && !field.value) {
           isValid = false;
           field.error = "This field is required";
+          console.log(field.name, field.error);
         }
 
         if (field.validations && isValid) {
@@ -75,6 +87,7 @@ export const useForm = (props: UseFormProps): FormLogic => {
     fieldsState,
     setValue,
     isFieldDisabled,
+    isFieldDisplayed,
     validate,
   };
 };

@@ -11,58 +11,6 @@
   width: 100%;
   gap: var(--gap);
 
-  .form-field-wrapper {
-    display: flex;
-    justify-content: center;
-    flex-direction: column;
-    gap: calc(var(--gap) / 2);
-    width: 100%;
-    transition: all 0.2s ease-in-out;
-
-    .form-field-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-
-      .field-label {
-        font-weight: 600;
-        font-size: font-size(lg);
-      }
-
-      .error {
-        color: red;
-      }
-    }
-
-    .form-field {
-      transition: all 0.2s ease-in-out;
-
-      &.disabled {
-        pointer-events: none;
-        filter: saturate(0) brightness(0.5);
-      }
-    }
-
-    .field-info {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-
-      span {
-        color: var(--secondary-text-color);
-        font-size: font-size(xs);
-      }
-
-      .icon {
-        font-size: font-size(md);
-      }
-    }
-
-    &:focus-within {
-      padding-left: 0.5rem;
-    }
-  }
-
   .form-button {
     margin-top: var(--gap);
   }

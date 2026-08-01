@@ -429,8 +429,8 @@ export const ConditionalForm: Story = {
         value: "",
         placeholder: "Your last name",
         error: null,
-        disabled: (fieldsState: Record<string, FormField>) => {
-          return !fieldsState["name"].value;
+        display: (fieldsState: Record<string, FormField>) => {
+          return !!fieldsState["name"].value;
         },
       }),
       textField({
@@ -503,6 +503,9 @@ export const ConditionalForm: Story = {
             value: "blue",
           },
         ],
+        display: (fieldsState: Record<string, FormField>) => {
+          return !!fieldsState["desc"].value;
+        },
       }),
       checkboxField({
         name: "skills",
@@ -528,6 +531,9 @@ export const ConditionalForm: Story = {
           },
         ],
         disabled: (fieldsState: Record<string, FormField>) => {
+          return fieldsState["hobby"].value == "running";
+        },
+        display: (fieldsState: Record<string, FormField>) => {
           return fieldsState["color"].value == "red";
         },
       }),
