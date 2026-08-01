@@ -40,15 +40,16 @@ const Form = (props: FormProps) => {
           if (isValid)
             props.onSubmit(
               Object.fromEntries(
-                Object.values(formLogic.fieldsState).map((field) => [
-                  field.name,
-                  field.value,
-                ]),
+                Object.values(formLogic.fieldsState)
+                  .filter((field) => !field.disabled)
+                  .map((field) => [field.name, field.value]),
               ),
             );
         }}
         disabled={
-          !!Object.values(formLogic.fieldsState).find((field) => field.error)
+          !!Object.values(formLogic.fieldsState).find(
+            (field) => !field.disabled && field.error,
+          )
         }
       />
     </form>

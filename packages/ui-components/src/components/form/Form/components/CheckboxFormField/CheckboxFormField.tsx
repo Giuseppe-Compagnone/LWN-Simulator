@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { CheckboxFormFieldProps } from "./CheckboxFormField.types";
+import cn from "classnames";
 
 const CheckboxFormField = (props: CheckboxFormFieldProps) => {
   // Effects
@@ -9,7 +10,12 @@ const CheckboxFormField = (props: CheckboxFormFieldProps) => {
   }, [props]);
 
   return (
-    <div className="form-field checkbox-form-field grid">
+    <div
+      className={cn(
+        "form-field checkbox-form-field grid",
+        props.disabled && "disabled",
+      )}
+    >
       {props.options.map((opt, i) => {
         return (
           <div
@@ -36,6 +42,7 @@ const CheckboxFormField = (props: CheckboxFormFieldProps) => {
               readOnly
               placeholder={props.placeholder}
               name={props.name}
+              disabled={props.disabled}
             />
             <span className="material-symbols-outlined checkbox-icon">
               {Array.isArray(props.value) && props.value.includes(opt.value)

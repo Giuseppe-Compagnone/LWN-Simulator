@@ -1,12 +1,17 @@
 import { ProgressBar } from "@/components/common";
 import { TextAreaFormFieldProps } from "./TextAreaFormField.types";
+import cn from "classnames";
 
 const TextAreaFormField = (props: TextAreaFormFieldProps) => {
   return (
     <>
       <textarea
-        className="form-field text-area-form-field"
+        className={cn(
+          "form-field text-area-form-field",
+          props.disabled && "disabled",
+        )}
         value={props.value}
+        disabled={props.disabled}
         onChange={(e) => {
           let value = e.target.value;
 

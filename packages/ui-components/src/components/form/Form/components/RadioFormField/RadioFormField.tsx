@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { RadioFormFieldProps } from "./RadioFormField.types";
+import cn from "classnames";
 
 const RadioFormField = (props: RadioFormFieldProps) => {
   // Effects
@@ -8,7 +9,12 @@ const RadioFormField = (props: RadioFormFieldProps) => {
   }, [props]);
 
   return (
-    <div className="form-field radio-form-field grid">
+    <div
+      className={cn(
+        "form-field radio-form-field grid",
+        props.disabled && "disabled",
+      )}
+    >
       {props.options.map((opt, i) => {
         return (
           <div
@@ -25,6 +31,7 @@ const RadioFormField = (props: RadioFormFieldProps) => {
               readOnly
               placeholder={props.placeholder}
               name={props.name}
+              disabled={props.disabled}
             />
             <span className="material-symbols-outlined radio-icon">
               {props.value == opt.value

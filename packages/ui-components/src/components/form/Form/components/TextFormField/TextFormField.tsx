@@ -1,12 +1,14 @@
+import cn from "classnames";
 import { TextFormFieldProps } from "./TextFormField.types";
 
 const TextFormField = (props: TextFormFieldProps) => {
   return (
     <input
-      className="form-field text-form-field"
+      className={cn("form-field text-form-field", props.disabled && "disabled")}
       type={props.masked ? "password" : "text"}
       value={props.value}
       name={props.name}
+      disabled={props.disabled}
       onChange={(e) => {
         let value = e.target.value;
 

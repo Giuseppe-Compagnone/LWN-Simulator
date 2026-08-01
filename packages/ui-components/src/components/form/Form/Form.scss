@@ -34,6 +34,13 @@
       }
     }
 
+    .form-field {
+      &.disabled {
+        pointer-events: none;
+        filter: saturate(0) brightness(0.5);
+      }
+    }
+
     .field-info {
       display: flex;
       align-items: center;

@@ -41,19 +41,21 @@ export const useForm = (props: UseFormProps): FormLogic => {
     let isValid = true;
 
     Object.values(tmp).forEach((field) => {
-      if (field.required && !field.value) {
-        isValid = false;
-        field.error = "This field is required";
-      }
+      if (!field.disabled) {
+        if (field.required && !field.value) {
+          isValid = false;
+          field.error = "This field is required";
+        }
 
-      if (field.validations && isValid) {
-        for (let i = 0; i < field.validations.length; i++) {
-          const validation = field.validations[i];
+        if (field.validations && isValid) {
+          for (let i = 0; i < field.validations.length; i++) {
+            const validation = field.validations[i];
 
-          isValid = validation.rule.test((field.value as string) || "");
-          if (!isValid) {
-            field.error = validation.error;
-            break;
+            isValid = validation.rule.test((field.value as string) || "");
+            if (!isValid) {
+              field.error = validation.error;
+              break;
+            }
           }
         }
       }

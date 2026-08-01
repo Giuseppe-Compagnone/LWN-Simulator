@@ -18,7 +18,13 @@ const SelectFormField = (props: SelectFormFieldProps) => {
   }, [props.options, props.value]);
 
   return (
-    <div className={cn("form-field select-form-field", isOpen && "open")}>
+    <div
+      className={cn(
+        "form-field select-form-field",
+        isOpen && "open",
+        props.disabled && "disabled",
+      )}
+    >
       <div
         className={cn("selected-box", !props.value && "placeholder")}
         onMouseDown={(e) => {
