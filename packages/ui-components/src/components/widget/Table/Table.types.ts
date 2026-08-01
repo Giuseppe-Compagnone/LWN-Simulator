@@ -152,5 +152,5 @@ export interface TableLogic {
   /**
    * List of page indexes currently visible in the pagination controls.
    */
-  visiblePages: number[];
+  visiblePages: Array<number>;
 }
