@@ -161,6 +161,10 @@ export const ErrorForm: Story = {
         placeholder: "Your last name",
         error: null,
         format: (raw) => raw.toUpperCase(),
+        validations: [
+          { rule: /^.{8,}$/, error: "At least 8 chars" },
+          { rule: /\d/, error: "At least 1 digit" },
+        ],
       }),
       textField({
         name: "pass",

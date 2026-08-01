@@ -46,6 +46,7 @@ export interface RadioFormFieldProps extends FormFieldProps {
    */
   placeholder?: undefined;
   format?: undefined;
+  validations?: undefined;
 }
 
 /**

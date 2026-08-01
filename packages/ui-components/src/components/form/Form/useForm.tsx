@@ -29,7 +29,18 @@ export const useForm = (props: UseFormProps): FormLogic => {
       if (field.required && !field.value) {
         isValid = false;
         field.error = "This field is required";
-        console.log(field.name, field.error);
+      }
+
+      if (field.validations && field.value && isValid) {
+        for (let i = 0; i < field.validations.length; i++) {
+          const validation = field.validations[i];
+
+          isValid = validation.rule.test(field.value as string);
+          if (!isValid) {
+            field.error = validation.error;
+            break;
+          }
+        }
       }
     });
 

@@ -46,6 +46,7 @@ export interface CheckboxFormFieldProps extends FormFieldProps {
    */
   placeholder?: undefined;
   format?: undefined;
+  validations?: undefined;
 }
 
 /**

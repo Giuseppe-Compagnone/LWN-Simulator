@@ -41,6 +41,7 @@ export interface SelectFormFieldProps extends FormFieldProps {
    */
   options: Array<SelectOption>;
   format?: undefined;
+  validations?: undefined;
 }
 
 /**

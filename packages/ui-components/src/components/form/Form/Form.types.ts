@@ -21,6 +21,14 @@ export interface FormFieldProps extends Omit<FormField, "render"> {
   setValue(value: FormValue): void;
 }
 
+export interface FormValidation {
+  rule: RegExp;
+
+  error: string;
+
+  realtime?: boolean;
+}
+
 /**
  * Configuration of a single form field.
  */
@@ -51,6 +59,8 @@ export interface FormField {
   info?: string;
 
   format?: (raw: string) => string;
+
+  validations?: Array<FormValidation>;
 
   error: string | null;
 
