@@ -1,4 +1,4 @@
-import { FormFieldProps } from "../..";
+import { FormField, FormFieldProps } from "../..";
 
 /**
  * Properties for configuring a text-based form field.
@@ -36,5 +36,7 @@ export interface TextFormFieldProps extends FormFieldProps {
  */
 export interface TextFieldOptions extends Omit<
   TextFormFieldProps,
-  "render" | "setValue"
-> {}
+  "render" | "setValue" | "disabled"
+> {
+  disabled?: boolean | ((fieldsState: Record<string, FormField>) => boolean);
+}

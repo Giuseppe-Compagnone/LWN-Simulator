@@ -19,6 +19,7 @@ export interface FormFieldProps extends Omit<FormField, "render"> {
    * @param value New value assigned to the field.
    */
   setValue(value: FormValue): void;
+  disabled?: boolean;
 }
 
 export interface FormValidation {
@@ -66,7 +67,7 @@ export interface FormField {
 
   required?: boolean;
 
-  disabled?: boolean;
+  disabled?: boolean | ((fieldsState: Record<string, FormField>) => boolean);
 
   active?: boolean;
 
@@ -122,5 +123,9 @@ export interface FormLogic {
    * @param value New value assigned to the field.
    */
   setValue(name: string, value: FormValue): void;
+  isFieldDisabled: (
+    field: FormField,
+    fieldsState: Record<string, FormField>,
+  ) => boolean;
   validate: () => boolean;
 }

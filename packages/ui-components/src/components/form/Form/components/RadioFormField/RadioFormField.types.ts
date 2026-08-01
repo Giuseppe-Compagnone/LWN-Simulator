@@ -1,5 +1,5 @@
 import { JSX } from "react/jsx-runtime";
-import { FormFieldProps } from "../..";
+import { FormField, FormFieldProps } from "../..";
 
 /**
  * Represents an option available in a radio form field.
@@ -57,5 +57,7 @@ export interface RadioFormFieldProps extends FormFieldProps {
  */
 export interface RadioFieldOptions extends Omit<
   RadioFormFieldProps,
-  "render" | "setValue"
-> {}
+  "render" | "setValue" | "disabled"
+> {
+  disabled?: boolean | ((fieldsState: Record<string, FormField>) => boolean);
+}

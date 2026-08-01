@@ -35,6 +35,8 @@
     }
 
     .form-field {
+      transition: all 0.2s ease-in-out;
+
       &.disabled {
         pointer-events: none;
         filter: saturate(0) brightness(0.5);

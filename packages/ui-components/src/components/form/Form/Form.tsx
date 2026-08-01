@@ -22,6 +22,7 @@ const Form = (props: FormProps) => {
             ...field,
             value: formLogic.fieldsState[field.name].value,
             setValue: (v) => formLogic.setValue(field.name, v),
+            disabled: formLogic.isFieldDisabled(field, formLogic.fieldsState),
           })}
           {field.info && (
             <div className="field-info">
@@ -41,14 +42,19 @@ const Form = (props: FormProps) => {
             props.onSubmit(
               Object.fromEntries(
                 Object.values(formLogic.fieldsState)
-                  .filter((field) => !field.disabled)
+                  .filter(
+                    (field) =>
+                      !formLogic.isFieldDisabled(field, formLogic.fieldsState),
+                  )
                   .map((field) => [field.name, field.value]),
               ),
             );
         }}
         disabled={
           !!Object.values(formLogic.fieldsState).find(
-            (field) => !field.disabled && field.error,
+            (field) =>
+              !formLogic.isFieldDisabled(field, formLogic.fieldsState) &&
+              field.error,
           )
         }
       />

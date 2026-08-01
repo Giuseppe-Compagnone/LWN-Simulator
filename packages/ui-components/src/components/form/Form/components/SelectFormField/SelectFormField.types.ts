@@ -1,5 +1,5 @@
 import { JSX } from "react/jsx-runtime";
-import { FormFieldProps } from "../..";
+import { FormField, FormFieldProps } from "../..";
 
 /**
  * Represents an option available in a select form field.
@@ -52,5 +52,7 @@ export interface SelectFormFieldProps extends FormFieldProps {
  */
 export interface SelectFieldOptions extends Omit<
   SelectFormFieldProps,
-  "render" | "setValue"
-> {}
+  "render" | "setValue" | "disabled"
+> {
+  disabled?: boolean | ((fieldsState: Record<string, FormField>) => boolean);
+}

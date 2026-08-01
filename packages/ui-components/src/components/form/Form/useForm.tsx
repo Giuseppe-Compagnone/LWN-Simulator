@@ -1,9 +1,5 @@
 import { useState } from "react";
-import { FormField, FormLogic, FormValue } from "./Form.types";
-
-interface UseFormProps {
-  fields: FormField[];
-}
+import { FormField, FormLogic, FormValue, UseFormProps } from "./Form.types";
 
 export const useForm = (props: UseFormProps): FormLogic => {
   // States
@@ -36,12 +32,21 @@ export const useForm = (props: UseFormProps): FormLogic => {
     });
   };
 
+  const isFieldDisabled = (
+    field: FormField,
+    fieldsState: Record<string, FormField>,
+  ) => {
+    return typeof field.disabled === "function"
+      ? field.disabled(fieldsState)
+      : !!field.disabled;
+  };
+
   const validate = () => {
     const tmp = { ...fieldsState };
     let isValid = true;
 
     Object.values(tmp).forEach((field) => {
-      if (!field.disabled) {
+      if (!!isFieldDisabled(field, fieldsState)) {
         if (field.required && !field.value) {
           isValid = false;
           field.error = "This field is required";
@@ -69,6 +74,7 @@ export const useForm = (props: UseFormProps): FormLogic => {
   return {
     fieldsState,
     setValue,
+    isFieldDisabled,
     validate,
   };
 };

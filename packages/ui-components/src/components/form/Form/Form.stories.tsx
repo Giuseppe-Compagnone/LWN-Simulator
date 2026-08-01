@@ -6,6 +6,7 @@ import { Card, CardLayout } from "@/components/layout";
 import { checkboxField, textAreaField } from "./components";
 import { selectField } from "./components/SelectFormField";
 import { radioField } from "./components/RadioFormField/RadioField";
+import { FormField } from "./Form.types";
 
 const meta = {
   title: "ui-components/form/Form",
@@ -399,6 +400,136 @@ export const DisabledForm: Story = {
           },
         ],
         disabled: true,
+      }),
+    ],
+    onSubmit: (values) => {
+      console.table(values);
+    },
+  },
+  render: (args) => (
+    <Card layout={CardLayout.Padded}>
+      <Form {...args} />
+    </Card>
+  ),
+};
+
+export const ConditionalForm: Story = {
+  args: {
+    fields: [
+      textField({
+        name: "name",
+        label: "Name",
+        value: "Name",
+        info: "Your Name",
+        error: null,
+      }),
+      textField({
+        name: "last",
+        label: "Last Name",
+        value: "",
+        placeholder: "Your last name",
+        error: null,
+        disabled: (fieldsState: Record<string, FormField>) => {
+          return !fieldsState["name"].value;
+        },
+      }),
+      textField({
+        name: "pass",
+        label: "Password",
+        value: "",
+        placeholder: "Your Password",
+        error: null,
+        masked: true,
+      }),
+      textAreaField({
+        name: "desc",
+        label: "Description",
+        value: "",
+        placeholder: "About you",
+        error: null,
+        resize: true,
+        charsMax: 20,
+      }),
+      selectField({
+        name: "hobby",
+        label: "Favorite Hobby",
+        value: "",
+        placeholder: "Your favorite hobby...",
+        error: null,
+        options: [
+          {
+            value: "drawing",
+            displayed: <>Drawing</>,
+          },
+          {
+            value: "running",
+            displayed: (
+              <>
+                Running
+                <span className="material-symbols-outlined">sprint</span>
+              </>
+            ),
+          },
+          {
+            value: "fishing",
+          },
+        ],
+      }),
+      radioField({
+        name: "color",
+        label: "Favorite Color",
+        value: "",
+        error: null,
+        options: [
+          {
+            value: "red",
+            displayed: <>Red</>,
+          },
+          {
+            value: "green",
+            displayed: (
+              <>
+                Green
+                <span
+                  className="material-symbols-outlined"
+                  style={{ color: "green", fontVariationSettings: "'FILL' 1" }}
+                >
+                  square
+                </span>
+              </>
+            ),
+          },
+          {
+            value: "blue",
+          },
+        ],
+      }),
+      checkboxField({
+        name: "skills",
+        label: "Your Skills",
+        value: [],
+        error: null,
+        options: [
+          {
+            value: "html",
+            displayed: <>HTML</>,
+          },
+          {
+            value: "css",
+            displayed: (
+              <>
+                CSS
+                <span className="material-symbols-outlined">css</span>
+              </>
+            ),
+          },
+          {
+            value: "js",
+          },
+        ],
+        disabled: (fieldsState: Record<string, FormField>) => {
+          return fieldsState["color"].value == "red";
+        },
       }),
     ],
     onSubmit: (values) => {
