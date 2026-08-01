@@ -40,6 +40,7 @@ export interface SelectFormFieldProps extends FormFieldProps {
    * Available options displayed by the select field.
    */
   options: Array<SelectOption>;
+  format?: undefined;
 }
 
 /**

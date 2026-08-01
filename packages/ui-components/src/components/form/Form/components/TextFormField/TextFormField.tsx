@@ -7,7 +7,13 @@ const TextFormField = (props: TextFormFieldProps) => {
       type={props.masked ? "password" : "text"}
       value={props.value}
       name={props.name}
-      onChange={(e) => props.setValue(e.target.value)}
+      onChange={(e) => {
+        let value = e.target.value;
+
+        if (props.format) value = props.format(value);
+
+        props.setValue(value);
+      }}
       placeholder={props.placeholder}
     />
   );

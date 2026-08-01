@@ -8,9 +8,13 @@ const TextAreaFormField = (props: TextAreaFormFieldProps) => {
         className="form-field text-area-form-field"
         value={props.value}
         onChange={(e) => {
-          if (props.charsMax && e.target.value.length > props.charsMax) return;
+          let value = e.target.value;
 
-          props.setValue(e.target.value);
+          if (props.format) value = props.format(value);
+
+          if (props.charsMax && value.length > props.charsMax) return;
+
+          props.setValue(value);
         }}
         placeholder={props.placeholder}
         name={props.name}

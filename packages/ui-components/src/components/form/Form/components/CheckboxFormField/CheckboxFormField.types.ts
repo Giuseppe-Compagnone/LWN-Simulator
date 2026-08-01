@@ -45,6 +45,7 @@ export interface CheckboxFormFieldProps extends FormFieldProps {
    * Checkbox fields do not support placeholder text.
    */
   placeholder?: undefined;
+  format?: undefined;
 }
 
 /**

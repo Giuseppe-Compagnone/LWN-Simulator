@@ -50,7 +50,7 @@ export interface FormField {
    */
   info?: string;
 
-  format?: RegExp;
+  format?: (raw: string) => string;
 
   error: string | null;
 

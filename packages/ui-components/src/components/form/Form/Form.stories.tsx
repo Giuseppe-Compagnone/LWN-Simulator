@@ -160,6 +160,7 @@ export const ErrorForm: Story = {
         value: "",
         placeholder: "Your last name",
         error: null,
+        format: (raw) => raw.toUpperCase(),
       }),
       textField({
         name: "pass",
@@ -178,6 +179,7 @@ export const ErrorForm: Story = {
         resize: true,
         charsMax: 20,
         required: true,
+        format: (raw) => raw.replaceAll(/[0-9]/g, ""),
       }),
       selectField({
         name: "hobby",
