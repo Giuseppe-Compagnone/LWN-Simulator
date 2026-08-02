@@ -29,7 +29,12 @@
     }
 
     &.placeholder {
+      display: inline-block;
       color: var(--secondary-text-color);
+      text-wrap: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     @include hover {
