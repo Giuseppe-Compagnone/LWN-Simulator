@@ -11,7 +11,6 @@ const Popup = (props: PopupProps) => {
   useOutsideAlerter({
     ref: cardRef,
     onClickOutside: () => {
-      console.log("CLICK");
       props.logic.closePopup();
     },
   });

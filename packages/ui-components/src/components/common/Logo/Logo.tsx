@@ -7,7 +7,10 @@ const Logo = (props: LogoProps) => {
   const size = props.size || LogoSize.Md;
 
   return (
-    <div className={cn("logo")} style={{ width: size, background: layout }}>
+    <div
+      className={cn("logo", layout != LogoLayout.Default && "background")}
+      style={{ width: size, background: layout }}
+    >
       <svg
         version="1.0"
         xmlns="http://www.w3.org/2000/svg"
