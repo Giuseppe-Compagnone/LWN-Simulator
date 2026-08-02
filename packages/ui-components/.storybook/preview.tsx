@@ -30,6 +30,7 @@ const enumEnhancer: ArgTypesEnhancer = ({ argTypes }) => {
                 .replaceAll('"', "")
                 .replace(/^.*\./, "")
                 .replaceAll("-", " ")
+                .replaceAll(/(var\(|\))/g, "")
                 .replace(/^\s*([a-z])/, (c) => c.toUpperCase()),
             ),
             mapping: Object.fromEntries(
@@ -38,6 +39,7 @@ const enumEnhancer: ArgTypesEnhancer = ({ argTypes }) => {
                   .replaceAll('"', "")
                   .replace(/^.*\./, "")
                   .replaceAll("-", " ")
+                  .replaceAll(/(var\(|\))/g, "")
                   .replace(/^\s*([a-z])/, (c) => c.toUpperCase()),
                 value.replaceAll('"', ""),
               ]),

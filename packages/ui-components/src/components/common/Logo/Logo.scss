@@ -1,1 +1,15 @@
 // Logo
+
+.logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1/1;
+  padding: 0.7rem;
+  border-radius: var(--radius-md);
+
+  svg {
+    max-width: 100%;
+    aspect-ratio: 1008/1024;
+  }
+}
