@@ -45,7 +45,15 @@ export interface RadioFormFieldProps extends FormFieldProps {
    * Radio fields do not support placeholder text.
    */
   placeholder?: undefined;
+
+  /**
+   * Radio fields do not support value formatting.
+   */
   format?: undefined;
+
+  /**
+   * Radio fields do not support custom validation rules.
+   */
   validations?: undefined;
 }
 

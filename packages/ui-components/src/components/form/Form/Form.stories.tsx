@@ -1,11 +1,15 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 
 import Form from "./Form";
-import { textField } from "./components/TextFormField/textField";
 import { Card, CardLayout } from "@/components/layout";
-import { checkboxField, textAreaField } from "./components";
-import { selectField } from "./components/SelectFormField";
-import { radioField } from "./components/RadioFormField/RadioField";
+import {
+  checkboxField,
+  radioField,
+  selectField,
+  textAreaField,
+  textField,
+  booleanCheckboxField,
+} from "./components";
 import { FormField } from "./Form.types";
 
 const meta = {
@@ -131,6 +135,13 @@ export const SimpleForm: Story = {
             value: "js",
           },
         ],
+      }),
+      booleanCheckboxField({
+        name: "conds",
+        label: "Accept conditions",
+        value: false,
+        error: null,
+        text: "Accept",
       }),
     ],
     onSubmit: (values) => {
@@ -270,6 +281,14 @@ export const ValidatedForm: Story = {
           },
         ],
       }),
+      booleanCheckboxField({
+        name: "conds",
+        label: "Accept conditions",
+        value: false,
+        error: null,
+        text: "Accept",
+        required: true,
+      }),
     ],
     onSubmit: (values) => {
       console.table(values);
@@ -399,6 +418,14 @@ export const DisabledForm: Story = {
             value: "js",
           },
         ],
+        disabled: true,
+      }),
+      booleanCheckboxField({
+        name: "conds",
+        label: "Accept conditions",
+        value: false,
+        error: null,
+        text: "Accept",
         disabled: true,
       }),
     ],
