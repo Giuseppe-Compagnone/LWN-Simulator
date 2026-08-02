@@ -1,0 +1,130 @@
+// Table
+
+@use "./components/components";
+@use "../../../styles/breakpoints" as *;
+
+.table {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-direction: column;
+  width: 100%;
+  max-height: 100%;
+
+  table {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    width: 100%;
+    min-height: 0;
+    max-height: calc(100% - 65px);
+
+    .table-header {
+      width: 100%;
+
+      tr {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 65px;
+        background: var(--tertiary-bg-color);
+        border-bottom: 1px solid var(--border-color);
+
+        .table-label {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          gap: var(--gap);
+          font-family: var(--secondary-font);
+          text-transform: uppercase;
+          padding: 1rem;
+
+          span {
+            transition: all 0.2s ease-in-out;
+          }
+
+          @include hover {
+            span {
+              scale: 1.1;
+            }
+          }
+        }
+      }
+    }
+
+    .table-rows {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      flex-direction: column;
+      width: 100%;
+      background: var(--secondary-bg-color);
+      overflow-x: auto;
+
+      .loading-wrapper {
+        position: absolute;
+        display: flex;
+        inset: 0;
+        align-items: center;
+        justify-content: center;
+        height: 0;
+        background: color-mix(
+          in srgb,
+          var(--tertiary-bg-color) 80%,
+          transparent
+        );
+        backdrop-filter: blur(0);
+        transition: all 0.3s ease-in-out;
+
+        &.visible {
+          backdrop-filter: blur(4px);
+          height: unset;
+        }
+      }
+
+      .table-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        min-height: 75px;
+        max-height: 75px;
+        transition: all 0.2s ease-in-out;
+
+        &.clickable {
+          cursor: pointer;
+
+          @include hover {
+            background: color-mix(
+              in srgb,
+              var(--primary-color) 25%,
+              var(--primary-bg-color)
+            );
+          }
+        }
+
+        &:nth-child(even) {
+          background: color-mix(in srgb, var(--border-color) 15%, transparent);
+        }
+
+        .table-row-item {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          padding: 1rem;
+        }
+      }
+    }
+  }
+
+  .table-footer {
+    width: 100%;
+    min-height: 65px;
+    max-height: 65px;
+    background: var(--tertiary-bg-color);
+    border-top: 1px solid var(--border-color);
+  }
+}

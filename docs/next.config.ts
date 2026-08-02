@@ -14,8 +14,8 @@ const nextConfig: NextConfig = withNextra({
   output: "export",
 
   ...(isGithubPages && {
-    basePath: "/LWN-Simulator",
-    assetPrefix: "/LWN-Simulator/",
+    basePath: "/LWN-Simulator/docs",
+    assetPrefix: "/LWN-Simulator/docs/",
   }),
 
   images: {

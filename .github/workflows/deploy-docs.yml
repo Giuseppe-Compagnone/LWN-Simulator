@@ -1,7 +1,10 @@
-name: Deploy Nextra docs to GitHub Pages
+name: Deploy docs + storybook to GitHub Pages
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -12,13 +15,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: docs
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # ----------------------------
+      # Setup Node + Yarn
+      # ----------------------------
 
       - name: Enable Corepack
         run: corepack enable
@@ -28,27 +31,83 @@ jobs:
         with:
           node-version: 20
           cache: yarn
-          cache-dependency-path: docs/yarn.lock
+          cache-dependency-path: |
+            docs/yarn.lock
+            packages/ui-components/yarn.lock
 
-      - name: Install dependencies
+      # ----------------------------
+      # Nextra
+      # ----------------------------
+
+      - name: Install docs dependencies
+        working-directory: docs
         run: yarn install --frozen-lockfile
 
       - name: Build docs
+        working-directory: docs
         run: yarn build
         env:
           NODE_ENV: production
           NEXT_PUBLIC_GITHUB_PAGES: true
 
-      - name: Verify export
-        run: ls -la out
+      - name: Prepare docs artifact
+        run: |
+          mkdir -p pages/docs
+          cp -r docs/out/* pages/docs/
 
-      - name: Upload artifact
+      # ----------------------------
+      # Storybook
+      # ----------------------------
+
+      - name: Install Storybook dependencies
+        working-directory: packages/ui-components
+        run: yarn install --frozen-lockfile
+
+      - name: Build Storybook
+        working-directory: packages/ui-components
+        run: yarn build-storybook
+
+      - name: Prepare Storybook artifact
+        run: |
+          mkdir -p pages/storybook
+          cp -r packages/ui-components/storybook-static/* pages/storybook/
+
+      # ----------------------------
+      # Redirect /
+      # ----------------------------
+
+      - name: Create root redirect
+        run: |
+          cat > pages/index.html <<EOF
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="utf-8">
+              <meta http-equiv="refresh" content="0; url=./docs/">
+              <title>Redirecting...</title>
+            </head>
+            <body>
+              Redirecting...
+            </body>
+          </html>
+          EOF
+
+      # ----------------------------
+      # Verify
+      # ----------------------------
+
+      - name: Verify artifact
+        run: |
+          find pages -maxdepth 2 -type f | sort | head -100
+
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs/out
+          path: pages
 
   deploy:
     needs: build
+
     runs-on: ubuntu-latest
 
     environment:

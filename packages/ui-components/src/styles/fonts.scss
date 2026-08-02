@@ -1,1 +1,28 @@
 // Fonts
+
+@use "sass:map";
+@import "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap";
+
+:root {
+  --primary-font: "Inter", sans-serif;
+  --secondary-font: "JetBrains Mono", monospace;
+  --font-h1: clamp(2rem, 4vw, 3.5rem);
+  --font-h2: clamp(1.5rem, 3vw, 2.5rem);
+  --font-h3: clamp(1.25rem, 2vw, 2rem);
+}
+
+$font-sizes: (
+  xs: 0.75rem,
+  sm: 0.875rem,
+  md: 1rem,
+  lg: 1.125rem,
+  xl: 1.25rem,
+  "2xl": 1.5rem,
+  "3xl": 1.875rem,
+  "4xl": 2.25rem,
+  "5xl": 3rem,
+);
+
+@function font-size($size) {
+  @return map.get($font-sizes, $size);
+}

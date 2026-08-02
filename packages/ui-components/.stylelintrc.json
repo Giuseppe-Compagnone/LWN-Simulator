@@ -1,6 +1,7 @@
 {
   "extends": ["stylelint-config-standard-scss"],
   "plugins": ["stylelint-order"],
+  "ignoreFiles": [".storybook/**"],
   "rules": {
     "order/properties-order": [
       [

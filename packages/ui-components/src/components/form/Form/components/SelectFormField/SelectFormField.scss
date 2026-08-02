@@ -1,0 +1,148 @@
+/* stylelint-disable scss/operator-no-newline-after */
+// SelectFormField
+
+@use "../../../../../styles/fonts" as *;
+@use "../../../../../styles/breakpoints" as *;
+
+.select-form-field {
+  position: relative;
+  width: 100%;
+
+  .selected-box {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--gap) / 2);
+    width: 100%;
+    outline: none;
+    max-height: 47px;
+    padding: 0.75rem calc(1rem + 47px) 0.75rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--primary-bg-color);
+    transition: all 0.2s ease-in-out;
+    color: var(--primary-color);
+    font-family: var(--secondary-font);
+    cursor: pointer;
+
+    * {
+      color: var(--primary-color);
+    }
+
+    &.placeholder {
+      display: inline-block;
+      color: var(--secondary-text-color);
+      text-wrap: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    @include hover {
+      & + .arrow-icon {
+        font-size: font-size("4xl");
+      }
+    }
+  }
+
+  .arrow-icon {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: translateY(-50%);
+    height: 47px;
+    aspect-ratio: 1/1;
+    font-size: font-size("3xl");
+    pointer-events: none;
+    transition: all 0.2s ease-in-out;
+  }
+
+  .choices {
+    position: absolute;
+    top: calc(47px + (var(--gap) / 2));
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    gap: calc(var(--gap) / 2);
+    width: 100%;
+    height: 0;
+    padding: 0 calc(var(--gap) / 2);
+    overflow: hidden;
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--tertiary-bg-color) 80%, transparent);
+    transition: all 0.4s ease-in-out;
+    z-index: 10;
+
+    .choice {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 0.5rem;
+      border-radius: var(--radius-sm);
+      gap: calc(var(--gap) / 2);
+      transition: all 0.2s ease-in-out;
+      cursor: pointer;
+
+      * {
+        transition: all 0.2s ease-in-out;
+      }
+
+      .check-icon {
+        position: absolute;
+        top: 0;
+        right: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 42px;
+        aspect-ratio: 1/1;
+      }
+
+      &.selected {
+        border: 1px solid var(--primary-color);
+        color: var(--primary-color);
+
+        * {
+          color: var(--primary-color);
+        }
+      }
+
+      @include hover {
+        &:not(.selected) {
+          background: color-mix(
+            in srgb,
+            var(--primary-color) 25%,
+            var(--primary-bg-color)
+          );
+        }
+      }
+    }
+  }
+
+  &.open {
+    .selected-box {
+      border-color: var(--primary-color);
+    }
+
+    .choices {
+      height: calc(
+        var(--gap) +
+          (36px * var(--options) + ((var(--gap) / 2)) * (var(--options) - 1))
+      );
+      padding: calc(var(--gap) / 2);
+      backdrop-filter: blur(12px);
+    }
+
+    & + .form-field-wrapper {
+      background: red;
+    }
+  }
+}
+
+.form-field-wrapper:has(.select-form-field.open) {
+  padding-left: 0.5rem;
+}

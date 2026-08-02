@@ -19,6 +19,7 @@ node_modules/
 **/dist/
 **/generated/
 **/assets/
+**/storybook-static/
 
 # production
 /build
@@ -44,3 +45,5 @@ yarn-error.log*
 next-env.d.ts
 
 releases/**
+
+debug-storybook.log

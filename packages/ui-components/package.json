@@ -24,12 +24,14 @@
     "build-storybook": "storybook build"
   },
   "dependencies": {
+    "classnames": "^2.5.1",
     "next": "16.2.12",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "sass": "^1.102.0"
   },
   "devDependencies": {
+    "@storybook/addon-docs": "10.5.5",
     "@storybook/nextjs-vite": "^10.5.4",
     "@types/node": "^20",
     "@types/react": "^19.2.17",
@@ -38,6 +40,8 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
     "eslint-plugin-storybook": "^10.5.4",
+    "material-symbols": "^0.45.9",
+    "react-docgen-typescript": "^2.4.0",
     "storybook": "^10.5.4",
     "stylelint": "^17.14.1",
     "stylelint-config-standard-scss": "^17.0.0",
@@ -48,6 +52,7 @@
     "vite": "^8.1.5"
   },
   "peerDependencies": {
-    "contracts": "workspace:*"
+    "contracts": "workspace:*",
+    "material-symbols": "^0.45.9"
   }
 }
