@@ -3,7 +3,7 @@
     "target": "ES2022",
     "module": "CommonJS",
     "moduleResolution": "bundler",
-    "outDir": "build",
+    "outDir": "dist",
     "rootDir": "electron",
     "strict": true,
     "esModuleInterop": true,

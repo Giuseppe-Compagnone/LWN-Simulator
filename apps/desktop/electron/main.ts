@@ -8,7 +8,9 @@ import { exec } from "child_process";
 let backendProcess: ChildProcess;
 
 function startBackend() {
-  const backendPath = path.join(process.resourcesPath, "lwn-server");
+  const backendPath = app.isPackaged
+    ? path.join(process.resourcesPath, "lwn-server")
+    : path.join(process.cwd(), "assets", "lwn-server");
 
   backendProcess = spawn(backendPath, [], {
     stdio: "inherit",
@@ -77,7 +79,9 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
-  installLinuxDesktopEntry();
+  if (app.isPackaged) {
+    installLinuxDesktopEntry();
+  }
 
   startBackend();
 

@@ -2,7 +2,7 @@
   "name": "desktop",
   "version": "1.0.0",
   "desktopName": "lwn-simulator",
-  "main": "build/main.js",
+  "main": "dist/main.js",
   "scripts": {
     "compile": "tsc",
     "start": "yarn compile && electron .",
@@ -19,13 +19,13 @@
     "appId": "com.lwn.simulator",
     "productName": "LWN-Simulator",
     "executableName": "lwn-simulator",
-    "icon": "build/icon.png",
+    "icon": "public/icon.png",
     "directories": {
       "app": ".",
       "output": "dist"
     },
     "files": [
-      "build/**/*",
+      "dist/**/*",
       "package.json",
       "assets/**/*"
     ],
@@ -35,8 +35,8 @@
         "to": "."
       },
       {
-        "from": "build/icon.png",
-        "to": "icon.png"
+        "from": "public",
+        "to": "."
       }
     ],
     "linux": {
