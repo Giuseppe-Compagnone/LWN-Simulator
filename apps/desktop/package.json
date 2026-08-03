@@ -2,22 +2,32 @@
   "name": "desktop",
   "version": "1.0.0",
   "desktopName": "lwn-simulator",
-  "main": "main.js",
+  "main": "build/main.js",
   "scripts": {
-    "start": "electron .",
-    "build": "electron-builder"
+    "compile": "tsc",
+    "start": "yarn compile && electron .",
+    "build": "yarn compile && electron-builder"
   },
   "devDependencies": {
+    "@types/electron": "^1.6.12",
+    "@types/node": "^26.1.2",
     "electron": "38.0.0",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "typescript": "^7.0.2"
   },
   "build": {
     "appId": "com.lwn.simulator",
     "productName": "LWN-Simulator",
     "executableName": "lwn-simulator",
     "icon": "build/icon.png",
+    "directories": {
+      "app": ".",
+      "output": "dist"
+    },
     "files": [
-      "**/*"
+      "build/**/*",
+      "package.json",
+      "assets/**/*"
     ],
     "extraResources": [
       {

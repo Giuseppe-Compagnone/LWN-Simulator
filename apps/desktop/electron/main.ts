@@ -1,11 +1,11 @@
-const { app, BrowserWindow } = require("electron");
-const { spawn } = require("child_process");
-const path = require("path");
-const fs = require("fs");
-const os = require("os");
-const { exec } = require("child_process");
+import { app, BrowserWindow } from "electron";
+import { ChildProcess, spawn } from "child_process";
+import path from "path";
+import fs from "fs";
+import os from "os";
+import { exec } from "child_process";
 
-let backendProcess;
+let backendProcess: ChildProcess;
 
 function startBackend() {
   const backendPath = path.join(process.resourcesPath, "lwn-server");
@@ -16,7 +16,7 @@ function startBackend() {
 }
 
 function waitForServer() {
-  return new Promise((resolve) => {
+  return new Promise<void>((resolve) => {
     setTimeout(() => {
       resolve();
     }, 1500);
