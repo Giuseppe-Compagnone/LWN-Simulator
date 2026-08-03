@@ -1,5 +1,5 @@
 {
-  "name": "contracts",
+  "name": "@lwn-simulator/contracts",
   "version": "1.0.0",
   "private": true,
   "types": "./generated/models.ts",

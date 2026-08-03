@@ -15,5 +15,5 @@ export default defineConfig({
 
   splitting: false,
 
-  external: ["react", "react-dom"],
+  external: ["react", "react-dom", "material-symbols"],
 });

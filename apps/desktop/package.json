@@ -1,12 +1,12 @@
 {
-  "name": "desktop",
+  "name": "@lwn-simulator/desktop",
   "version": "1.0.0",
   "desktopName": "lwn-simulator",
   "main": "dist/main.js",
   "scripts": {
     "compile": "tsc",
     "start": "yarn compile && electron .",
-    "build": "yarn compile && electron-builder"
+    "build": "rm -rf dist && yarn compile && electron-builder"
   },
   "devDependencies": {
     "@types/electron": "^1.6.12",
@@ -37,6 +37,10 @@
       {
         "from": "public",
         "to": "."
+      },
+      {
+        "from": "../launcher/out",
+        "to": "launcher/out"
       }
     ],
     "linux": {

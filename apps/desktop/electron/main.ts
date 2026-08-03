@@ -1,11 +1,12 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, ipcMain } from "electron";
 import { ChildProcess, spawn } from "child_process";
 import path from "path";
 import fs from "fs";
 import os from "os";
 import { exec } from "child_process";
 
-let backendProcess: ChildProcess;
+let backendProcess: ChildProcess | undefined;
+let mainWindow: BrowserWindow | undefined;
 
 function startBackend() {
   const backendPath = app.isPackaged
@@ -19,9 +20,7 @@ function startBackend() {
 
 function waitForServer() {
   return new Promise<void>((resolve) => {
-    setTimeout(() => {
-      resolve();
-    }, 1500);
+    setTimeout(resolve, 1500);
   });
 }
 
@@ -37,8 +36,13 @@ function installLinuxDesktopEntry() {
 
   const iconsDir = path.join(os.homedir(), ".local", "share", "icons");
 
-  fs.mkdirSync(applicationsDir, { recursive: true });
-  fs.mkdirSync(iconsDir, { recursive: true });
+  fs.mkdirSync(applicationsDir, {
+    recursive: true,
+  });
+
+  fs.mkdirSync(iconsDir, {
+    recursive: true,
+  });
 
   const desktopPath = path.join(applicationsDir, "lwn-simulator.desktop");
 
@@ -53,9 +57,8 @@ function installLinuxDesktopEntry() {
     Terminal=false
     Type=Application
     Icon=${iconPath}
-    StartupWMClass=lwn-simulator
+    StartupWMClass=@lwn-simulator/desktop
     Categories=Utility;
-    StartupWMClass=desktop
   `;
 
   fs.writeFileSync(desktopPath, desktopContent.trim());
@@ -69,23 +72,50 @@ function installLinuxDesktopEntry() {
   });
 }
 
-function createWindow() {
-  const win = new BrowserWindow({
-    width: 1280,
-    height: 800,
-  });
+function getLauncherPath() {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, "launcher", "out", "index.html");
+  }
 
-  win.loadURL("http://localhost:8080");
+  return path.join(process.cwd(), "..", "launcher", "out", "index.html");
 }
 
-app.whenReady().then(async () => {
-  if (app.isPackaged) {
-    installLinuxDesktopEntry();
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1280,
+    height: 800,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+    },
+  });
+
+  mainWindow.loadFile(getLauncherPath());
+}
+
+ipcMain.handle("connect-local", async () => {
+  if (!mainWindow) {
+    return;
   }
 
   startBackend();
 
   await waitForServer();
+
+  mainWindow.loadURL("http://localhost:8080");
+});
+
+ipcMain.handle("connect-remote", async (_, url: string) => {
+  if (!mainWindow) {
+    return;
+  }
+
+  mainWindow.loadURL(url);
+});
+
+app.whenReady().then(() => {
+  if (app.isPackaged) {
+    installLinuxDesktopEntry();
+  }
 
   createWindow();
 });

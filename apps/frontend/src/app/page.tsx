@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Response } from "contracts";
+import { Response } from "@lwn-simulator/contracts";
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState<boolean>(true);

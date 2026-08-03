@@ -69,6 +69,13 @@ echo "Cleaning embedded frontend"
 rm -rf "$SERVER_DIR/web"
 
 
+echo "Building Launcher"
+
+cd "$ROOT_DIR/apps/launcher"
+
+yarn build
+
+
 echo "Building Electron"
 
 cd "$ROOT_DIR/apps/desktop"
