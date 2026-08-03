@@ -60,10 +60,10 @@ const preview: Preview = {
     theme: {
       name: "Theme",
       description: "Global Theme",
-      defaultValue: "light",
+      defaultValue: "light-theme",
       toolbar: {
         icon: "mirror",
-        items: ["light", "dark"],
+        items: ["light-theme", "dark-theme"],
       },
     },
   },

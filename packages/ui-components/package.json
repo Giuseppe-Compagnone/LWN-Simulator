@@ -10,7 +10,8 @@
       "types": "./dist/index.d.mts",
       "import": "./dist/index.mjs"
     },
-    "./styles.css": "./dist/styles.css"
+    "./styles.css": "./dist/styles.css",
+    "./scss/*": "./dist/scss/*"
   },
   "files": [
     "dist"
@@ -18,27 +19,44 @@
   "scripts": {
     "build:ts": "tsup",
     "build:css": "sass src/styles/main.scss dist/styles.css --no-source-map",
-    "build": "yarn build:ts && yarn build:css",
+    "build:scss": "shx mkdir -p dist/scss && shx cp src/styles/breakpoints.scss src/styles/fonts.scss dist/scss",
+    "build": "yarn build:ts && yarn build:css && yarn build:scss",
     "lint:ts": "eslint",
     "lint:css": "stylelint \"src/**/*.scss\"",
-    "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "storybook": "npx storybook dev -p 6006",
+    "build-storybook": "npx storybook build"
   },
   "dependencies": {
-    "classnames": "^2.5.1"
+    "classnames": "^2.5.1",
+    "next": "16.2.12",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "sass": "^1.102.0"
   },
   "devDependencies": {
     "@lwn-simulator/contracts": "workspace:*",
+    "@storybook/addon-docs": "10.5.5",
+    "@storybook/nextjs-vite": "^10.5.4",
     "@types/node": "^20",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "sass": "^1.102.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.12",
+    "eslint-plugin-storybook": "^10.5.4",
+    "material-symbols": "^0.45.9",
+    "react-docgen-typescript": "^2.4.0",
+    "shx": "^0.4.0",
+    "storybook": "^10.5.4",
+    "stylelint": "^17.14.1",
+    "stylelint-config-standard-scss": "^17.0.0",
+    "stylelint-order": "^8.1.1",
+    "stylelint-scss": "^7.2.0",
     "tsup": "^8.5.1",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vite": "^8.1.5"
   },
   "peerDependencies": {
-    "material-symbols": "^0.45.9",
-    "react": "^19",
-    "react-dom": "^19"
+    "@lwn-simulator/contracts": "workspace:*",
+    "material-symbols": "^0.45.9"
   }
 }

@@ -1,0 +1,19 @@
+// Home Page
+
+@use "@lwn-simulator/ui-components/scss/fonts" as *;
+
+.home-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: var(--gap);
+
+  .title {
+    font-size: font-size(xl);
+  }
+
+  .sub-title {
+    font-size: font-size(lg);
+  }
+}
