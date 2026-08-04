@@ -11,7 +11,9 @@ export default function Home() {
   const getData = async (): Promise<void> => {
     setIsLoading(true);
 
-    const response = await fetch("http://localhost:8080/api/status");
+    const response = await fetch(
+      `http://${window.location.hostname}:8080/api/status`,
+    );
 
     const data: Response = await response.json();
 
