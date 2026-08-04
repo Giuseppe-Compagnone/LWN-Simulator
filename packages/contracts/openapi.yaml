@@ -9,4 +9,7 @@ paths: {}
 
 components:
   schemas:
-    $ref: "./schemas/response.yaml"
+    AppInfoResponse:
+      $ref: "./schemas/AppInfoResponse.yaml"
+    Response:
+      $ref: "./schemas/Response.yaml"

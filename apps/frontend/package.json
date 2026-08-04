@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "ELECTRON_BUILD=true next build",
+    "build": "ELECTRON_BUILD=true next build && yarn copy",
+    "copy": "../../scripts/copy-frontend.sh",
     "start": "next start",
     "lint:ts": "eslint",
     "lint:css": "stylelint \"src/**/*.scss\""

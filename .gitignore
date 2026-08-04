@@ -17,6 +17,8 @@ node_modules/
 **/.next/
 **/out/
 **/dist/
+**/web/**
+!**/web/.gitkeep
 **/generated/
 **/assets/
 **/storybook-static/
@@ -47,3 +49,4 @@ next-env.d.ts
 releases/**
 
 debug-storybook.log
+

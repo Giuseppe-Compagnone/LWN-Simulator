@@ -104,12 +104,34 @@ ipcMain.handle("connect-local", async () => {
   mainWindow.loadURL("http://localhost:8080");
 });
 
+async function validateRemote(url: string) {
+  const response = await fetch(`${url}/api/info`);
+
+  if (!response.ok) {
+    throw new Error("Server non raggiungibile");
+  }
+
+  const info = await response.json();
+
+  if (info.app !== "lwn-simulator") {
+    throw new Error("Il server non è un'istanza LWN Simulator");
+  }
+
+  if (info.apiVersion !== 1) {
+    throw new Error("Versione API non compatibile");
+  }
+
+  return info;
+}
+
 ipcMain.handle("connect-remote", async (_, url: string) => {
   if (!mainWindow) {
     return;
   }
 
-  mainWindow.loadURL(url);
+  await validateRemote(url);
+
+  await mainWindow.loadURL(url);
 });
 
 app.whenReady().then(() => {
