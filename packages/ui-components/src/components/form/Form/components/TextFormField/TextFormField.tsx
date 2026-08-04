@@ -8,6 +8,7 @@ const TextFormField = (props: TextFormFieldProps) => {
       type={props.masked ? "password" : "text"}
       value={props.value}
       name={props.name}
+      spellCheck={false}
       disabled={props.disabled}
       onChange={(e) => {
         let value = e.target.value;

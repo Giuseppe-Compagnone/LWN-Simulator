@@ -14,6 +14,7 @@ import {
   FormField,
   Spinner,
   SpinnerSize,
+  NotificationHandler,
 } from "@lwn-simulator/ui-components";
 import { useState } from "react";
 
@@ -72,9 +73,9 @@ export default function Home() {
                   ],
                 }),
               ]}
-              onSubmit={(
+              onSubmit={async (
                 values: Record<string, FormValue>,
-              ): void | Promise<void> => {
+              ): Promise<void> => {
                 switch (values["env"]) {
                   case "local":
                     console.log("[Launcher] Running local backend...");
@@ -86,7 +87,17 @@ export default function Home() {
                     setLoadingText(`Connecting to: ${values["url"]}`);
                     setIsLoading(true);
                     console.log(`[Launcher] Connecting to ${values["url"]}...`);
-                    window.electron.connectRemote(values["url"] as string);
+                    const result = await window.electron.connectRemote(
+                      values["url"] as string,
+                    );
+                    console.log("RESULT", result);
+                    if (!result.success) {
+                      setLoadingText("");
+                      setIsLoading(false);
+                      NotificationHandler.instance.error(
+                        result.message || "Error",
+                      );
+                    }
                     break;
                   default:
                     break;

@@ -1375,6 +1375,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@lwn-simulator/desktop@workspace:apps/desktop"
   dependencies:
+    "@lwn-simulator/contracts": "workspace:*"
     "@types/electron": "npm:^1.6.12"
     "@types/node": "npm:^26.1.2"
     electron: "npm:38.0.0"

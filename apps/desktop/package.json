@@ -8,6 +8,9 @@
     "start": "yarn compile && electron .",
     "build": "rm -rf dist && yarn compile && electron-builder"
   },
+  "dependencies": {
+    "@lwn-simulator/contracts": "workspace:*"
+  },
   "devDependencies": {
     "@types/electron": "^1.6.12",
     "@types/node": "^26.1.2",

@@ -4,6 +4,7 @@ import path from "path";
 import fs from "fs";
 import os from "os";
 import { exec } from "child_process";
+import { AppInfoResponse } from "@lwn-simulator/contracts";
 
 let backendProcess: ChildProcess | undefined;
 let mainWindow: BrowserWindow | undefined;
@@ -111,13 +112,15 @@ async function validateRemote(url: string) {
     throw new Error("Server non raggiungibile");
   }
 
-  const info = await response.json();
+  const info: AppInfoResponse = await response.json();
 
   if (info.app !== "lwn-simulator") {
     throw new Error("Il server non è un'istanza LWN Simulator");
   }
 
-  if (info.apiVersion !== 1) {
+  const version = process.env.APP_ENV || "dev";
+
+  if (version !== "dev" && info.version !== version) {
     throw new Error("Versione API non compatibile");
   }
 
@@ -129,9 +132,20 @@ ipcMain.handle("connect-remote", async (_, url: string) => {
     return;
   }
 
-  await validateRemote(url);
+  try {
+    await validateRemote(url);
 
-  await mainWindow.loadURL(url);
+    await mainWindow.loadURL(url);
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: "Connection failed",
+    };
+  }
 });
 
 app.whenReady().then(() => {

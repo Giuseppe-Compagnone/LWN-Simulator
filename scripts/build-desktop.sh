@@ -61,7 +61,7 @@ echo "Building Electron"
 
 cd "$ROOT_DIR/apps/desktop"
 
-yarn build
+VERSION=$VERSION yarn build
 
 
 echo "Copying release"
