@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "export",
-  assetPrefix: "./",
+  assetPrefix: process.env.ELECTRON_BUILD === "true" ? "./" : undefined,
   trailingSlash: true,
 
   images: {
