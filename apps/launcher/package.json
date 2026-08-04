@@ -10,10 +10,12 @@
   },
   "dependencies": {
     "@lwn-simulator/ui-components": "workspace:*",
+    "classnames": "^2.5.1",
     "material-symbols": "^0.45.10",
     "next": "16.2.12",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "react-toastify": "^11.1.0",
     "sass": "^1.102.0"
   },
   "devDependencies": {

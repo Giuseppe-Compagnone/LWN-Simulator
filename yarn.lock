@@ -1354,12 +1354,14 @@ __metadata:
     "@types/node": "npm:^20"
     "@types/react": "npm:^19"
     "@types/react-dom": "npm:^19"
+    classnames: "npm:^2.5.1"
     eslint: "npm:^9"
     eslint-config-next: "npm:16.2.12"
     material-symbols: "npm:^0.45.10"
     next: "npm:16.2.12"
     react: "npm:19.2.4"
     react-dom: "npm:19.2.4"
+    react-toastify: "npm:^11.1.0"
     sass: "npm:^1.102.0"
     stylelint: "npm:^17.14.1"
     stylelint-config-standard-scss: "npm:^17.0.0"
@@ -1422,6 +1424,7 @@ __metadata:
     react: "npm:19.2.4"
     react-docgen-typescript: "npm:^2.4.0"
     react-dom: "npm:19.2.4"
+    react-toastify: "npm:^11.1.0"
     sass: "npm:^1.102.0"
     shx: "npm:^0.4.0"
     storybook: "npm:^10.5.4"
@@ -1435,6 +1438,7 @@ __metadata:
   peerDependencies:
     "@lwn-simulator/contracts": "workspace:*"
     material-symbols: ^0.45.9
+    react-toastify: ^11.1.0
   languageName: unknown
   linkType: soft
 
@@ -4335,6 +4339,13 @@ __metadata:
   dependencies:
     mimic-response: "npm:^1.0.0"
   checksum: 10c0/06a2b611824efb128810708baee3bd169ec9a1bf5976a5258cd7eb3f7db25f00166c6eee5961f075c7e38e194f373d4fdf86b8166ad5b9c7e82bbd2e333a6087
+  languageName: node
+  linkType: hard
+
+"clsx@npm:^2.1.1":
+  version: 2.1.1
+  resolution: "clsx@npm:2.1.1"
+  checksum: 10c0/c4c8eb865f8c82baab07e71bfa8897c73454881c4f99d6bc81585aecd7c441746c1399d08363dc096c550cceaf97bd4ce1e8854e1771e9998d9f94c4fe075839
   languageName: node
   linkType: hard
 
@@ -8725,6 +8736,18 @@ __metadata:
   version: 17.0.2
   resolution: "react-is@npm:17.0.2"
   checksum: 10c0/2bdb6b93fbb1820b024b496042cce405c57e2f85e777c9aabd55f9b26d145408f9f74f5934676ffdc46f3dcff656d78413a6e43968e7b3f92eea35b3052e9053
+  languageName: node
+  linkType: hard
+
+"react-toastify@npm:^11.1.0":
+  version: 11.1.0
+  resolution: "react-toastify@npm:11.1.0"
+  dependencies:
+    clsx: "npm:^2.1.1"
+  peerDependencies:
+    react: ^18 || ^19
+    react-dom: ^18 || ^19
+  checksum: 10c0/b621b8272bb9287ec19914b773d91c2f7741eedba253f2986150716d30c82ff069ba9780a7ab4cbb511175b3aeb6e35f003aef3f04742d77df79fb8f4c1c3c98
   languageName: node
   linkType: hard
 
