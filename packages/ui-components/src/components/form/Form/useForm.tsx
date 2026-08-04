@@ -57,7 +57,10 @@ export const useForm = (props: UseFormProps): FormLogic => {
     let isValid = true;
 
     Object.values(tmp).forEach((field) => {
-      if (!isFieldDisabled(field, fieldsState)) {
+      if (
+        !isFieldDisabled(field, fieldsState) &&
+        isFieldDisplayed(field, fieldsState)
+      ) {
         if (field.required && !field.value) {
           isValid = false;
           field.error = "This field is required";

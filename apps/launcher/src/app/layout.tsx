@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "@lwn-simulator/ui-components/styles.css";
+import "material-symbols/index.css";
 import "./../styles/main.scss";
 
 export const metadata: Metadata = {

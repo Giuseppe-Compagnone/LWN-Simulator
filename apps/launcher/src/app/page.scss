@@ -10,10 +10,21 @@
   gap: var(--gap);
 
   .title {
-    font-size: font-size(xl);
+    font-size: font-size("3xl");
   }
 
   .sub-title {
-    font-size: font-size(lg);
+    font-size: font-size("xl");
+  }
+
+  .connection-card {
+    margin-top: 1.5rem;
+    width: 28rem;
+    max-width: 90vw;
+  }
+
+  .loading-text {
+    font-size: font-size("lg");
+    margin-top: var(--gap);
   }
 }

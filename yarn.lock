@@ -1356,6 +1356,7 @@ __metadata:
     "@types/react-dom": "npm:^19"
     eslint: "npm:^9"
     eslint-config-next: "npm:16.2.12"
+    material-symbols: "npm:^0.45.10"
     next: "npm:16.2.12"
     react: "npm:19.2.4"
     react-dom: "npm:19.2.4"
@@ -7412,7 +7413,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"material-symbols@npm:^0.45.9":
+"material-symbols@npm:^0.45.10, material-symbols@npm:^0.45.9":
   version: 0.45.10
   resolution: "material-symbols@npm:0.45.10"
   checksum: 10c0/ba9c5af4c0030b5ca2f01c275ebdd40b062d0024fbc105b33599393c56de59e9e59884cf631eaa140b0e053d76a53334d57acca053e8250613331ae998bbc610
