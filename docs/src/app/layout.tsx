@@ -11,7 +11,7 @@ import Image from "next/image";
 export const metadata: Metadata = {
   title: "LWN Simulator Docs",
   description: "Documentation of LWN Simulator",
-  icons: ["./favicon.png"],
+  icons: ["/favicon.png"],
 };
 
 const footer = <Footer>MIT {new Date().getFullYear()} © Nextra.</Footer>;
@@ -31,7 +31,7 @@ export default async function RootLayout({
               logo={
                 <div className="flex items-center gap-2">
                   <Image
-                    src="./favicon.png"
+                    src="/favicon.png"
                     alt="logo"
                     width={50}
                     height={50}
@@ -44,7 +44,7 @@ export default async function RootLayout({
             />
           }
           pageMap={await getPageMap()}
-          docsRepositoryBase="https://giuseppe-compagnone.github.io/LWN-Simulator/"
+          docsRepositoryBase="https://github.com/Giuseppe-Compagnone/LWN-Simulator"
           editLink="Edit this page on GitHub"
           sidebar={{ defaultMenuCollapseLevel: 1, autoCollapse: true }}
           footer={footer}
