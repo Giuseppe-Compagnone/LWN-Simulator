@@ -7,11 +7,12 @@ import { getPageMap } from "nextra/page-map";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Image from "next/image";
+import { sitePath } from "@/utils";
 
 export const metadata: Metadata = {
   title: "LWN Simulator Docs",
   description: "Documentation of LWN Simulator",
-  icons: ["/favicon.png"],
+  icons: [`${sitePath}/favicon.png`],
 };
 
 const footer = <Footer>MIT {new Date().getFullYear()} © Nextra.</Footer>;
@@ -31,7 +32,7 @@ export default async function RootLayout({
               logo={
                 <div className="flex items-center gap-2">
                   <Image
-                    src="/favicon.png"
+                    src={`${sitePath}/favicon.png`}
                     alt="logo"
                     width={50}
                     height={50}
