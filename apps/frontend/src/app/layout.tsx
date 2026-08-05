@@ -1,4 +1,4 @@
-import "./main.scss";
+import "../styles/main.scss";
 import "@lwn-simulator/ui-components/styles.css";
 
 export default function RootLayout({
@@ -8,7 +8,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className="dark-theme">{children}</body>
     </html>
   );
 }
