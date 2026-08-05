@@ -17,11 +17,11 @@ components:
       required:
         - app
         - version
-    Response:
-      title: Response
+    StatusResponse:
+      title: StatusResponse
       type: object
       properties:
-        time:
+        port:
           type: string
       required:
-        - time
+        - port

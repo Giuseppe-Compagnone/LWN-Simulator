@@ -11,5 +11,5 @@ components:
   schemas:
     AppInfoResponse:
       $ref: "./schemas/AppInfoResponse.yaml"
-    Response:
-      $ref: "./schemas/Response.yaml"
+    StatusResponse:
+      $ref: "./schemas/StatusResponse.yaml"

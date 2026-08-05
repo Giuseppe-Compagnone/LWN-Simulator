@@ -2,17 +2,18 @@ package handlers
 
 import (
 	"net/http"
-	"time"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/gin-gonic/gin"
 )
 
-func Status(c *gin.Context) {
+func Status(port string) gin.HandlerFunc {
+	return func(c *gin.Context) {
 
-	res := contracts.Response{
-		Time: time.Now().Format("2006-01-02 15:04:05"),
+		res := contracts.StatusResponse{
+			Port: port,
+		}
+
+		c.JSON(http.StatusOK, res)
 	}
-
-	c.JSON(http.StatusOK, res)
 }

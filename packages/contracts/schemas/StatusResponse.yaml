@@ -1,10 +1,10 @@
-title: Response
+title: StatusResponse
 type: object
 
 properties:
-  time:
+  port:
     type: string
     # x-go-name: ID
 
 required:
-  - time
+  - port

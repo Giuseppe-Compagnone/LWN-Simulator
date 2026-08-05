@@ -20,7 +20,7 @@ func registerFrontend(r *gin.Engine) {
 	))
 }
 
-func New() *gin.Engine {
+func New(port string) *gin.Engine {
 
 	gin.SetMode(gin.ReleaseMode)
 
@@ -45,7 +45,7 @@ func New() *gin.Engine {
 
 	registerMiddleware(r)
 
-	registerRoutes(r)
+	registerRoutes(r, port)
 
 	registerFrontend(r)
 
