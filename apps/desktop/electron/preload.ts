@@ -12,7 +12,12 @@ async function connectRemote(url: string) {
   return ipcRenderer.invoke("connect-remote", new URL(url).toString());
 }
 
+async function disconnect() {
+  return ipcRenderer.invoke("disconnect");
+}
+
 contextBridge.exposeInMainWorld("electron", {
   connectLocal,
   connectRemote,
+  disconnect,
 });

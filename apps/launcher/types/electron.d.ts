@@ -7,6 +7,7 @@ declare global {
       connectRemote(
         url: string,
       ): Promise<{ success: boolean; message?: string }>;
+      disconnect(): Promise<void>;
     };
   }
 }

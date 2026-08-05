@@ -1,7 +1,15 @@
 import { ipcMain } from "electron";
-import { startBackend, waitForServer } from "../backend/backend-manager";
+import {
+  startBackend,
+  stopBackend,
+  waitForServer,
+} from "../backend/backend-manager";
 
-import { getMainWindow } from "../window/window-manager";
+import {
+  getLauncherPath,
+  getMainWindow,
+  setConnected,
+} from "../window/window-manager";
 
 import { validateRemote } from "../remote/remote-validator";
 
@@ -18,6 +26,8 @@ export function registerIpcHandlers() {
     await waitForServer();
 
     await window.loadURL(`http://localhost:${port}`);
+
+    setConnected(true);
   });
 
   ipcMain.handle("connect-remote", async (_, url: string) => {
@@ -32,6 +42,8 @@ export function registerIpcHandlers() {
 
       await window.loadURL(url);
 
+      setConnected(true);
+
       return {
         success: true,
       };
@@ -41,5 +53,17 @@ export function registerIpcHandlers() {
         message: err instanceof Error ? err.message : String(err),
       };
     }
+  });
+
+  ipcMain.handle("disconnect", async () => {
+    stopBackend();
+
+    const window = getMainWindow();
+
+    if (window) {
+      window.loadFile(getLauncherPath());
+    }
+
+    setConnected(false);
   });
 }
