@@ -8,8 +8,9 @@ export async function validateRemote(url: string) {
   try {
     response = await fetch(endpoint);
   } catch (err) {
-    console.error("Fetch failed:", endpoint.toString(), err);
-    throw new Error("Server unreachable");
+    throw new Error("Server unreachable", {
+      cause: err,
+    });
   }
 
   if (!response.ok) {
