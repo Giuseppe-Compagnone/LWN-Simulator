@@ -5,18 +5,49 @@ import fs from "fs";
 import os from "os";
 import { exec } from "child_process";
 import { AppInfoResponse } from "@lwn-simulator/contracts";
+import net from "net";
 
 let backendProcess: ChildProcess | undefined;
 let mainWindow: BrowserWindow | undefined;
 
-function startBackend() {
+function isPortAvailable(port: number) {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+
+    server.once("error", () => {
+      resolve(false);
+    });
+
+    server.once("listening", () => {
+      server.close(() => resolve(true));
+    });
+
+    server.listen(port, "127.0.0.1");
+  });
+}
+
+async function findAvailablePort(startPort = 8080) {
+  let port = startPort;
+
+  while (!(await isPortAvailable(port))) {
+    port++;
+  }
+
+  return port;
+}
+
+async function startBackend() {
   const backendPath = app.isPackaged
     ? path.join(process.resourcesPath, "lwn-server")
     : path.join(process.cwd(), "assets", "lwn-server");
 
-  backendProcess = spawn(backendPath, [], {
+  const port = await findAvailablePort(8080);
+
+  backendProcess = spawn(backendPath, ["-p", String(port)], {
     stdio: "inherit",
   });
+
+  console.log(`Backend avviato sulla porta ${port}`);
 }
 
 function waitForServer() {
@@ -106,7 +137,7 @@ ipcMain.handle("connect-local", async () => {
 });
 
 async function validateRemote(url: string) {
-  const response = await fetch(`${url}/api/info`);
+  const response = await fetch(path.join(url, "/api/info"));
 
   if (!response.ok) {
     throw new Error("Server non raggiungibile");

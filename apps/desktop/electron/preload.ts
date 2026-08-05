@@ -6,6 +6,12 @@ contextBridge.exposeInMainWorld("electron", {
   },
 
   connectRemote(url: string) {
-    return ipcRenderer.invoke("connect-remote", url);
+    if (!/^https?:\/\//i.test(url)) {
+      url = `http://${url}`;
+    }
+
+    const parsed = new URL(url);
+
+    return ipcRenderer.invoke("connect-remote", parsed.toString());
   },
 });

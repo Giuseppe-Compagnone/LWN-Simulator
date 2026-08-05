@@ -1,6 +1,8 @@
 package main
 
 import (
+	"flag"
+	"fmt"
 	"log"
 
 	"lwn-simulator-backend/internal/server"
@@ -8,12 +10,21 @@ import (
 )
 
 func main() {
+	var port string
+
+	flag.StringVar(&port, "port", "8080", "Port to start the server on")
+	flag.StringVar(&port, "p", "8080", "Port to start the server on (short)")
+	flag.Parse()
+
 	app := server.New()
 
 	privateIP := utils.GetPrivateIP()
 
+	address := fmt.Sprintf(":%s", port)
+
 	log.Println("Server running:")
-	log.Println("  Local:   http://localhost:8080")
-	log.Printf("  Network: http://%s:8080\n", privateIP)
-	log.Fatal(app.Run(":8080"))
+	log.Printf("  Local:   http://localhost:%s\n", port)
+	log.Printf("  Network: http://%s:%s\n", privateIP, port)
+
+	log.Fatal(app.Run(address))
 }
