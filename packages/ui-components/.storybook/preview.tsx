@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 import type { Preview } from "@storybook/nextjs-vite";
 // @ts-expect-error
-import "../src/styles/main.scss";
-// @ts-expect-error
 import "./storybook.scss";
+// @ts-expect-error
+import "../src/styles/main.scss";
 import { ArgTypesEnhancer } from "storybook/internal/types";
+import { ToastContainer } from "react-toastify";
 
 const enumEnhancer: ArgTypesEnhancer = ({ argTypes }) => {
   return Object.fromEntries(
@@ -60,10 +61,10 @@ const preview: Preview = {
     theme: {
       name: "Theme",
       description: "Global Theme",
-      defaultValue: "light",
+      defaultValue: "light-theme",
       toolbar: {
         icon: "mirror",
-        items: ["light", "dark"],
+        items: ["light-theme", "dark-theme"],
       },
     },
   },
@@ -75,6 +76,7 @@ const preview: Preview = {
       return (
         <div className={`sb-wrapper-custom ${theme}`}>
           <Story />
+          <ToastContainer />
         </div>
       );
     },

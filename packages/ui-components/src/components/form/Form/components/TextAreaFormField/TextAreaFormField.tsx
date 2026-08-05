@@ -11,6 +11,7 @@ const TextAreaFormField = (props: TextAreaFormFieldProps) => {
           props.disabled && "disabled",
         )}
         value={props.value}
+        spellCheck={false}
         disabled={props.disabled}
         onChange={(e) => {
           let value = e.target.value;

@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 
 import Button from "./Button";
 import { ButtonFont, ButtonLayout, ButtonType } from "./Button.types";
+import { NotificationHandler } from "@/utils";
 
 const meta = {
   title: "ui-components/common/Button",
@@ -30,6 +31,7 @@ export const SecondaryButton: Story = {
     type: ButtonType.Secondary,
     onClick: (e) => {
       console.log("TARGET", e?.target);
+      NotificationHandler.instance.success("Click");
     },
   },
 };

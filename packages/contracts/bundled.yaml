@@ -6,10 +6,22 @@ info:
 paths: {}
 components:
   schemas:
-    Response:
+    AppInfoResponse:
+      title: AppInfoResponse
       type: object
       properties:
-        time:
+        app:
+          type: string
+        version:
           type: string
       required:
-        - time
+        - app
+        - version
+    StatusResponse:
+      title: StatusResponse
+      type: object
+      properties:
+        port:
+          type: string
+      required:
+        - port

@@ -1,31 +1,62 @@
 {
-  "name": "desktop",
+  "name": "@lwn-simulator/desktop",
   "version": "1.0.0",
-  "main": "main.js",
+  "desktopName": "lwn-simulator",
+  "main": "dist/main.js",
   "scripts": {
-    "start": "electron .",
-    "build": "electron-builder"
+    "compile": "tsc",
+    "start": "yarn compile && electron .",
+    "build": "rm -rf dist && yarn compile && electron-builder",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@lwn-simulator/contracts": "workspace:*"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/electron": "^1.6.12",
+    "@types/node": "^26.1.2",
     "electron": "38.0.0",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "eslint": "^9",
+    "globals": "^17.9.0",
+    "typescript": "^5",
+    "typescript-eslint": "^8.66.0"
   },
   "build": {
     "appId": "com.lwn.simulator",
-    "productName": "LWN Simulator",
+    "productName": "LWN-Simulator",
+    "executableName": "lwn-simulator",
+    "icon": "public/icon.png",
+    "directories": {
+      "app": ".",
+      "output": "dist"
+    },
     "files": [
-      "**/*"
+      "dist/**/*",
+      "package.json",
+      "assets/**/*"
     ],
     "extraResources": [
       {
         "from": "assets",
         "to": "."
+      },
+      {
+        "from": "public",
+        "to": "."
+      },
+      {
+        "from": "../launcher/out",
+        "to": "launcher/out"
       }
     ],
     "linux": {
       "target": [
         "AppImage"
-      ]
+      ],
+      "category": "Utility",
+      "syncDesktopName": true
     }
   }
 }

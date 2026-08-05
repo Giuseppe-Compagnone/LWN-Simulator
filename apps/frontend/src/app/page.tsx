@@ -2,21 +2,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Response } from "contracts";
+import { StatusResponse } from "@lwn-simulator/contracts";
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [time, setTime] = useState<Response | null>(null);
+  const [port, setPort] = useState<StatusResponse | null>(null);
 
   const getData = async (): Promise<void> => {
     setIsLoading(true);
 
-    const response = await fetch("http://localhost:8080/api/status");
+    const response = await fetch(`${window.location.origin}/api/status`);
 
-    const data: Response = await response.json();
+    const data: StatusResponse = await response.json();
 
     console.log("Data", data);
-    setTime(data);
+    setPort(data);
 
     setIsLoading(false);
   };
@@ -25,5 +25,7 @@ export default function Home() {
     getData();
   }, []);
 
-  return <div>{isLoading ? "Loading..." : time?.time}</div>;
+  return (
+    <div>{isLoading ? "Loading..." : `Running on port: ${port?.port}`}</div>
+  );
 }

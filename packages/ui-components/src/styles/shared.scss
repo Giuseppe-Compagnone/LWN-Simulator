@@ -32,3 +32,17 @@ body {
 body * {
   font-size: font-size(md);
 }
+
+/* stylelint-disable-next-line selector-class-pattern */
+.custom-toast.Toastify__toast.Toastify__toast-theme--dark {
+  --toastify-color-dark: var(--tertiary-bg-color);
+  --toastify-text-color-dark: var(--primary-text-color);
+
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
+  font-family: var(--secondary-font);
+
+  * {
+    font-family: var(--secondary-font);
+  }
+}

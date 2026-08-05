@@ -5,12 +5,12 @@ set -e
 
 ROOT_DIR=$(pwd)
 
-RELEASE_DIR="$ROOT_DIR/releases/desktop"
+VERSION=$(node -p "require('$ROOT_DIR/package.json').version")
 
-# Electron assets
+echo "Building version: $VERSION"
+
 DESKTOP_ASSETS="$ROOT_DIR/apps/desktop/assets"
-
-# Directory dove vive main.go con //go:embed
+RELEASE_DIR="$ROOT_DIR/releases/desktop"
 SERVER_DIR="$ROOT_DIR/apps/backend/cmd/server"
 
 
@@ -33,6 +33,7 @@ cd "$ROOT_DIR/packages/contracts"
 
 yarn build
 
+
 echo "Building components"
 
 cd "$ROOT_DIR/packages/ui-components"
@@ -46,34 +47,21 @@ cd "$ROOT_DIR/apps/frontend"
 yarn build
 
 
-echo "Copying frontend for Go embed"
-
-rm -rf "$SERVER_DIR/web"
-
-mkdir -p "$SERVER_DIR/web"
-
-cp -r out/* "$SERVER_DIR/web/"
-
-
 echo "Building backend"
 
 cd "$ROOT_DIR/apps/backend"
 
 go build \
+-ldflags "-X lwn-simulator-backend/version.AppVersion=$VERSION" \
 -o "$DESKTOP_ASSETS/lwn-server" \
 cmd/server/main.go
-
-
-echo "Cleaning embedded frontend"
-
-rm -rf "$SERVER_DIR/web"
 
 
 echo "Building Electron"
 
 cd "$ROOT_DIR/apps/desktop"
 
-yarn build
+VERSION=$VERSION yarn build
 
 
 echo "Copying release"

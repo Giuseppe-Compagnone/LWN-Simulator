@@ -1,20 +1,21 @@
 {
-  "name": "frontend",
+  "name": "@lwn-simulator/frontend",
   "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "ELECTRON_BUILD=true next build && yarn copy",
+    "copy": "../../scripts/copy-frontend.sh",
     "start": "next start",
     "lint:ts": "eslint",
     "lint:css": "stylelint \"src/**/*.scss\""
   },
   "dependencies": {
-    "contracts": "workspace:*",
+    "@lwn-simulator/contracts": "workspace:*",
+    "@lwn-simulator/ui-components": "workspace:*",
     "next": "16.2.10",
     "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "ui-components": "workspace:*"
+    "react-dom": "19.2.4"
   },
   "devDependencies": {
     "@types/node": "^20",
