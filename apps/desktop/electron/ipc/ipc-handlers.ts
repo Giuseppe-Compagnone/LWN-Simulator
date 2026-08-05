@@ -35,10 +35,10 @@ export function registerIpcHandlers() {
       return {
         success: true,
       };
-    } catch {
+    } catch (err) {
       return {
         success: false,
-        message: "Connection failed",
+        message: err instanceof Error ? err.message : String(err),
       };
     }
   });

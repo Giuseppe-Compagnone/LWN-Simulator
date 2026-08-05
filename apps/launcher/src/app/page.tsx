@@ -90,7 +90,7 @@ export default function Home() {
                     const result = await window.electron.connectRemote(
                       values["url"] as string,
                     );
-                    console.log("RESULT", result);
+                    console.log("\n\nRESULT", result);
                     if (!result.success) {
                       setLoadingText("");
                       setIsLoading(false);
