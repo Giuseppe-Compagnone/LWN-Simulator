@@ -1,4 +1,4 @@
-import { BrowserWindow, app } from "electron";
+import { BrowserWindow, app, shell } from "electron";
 import path from "path";
 import { createMenu } from "./window-menu";
 
@@ -15,6 +15,14 @@ export function createMainWindow() {
   });
 
   disconnectItem = createMenu();
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+
+    return {
+      action: "deny",
+    };
+  });
 
   mainWindow.loadFile(getLauncherPath());
 }
