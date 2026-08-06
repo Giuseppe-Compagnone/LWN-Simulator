@@ -8,7 +8,8 @@
     "copy": "../../scripts/copy-frontend.sh",
     "start": "next start",
     "lint:ts": "eslint",
-    "lint:css": "stylelint \"src/**/*.scss\""
+    "lint:css": "stylelint \"src/**/*.scss\"",
+    "gen-map": "tsx src/scripts/generate-map-themes.ts"
   },
   "dependencies": {
     "@lwn-simulator/contracts": "workspace:*",
@@ -31,6 +32,7 @@
     "stylelint-config-standard-scss": "^17.0.0",
     "stylelint-order": "^8.1.1",
     "stylelint-scss": "^7.2.0",
+    "tsx": "^4.23.9",
     "typescript": "^5"
   }
 }
