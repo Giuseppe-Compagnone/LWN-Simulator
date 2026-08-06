@@ -1,10 +1,11 @@
-import { Footer, Navbar, Sidebar } from "@/components";
 import "../styles/main.scss";
 import "@lwn-simulator/ui-components/styles.css";
 import "material-symbols/index.css";
 import { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import cn from "classnames";
+import { Footer, Navbar, Sidebar } from "@/components";
+import { ThemeServiceProvider } from "@/services";
 
 export const metadata: Metadata = {
   title: "LWN Simulator",
@@ -29,11 +30,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={cn("dark-theme", inter.variable, jetBrains.variable)}>
-        <Navbar />
-        <Sidebar>
-          {children}
-          <Footer />
-        </Sidebar>
+        <ThemeServiceProvider>
+          <Navbar />
+          <Sidebar>
+            {children}
+            <Footer />
+          </Sidebar>
+        </ThemeServiceProvider>
       </body>
     </html>
   );

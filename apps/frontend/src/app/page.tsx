@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { StatusResponse } from "@lwn-simulator/contracts";
+import { SensorMap } from "@/components";
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -29,6 +30,7 @@ export default function Home() {
 
   return (
     <div className="home-page page">
+      <SensorMap />
       {isLoading ? "Loading..." : `Running on port: ${port?.port}`}
     </div>
   );

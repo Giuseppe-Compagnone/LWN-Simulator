@@ -14,10 +14,12 @@
     "@lwn-simulator/contracts": "workspace:*",
     "@lwn-simulator/ui-components": "workspace:*",
     "classnames": "^2.5.1",
+    "maplibre-gl": "5.9.0",
     "material-symbols": "^0.45.10",
     "next": "16.2.10",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "react-map-gl": "^8.1.2"
   },
   "devDependencies": {
     "@types/node": "^20",

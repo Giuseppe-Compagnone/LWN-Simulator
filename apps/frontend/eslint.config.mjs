@@ -25,7 +25,7 @@ const eslintConfig = defineConfig([
         "error",
         {
           allowInterfaces: "with-single-extends",
-          allowWithName: ".*Props$",
+          allowWithName: ".*(Props|Content)$",
         },
       ],
     },
