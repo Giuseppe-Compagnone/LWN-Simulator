@@ -1,0 +1,65 @@
+// Navbar
+@use "@lwn-simulator/ui-components/scss/breakpoints" as *;
+
+.navbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100vw;
+  height: 4rem;
+  padding: 0 1rem;
+  background: var(--primary-bg-color);
+  border-bottom: 1px solid var(--border-color);
+
+  .app-name {
+    display: flex;
+    align-items: center;
+  }
+
+  .pages {
+    display: flex;
+    align-items: center;
+    gap: var(--gap);
+
+    nav {
+      position: relative;
+      font-weight: 500;
+      cursor: pointer;
+
+      a {
+        transition: all 0.2s ease-in-out;
+      }
+
+      @include hover {
+        a {
+          color: var(--primary-color);
+        }
+      }
+
+      &::after {
+        content: "";
+        position: absolute;
+        top: calc(100% + 0.3rem);
+        left: 0;
+        display: block;
+        height: 0.12rem;
+        border-radius: var(--radius-sm);
+        background: var(--primary-color);
+        transition: all 0.2s ease-in-out;
+      }
+
+      &.current {
+        a {
+          color: var(--primary-color);
+        }
+
+        &::after {
+          width: 100%;
+        }
+      }
+    }
+  }
+}

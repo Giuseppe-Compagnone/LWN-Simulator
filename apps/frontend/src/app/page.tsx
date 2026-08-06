@@ -28,6 +28,8 @@ export default function Home() {
   }, []);
 
   return (
-    <div>{isLoading ? "Loading..." : `Running on port: ${port?.port}`}</div>
+    <div className="home-page page">
+      {isLoading ? "Loading..." : `Running on port: ${port?.port}`}
+    </div>
   );
 }
