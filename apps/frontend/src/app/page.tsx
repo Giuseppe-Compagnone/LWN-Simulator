@@ -1,11 +1,11 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import { useEffect, useState } from "react";
 import { StatusResponse } from "@lwn-simulator/contracts";
+import { Button, ButtonType, PageHeader } from "@lwn-simulator/ui-components";
 import { SensorMap } from "@/components";
 
-export default function Home() {
+export default function HomePage() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [port, setPort] = useState<StatusResponse | null>(null);
 
@@ -30,6 +30,13 @@ export default function Home() {
 
   return (
     <div className="home-page page">
+      <PageHeader
+        title="Simulation Dashboard"
+        subTitle="View results, scenarios and performance in real time"
+      >
+        <Button value={"Start Simulation"} />
+        <Button value={"Stop"} type={ButtonType.Outlined} />
+      </PageHeader>
       <SensorMap />
       {isLoading ? "Loading..." : `Running on port: ${port?.port}`}
     </div>

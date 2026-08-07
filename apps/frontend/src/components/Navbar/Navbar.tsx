@@ -10,10 +10,18 @@ import {
 import { NavbarProps } from "./Navbar.types";
 import Link from "next/link";
 import { Theme, useThemeService } from "@lwn-simulator/ui-components";
+import cn from "classnames";
+import { usePathname } from "next/navigation";
 
 const Navbar = (props: NavbarProps) => {
+  const pages = [
+    { name: "Simulation", path: "/" },
+    { name: "Hardware", path: "/hardware/" },
+    { name: "Logs", path: "/logs/" },
+  ];
   // Hooks
   const themeLogic = useThemeService();
+  const pathname = usePathname();
 
   return (
     <header className="navbar">
@@ -22,18 +30,13 @@ const Navbar = (props: NavbarProps) => {
         <strong>LWN Simulator</strong>
       </div>
       <div className="pages">
-        <nav className="current">
-          <Link href="/">lorem</Link>
-        </nav>
-        <nav>
-          <Link href="/1">lorem</Link>
-        </nav>
-        <nav>
-          <Link href="/2">lorem</Link>
-        </nav>
-        <nav>
-          <Link href="/3">lorem</Link>
-        </nav>
+        {pages.map((page, i) => {
+          return (
+            <nav key={i} className={cn(pathname === page.path && "current")}>
+              <Link href={page.path}>{page.name}</Link>
+            </nav>
+          );
+        })}
       </div>
       <Button
         value={

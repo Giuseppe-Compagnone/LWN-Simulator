@@ -6,5 +6,8 @@
   justify-content: center;
   width: 50rem;
   height: 30rem;
+  border-radius: var(--radius-md);
+  overflow: hidden;
   background: var(--secondary-bg-color);
+  box-shadow: 0 0 5px #0003;
 }

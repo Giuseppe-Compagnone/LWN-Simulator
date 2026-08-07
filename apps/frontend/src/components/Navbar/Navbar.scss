@@ -43,12 +43,14 @@
         content: "";
         position: absolute;
         top: calc(100% + 0.3rem);
-        left: 0;
+        left: 50%;
         display: block;
+        width: 0;
         height: 0.12rem;
         border-radius: var(--radius-sm);
         background: var(--primary-color);
         transition: all 0.2s ease-in-out;
+        transform: translateX(-50%);
       }
 
       &.current {

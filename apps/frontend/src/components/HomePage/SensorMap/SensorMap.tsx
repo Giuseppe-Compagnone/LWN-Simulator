@@ -26,12 +26,6 @@ const SensorMap = (props: SensorMapProps) => {
 
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
-        console.log("Geolocation:", {
-          latitude: coords.latitude,
-          longitude: coords.longitude,
-          accuracy: coords.accuracy,
-        });
-
         setPosition({
           longitude: coords.longitude,
           latitude: coords.latitude,
@@ -69,6 +63,7 @@ const SensorMap = (props: SensorMapProps) => {
             ? "/dark-map-theme.json"
             : "/light-map-theme.json"
         }
+        attributionControl={false}
       />
     </div>
   );
