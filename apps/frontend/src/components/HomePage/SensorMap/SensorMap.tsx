@@ -26,6 +26,8 @@ const SensorMap = (props: SensorMapProps) => {
 
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
+        console.log("SUCCESS", coords.longitude, coords.latitude);
+
         setPosition({
           longitude: coords.longitude,
           latitude: coords.latitude,
@@ -34,10 +36,16 @@ const SensorMap = (props: SensorMapProps) => {
 
         setLoading(false);
       },
-      () => {
-        // Permission denied or another geolocation error
+      (error) => {
+        console.log("GEO ERROR", error.code, error.message);
+
         setPosition(DEFAULT_POSITION);
         setLoading(false);
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 15000,
+        maximumAge: 0,
       },
     );
   }, []);
