@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect } from "react";
 import { CheckboxFormFieldProps } from "./CheckboxFormField.types";
 import cn from "classnames";

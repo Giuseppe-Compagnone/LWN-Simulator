@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect } from "react";
 import { RadioFormFieldProps } from "./RadioFormField.types";
 import cn from "classnames";

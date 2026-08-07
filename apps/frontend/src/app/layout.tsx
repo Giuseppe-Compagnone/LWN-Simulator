@@ -3,12 +3,24 @@ import "@lwn-simulator/ui-components/styles.css";
 import "material-symbols/index.css";
 import { Metadata } from "next";
 import { Footer, Navbar, Sidebar } from "@/components";
-import { ThemeServiceProvider } from "@/services";
+import { Inter, JetBrains_Mono } from "next/font/google";
+import { ThemeServiceProvider } from "@lwn-simulator/ui-components";
+import cn from "classnames";
 
 export const metadata: Metadata = {
   title: "LWN Simulator",
   icons: ["./icon.png"],
 };
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--primary-font",
+});
+
+const jetBrains = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--secondary-font",
+});
 
 export default function RootLayout({
   children,
@@ -17,7 +29,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>
+      <body className={cn(inter.variable, jetBrains.variable)}>
         <ThemeServiceProvider>
           <Navbar />
           <Sidebar>

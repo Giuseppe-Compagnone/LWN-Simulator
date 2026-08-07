@@ -2,13 +2,13 @@
   "name": "@lwn-simulator/ui-components",
   "version": "0.1.0",
   "private": true,
-  "main": "./dist/index.mjs",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.mts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.mts",
-      "import": "./dist/index.mjs"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
     "./styles.css": "./dist/styles.css",
     "./scss/*": "./dist/scss/*"
@@ -17,10 +17,11 @@
     "dist"
   ],
   "scripts": {
-    "build:ts": "tsup",
+    "build:ts": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
     "build:css": "sass src/styles/main.scss dist/styles.css --no-source-map",
     "build:scss": "shx mkdir -p dist/scss && shx cp src/styles/breakpoints.scss src/styles/fonts.scss dist/scss",
-    "build": "yarn build:ts && yarn build:css && yarn build:scss",
+    "build:types": "shx mkdir -p dist/types && shx cp src/types/*.d.ts dist/types",
+    "build": "yarn build:ts && yarn build:css && yarn build:scss && yarn build:types",
     "lint:ts": "eslint",
     "lint:css": "stylelint \"src/**/*.scss\"",
     "storybook": "npx storybook dev -p 6006",
@@ -52,6 +53,7 @@
     "stylelint-config-standard-scss": "^17.0.0",
     "stylelint-order": "^8.1.1",
     "stylelint-scss": "^7.2.0",
+    "tsc-alias": "^1.9.1",
     "tsup": "^8.5.1",
     "typescript": "^5",
     "vite": "^8.1.5"

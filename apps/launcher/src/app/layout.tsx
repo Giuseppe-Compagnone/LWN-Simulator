@@ -5,6 +5,7 @@ import "material-symbols/index.css";
 import "./../styles/main.scss";
 import { ToastContainer } from "react-toastify";
 import cn from "classnames";
+import { ThemeServiceProvider } from "@lwn-simulator/ui-components";
 
 export const metadata: Metadata = {
   title: "LWN Simulator Desktop Launcher",
@@ -28,9 +29,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={cn("dark-theme", inter.variable, jetBrains.variable)}>
-        <main>{children}</main>
-        <ToastContainer />
+      <body className={cn(inter.variable, jetBrains.variable)}>
+        <ThemeServiceProvider>
+          <main>{children}</main>
+          <ToastContainer />
+        </ThemeServiceProvider>
       </body>
     </html>
   );

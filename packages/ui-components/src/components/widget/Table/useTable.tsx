@@ -1,3 +1,5 @@
+"use client";
+
 import { useMemo, useState } from "react";
 import { TableLogic, TableRecordItemSort, UseTableProps } from "./Table.types";
 

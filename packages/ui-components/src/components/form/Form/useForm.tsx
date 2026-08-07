@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { FormField, FormLogic, FormValue, UseFormProps } from "./Form.types";
 

@@ -1,3 +1,5 @@
+"use client";
+
 import { Button } from "@/components/common";
 import { FormProps } from "./Form.types";
 import { useForm } from "./useForm";

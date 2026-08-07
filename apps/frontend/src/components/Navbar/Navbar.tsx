@@ -9,7 +9,7 @@ import {
 } from "@lwn-simulator/ui-components";
 import { NavbarProps } from "./Navbar.types";
 import Link from "next/link";
-import { Theme, useThemeService } from "@/services";
+import { Theme, useThemeService } from "@lwn-simulator/ui-components";
 
 const Navbar = (props: NavbarProps) => {
   // Hooks

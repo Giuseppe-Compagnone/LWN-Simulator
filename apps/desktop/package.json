@@ -10,7 +10,8 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@lwn-simulator/contracts": "workspace:*"
+    "@lwn-simulator/contracts": "workspace:*",
+    "electron-store": "^11.0.2"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { PopupLogic, UsePopupProps } from "./Popup.types";
 

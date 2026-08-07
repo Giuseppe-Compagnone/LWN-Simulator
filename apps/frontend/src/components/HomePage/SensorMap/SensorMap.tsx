@@ -3,7 +3,7 @@
 import { SensorMapProps } from "./SensorMap.types";
 import Map from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { Theme, useThemeService } from "@/services";
+import { Theme, useThemeService } from "@lwn-simulator/ui-components";
 
 const SensorMap = (props: SensorMapProps) => {
   // Hooks

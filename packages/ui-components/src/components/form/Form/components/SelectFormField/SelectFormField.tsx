@@ -1,3 +1,5 @@
+"use client";
+
 import { CSSProperties, useEffect, useMemo, useState } from "react";
 import { SelectFormFieldProps } from "./SelectFormField.types";
 import cn from "classnames";
