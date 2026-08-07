@@ -1,6 +1,9 @@
 "use client";
 
 import { createContext } from "react";
-import { ThemeServiceContent } from "./ThemeService.types";
+import { Theme, ThemeServiceContent } from "./ThemeService.types";
 
-export const ThemeServiceContext = createContext<ThemeServiceContent>({});
+export const ThemeServiceContext = createContext<ThemeServiceContent>({
+  theme: Theme.Dark,
+  setTheme: () => {},
+});

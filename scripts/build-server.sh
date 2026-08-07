@@ -45,7 +45,7 @@ echo "Building frontend"
 
 cd "$ROOT_DIR/apps/frontend"
 
-yarn build
+VERSION=$VERSION yarn build
 
 
 echo "Building backend"
