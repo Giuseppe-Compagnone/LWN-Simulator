@@ -1,10 +1,20 @@
 "use client";
 
-import { Logo, LogoSize } from "@lwn-simulator/ui-components";
+import {
+  Button,
+  ButtonLayout,
+  ButtonType,
+  Logo,
+  LogoSize,
+} from "@lwn-simulator/ui-components";
 import { NavbarProps } from "./Navbar.types";
 import Link from "next/link";
+import { Theme, useThemeService } from "@/services";
 
 const Navbar = (props: NavbarProps) => {
+  // Hooks
+  const themeLogic = useThemeService();
+
   return (
     <header className="navbar">
       <div className="app-name">
@@ -25,6 +35,20 @@ const Navbar = (props: NavbarProps) => {
           <Link href="/3">lorem</Link>
         </nav>
       </div>
+      <Button
+        value={
+          <span className="material-symbols-outlined icon">
+            {themeLogic.theme === Theme.Light ? "bedtime" : "sunny"}
+          </span>
+        }
+        layout={ButtonLayout.Icon}
+        type={ButtonType.Outlined}
+        onClick={() => {
+          themeLogic.setTheme(
+            themeLogic.theme === Theme.Light ? Theme.Dark : Theme.Light,
+          );
+        }}
+      />
     </header>
   );
 };
