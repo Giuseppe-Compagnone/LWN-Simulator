@@ -1195,6 +1195,17 @@ const genTheme = (theme: Theme): typeof template => {
     },
   });
 
+  setColor(res, "poi_z16", {
+    layout: {
+      "text-anchor": "top",
+      "text-field": "{name}",
+      "text-font": ["Roboto Condensed Italic"],
+      "text-max-width": 9,
+      "text-offset": [0, 0.6],
+      "text-size": 12,
+    },
+  });
+
   setColor(res, "poi_z15", {
     paint: {
       "text-color": theme.text,
@@ -1204,12 +1215,34 @@ const genTheme = (theme: Theme): typeof template => {
     },
   });
 
+  setColor(res, "poi_z15", {
+    layout: {
+      "text-anchor": "top",
+      "text-field": "{name}",
+      "text-font": ["Roboto Condensed Italic"],
+      "text-max-width": 9,
+      "text-offset": [0, 0.6],
+      "text-size": 12,
+    },
+  });
+
   setColor(res, "poi_z14", {
     paint: {
       "text-color": theme.text,
       "text-halo-blur": 0.5,
       "text-halo-color": theme.halo,
       "text-halo-width": 1,
+    },
+  });
+
+  setColor(res, "poi_z14", {
+    layout: {
+      "text-anchor": "top",
+      "text-field": "{name}",
+      "text-font": ["Roboto Condensed Italic"],
+      "text-max-width": 9,
+      "text-offset": [0, 0.6],
+      "text-size": 12,
     },
   });
 
@@ -1294,6 +1327,26 @@ const genTheme = (theme: Theme): typeof template => {
       "text-color": theme.text,
       "text-halo-color": theme.halo,
       "text-halo-width": 1,
+    },
+  });
+
+  setColor(res, "poi_transit", {
+    paint: {
+      "text-color": theme.text,
+      "text-halo-blur": 0.5,
+      "text-halo-color": theme.halo,
+      "text-halo-width": 1,
+    },
+  });
+
+  setColor(res, "poi_transit", {
+    layout: {
+      "text-anchor": "left",
+      "text-field": "{name_en}",
+      "text-font": ["Roboto Condensed Italic"],
+      "text-max-width": 9,
+      "text-offset": [0.9, 0],
+      "text-size": 12,
     },
   });
 

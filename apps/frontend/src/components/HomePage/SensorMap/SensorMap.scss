@@ -1,6 +1,10 @@
 // SensorMap
 
 .sensor-map {
-  width: 800px;
-  height: 500px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 50rem;
+  height: 30rem;
+  background: var(--secondary-bg-color);
 }

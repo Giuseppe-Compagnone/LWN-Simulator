@@ -28,7 +28,6 @@ const ThemeServiceProvider = (props: ThemeServiceProviderProps) => {
 
   // Effects
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDefaultTheme();
   }, []);
 

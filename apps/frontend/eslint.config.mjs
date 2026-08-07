@@ -28,6 +28,7 @@ const eslintConfig = defineConfig([
           allowWithName: ".*(Props|Content)$",
         },
       ],
+      "react-hooks/set-state-in-effect": "off",
     },
   },
 ]);
