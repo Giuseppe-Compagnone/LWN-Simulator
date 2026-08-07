@@ -1,16 +1,18 @@
 const storage = {
-  get(key: string) {
+  get: (key: string): Promise<string | null> => {
     if (window.electron) {
       return window.electron.getStorage(key);
     }
 
-    return localStorage.getItem(key);
+    return Promise.resolve(localStorage.getItem(key));
   },
 
-  set(key: string, value: string) {
+  set: async (key: string, value: string): Promise<void> => {
     localStorage.setItem(key, value);
 
-    window.electron?.syncStorage(key, value);
+    if (window.electron) {
+      await window.electron.syncStorage(key, value);
+    }
   },
 };
 

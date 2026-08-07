@@ -12,7 +12,7 @@ declare global {
 
       disconnect(): Promise<void>;
 
-      getStorage(key: string): Promise<string | undefined>;
+      getStorage(key: string): Promise<string | null>;
 
       syncStorage(key: string, value: string): Promise<void>;
     };

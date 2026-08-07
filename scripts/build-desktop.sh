@@ -56,6 +56,11 @@ go build \
 -o "$DESKTOP_ASSETS/lwn-server" \
 cmd/server/main.go
 
+echo "Building launcher"
+
+cd "$ROOT_DIR/apps/launcher"
+
+VERSION=$VERSION yarn build
 
 echo "Building Electron"
 

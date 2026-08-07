@@ -10,12 +10,11 @@ const ThemeServiceProvider = (props: ThemeServiceProviderProps) => {
   // States
   const [theme, setTheme] = useState<Theme>(Theme.Dark);
 
-  // Effects
-  useEffect(() => {
-    const cached = storage.get("theme");
+  // Functions
+  const setDefaultTheme = async () => {
+    const cached = await storage.get("theme");
 
     if (cached) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTheme(cached as Theme);
       return;
     }
@@ -25,6 +24,12 @@ const ThemeServiceProvider = (props: ThemeServiceProviderProps) => {
     ).matches;
 
     setTheme(prefersDark ? Theme.Dark : Theme.Light);
+  };
+
+  // Effects
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDefaultTheme();
   }, []);
 
   useEffect(() => {
