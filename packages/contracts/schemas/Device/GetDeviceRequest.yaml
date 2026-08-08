@@ -5,7 +5,8 @@ properties:
   id:
     type: string
     x-go-name: ID
-    validate: "required,len=36"
+    x-oapi-codegen-extra-tags:
+      validate: "required,len=36"
 
 required:
   - id

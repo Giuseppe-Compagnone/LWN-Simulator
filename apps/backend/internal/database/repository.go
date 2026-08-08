@@ -26,6 +26,30 @@ func (r *JSONRepository[T]) GetAll() ([]T, error) {
 	return r.load()
 }
 
+func (r *JSONRepository[T]) GetByID(
+	id string,
+	idGetter func(T) string,
+) (T, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	items, err := r.load()
+	if err != nil {
+		var zero T
+		return zero, err
+	}
+
+	for _, item := range items {
+		if idGetter(item) == id {
+			return item, nil
+		}
+	}
+
+	var zero T
+
+	return zero, fmt.Errorf("item with id %q not found", id)
+}
+
 func (r *JSONRepository[T]) Save(items []T) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

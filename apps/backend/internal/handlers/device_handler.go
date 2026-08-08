@@ -28,21 +28,11 @@ func NewDeviceHandler(
 func (h *DeviceHandler) CreateDevice(c *gin.Context) {
 	var req contracts.CreateDeviceRequest
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid request body",
-		})
+	if !bindAndValidate(c, h.validator, &req) {
 		return
 	}
 
-	if err := h.validator.Struct(req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-
-	device, err := h.service.CreateDevice(req)
+	res, err := h.service.CreateDevice(req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
@@ -50,7 +40,23 @@ func (h *DeviceHandler) CreateDevice(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, contracts.CreateDeviceResponse{
-		Device: device,
-	})
+	c.JSON(http.StatusCreated, res)
+}
+
+func (h *DeviceHandler) GetDevice(c *gin.Context) {
+	var req contracts.GetDeviceRequest
+
+	if !bindAndValidate(c, h.validator, &req) {
+		return
+	}
+
+	res, err := h.service.GetDevice(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, res)
 }

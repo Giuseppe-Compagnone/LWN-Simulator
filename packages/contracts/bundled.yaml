@@ -73,6 +73,25 @@ components:
           $ref: '#/components/schemas/Device'
       required:
         - device
+    GetDeviceRequest:
+      title: GetDeviceRequest
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36
+      required:
+        - id
+    GetDeviceResponse:
+      title: GetDeviceResponse
+      type: object
+      properties:
+        device:
+          $ref: '#/components/schemas/Device'
+      required:
+        - device
     Gateway:
       title: Gateway
       type: object

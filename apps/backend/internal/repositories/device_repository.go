@@ -26,3 +26,9 @@ func (r *DeviceRepository) GetAll() ([]contracts.Device, error) {
 func (r *DeviceRepository) Save(devices []contracts.Device) error {
 	return r.repository.Save(devices)
 }
+
+func (r *DeviceRepository) GetByID(id string) (contracts.Device, error) {
+	return r.repository.GetByID(id, func(device contracts.Device) string {
+		return device.ID
+	})
+}
