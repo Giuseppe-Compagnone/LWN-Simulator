@@ -30,6 +30,7 @@ func registerRoutes(r *gin.Engine, port string, services Services) {
 	device.GET("/get-device/:id", deviceHandler.GetDevice)
 	device.GET("/get-devices", deviceHandler.GetDevices)
 	device.PUT("/update-device/:id", deviceHandler.UpdateDevice)
+	device.DELETE("/delete-device/:id", deviceHandler.DeleteDevice)
 
 	gateway := api.Group("/gateway")
 

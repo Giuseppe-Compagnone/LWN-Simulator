@@ -38,3 +38,7 @@ func (r *DeviceRepository) GetByID(id string) (contracts.Device, error) {
 func (r *DeviceRepository) Update(device contracts.Device) error {
 	return r.repository.Update(device.ID, device, deviceIdGetter)
 }
+
+func (r *DeviceRepository) Delete(device contracts.Device) error {
+	return r.repository.Delete(device.ID, deviceIdGetter)
+}

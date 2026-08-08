@@ -80,6 +80,35 @@ func (r *JSONRepository[T]) Update(
 	return fmt.Errorf("item with id %q not found", id)
 }
 
+func (r *JSONRepository[T]) Delete(
+	id string,
+	idGetter func(T) string,
+) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	items, err := r.load()
+	if err != nil {
+		return err
+	}
+
+	for i, item := range items {
+		if idGetter(item) != id {
+			continue
+		}
+
+		items = append(items[:i], items[i+1:]...)
+
+		if err := r.save(items); err != nil {
+			return fmt.Errorf("delete item with id %q: %w", id, err)
+		}
+
+		return nil
+	}
+
+	return fmt.Errorf("item with id %q not found", id)
+}
+
 func (r *JSONRepository[T]) Save(items []T) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

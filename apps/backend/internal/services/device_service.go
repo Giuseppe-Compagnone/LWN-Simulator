@@ -117,3 +117,22 @@ func (s *DeviceService) UpdateDevice(
 		Device: device,
 	}, nil
 }
+
+func (s *DeviceService) DeleteDevice(
+	req contracts.DeleteDeviceRequest,
+) (contracts.DeleteDeviceResponse, error) {
+	device, err := s.repository.GetByID(req.ID)
+
+	if err != nil {
+		return contracts.DeleteDeviceResponse{}, fmt.Errorf("get device by id: %w", err)
+	}
+
+	if err := s.repository.Delete(device); err != nil {
+		return contracts.DeleteDeviceResponse{}, fmt.Errorf(
+			"delete device: %w",
+			err,
+		)
+	}
+
+	return contracts.DeleteDeviceResponse{}, nil
+}

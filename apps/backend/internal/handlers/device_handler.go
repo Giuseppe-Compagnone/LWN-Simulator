@@ -100,3 +100,21 @@ func (h *DeviceHandler) UpdateDevice(c *gin.Context) {
 
 	c.JSON(http.StatusOK, res)
 }
+
+func (h *DeviceHandler) DeleteDevice(c *gin.Context) {
+	var req contracts.DeleteDeviceRequest
+
+	if !bindUriAndValidate(c, h.validator, &req) {
+		return
+	}
+
+	res, err := h.service.DeleteDevice(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusNoContent, res)
+}

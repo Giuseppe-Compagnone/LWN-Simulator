@@ -143,6 +143,25 @@ components:
           $ref: '#/components/schemas/Device'
       required:
         - device
+    DeleteDeviceRequest:
+      title: GetDeviceRequest
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+          x-go-json-ignore: true
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36
+            uri: id
+      required:
+        - id
+    DeleteDeviceResponse:
+      title: GetDevicesResponse
+      type: object
+      x-go-type: struct{}
+      additionalProperties: false
+      properties: {}
     Gateway:
       title: Gateway
       type: object
