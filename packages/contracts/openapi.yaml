@@ -13,3 +13,11 @@ components:
       $ref: "./schemas/AppInfoResponse.yaml"
     StatusResponse:
       $ref: "./schemas/StatusResponse.yaml"
+    Device:
+      $ref: "./schemas/Device/Device.yaml"
+    CreateDeviceRequest:
+      $ref: "./schemas/Device/CreateDeviceRequest.yaml"
+    CreateDeviceResponse:
+      $ref: "./schemas/Device/CreateDeviceResponse.yaml"
+    Gateway:
+      $ref: "./schemas/Gateway/Gateway.yaml"

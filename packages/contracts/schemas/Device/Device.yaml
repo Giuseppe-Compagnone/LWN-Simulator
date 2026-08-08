@@ -1,0 +1,19 @@
+title: Device
+type: object
+
+properties:
+  id:
+    type: string
+    x-go-name: ID
+  devEUI:
+    type: string
+  latitude:
+    type: number
+  longitude:
+    type: number
+
+required:
+  - id
+  - devEUI
+  - latitude
+  - longitude

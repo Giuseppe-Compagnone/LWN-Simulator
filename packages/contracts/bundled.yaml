@@ -25,3 +25,61 @@ components:
           type: string
       required:
         - port
+    Device:
+      title: Device
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+        devEUI:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+      required:
+        - id
+        - devEUI
+        - latitude
+        - longitude
+    CreateDeviceRequest:
+      title: CreateDeviceRequest
+      type: object
+      properties:
+        devEUI:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+      required:
+        - devEUI
+        - latitude
+        - longitude
+    CreateDeviceResponse:
+      title: CreateDeviceResponse
+      type: object
+      properties:
+        device:
+          $ref: '#/components/schemas/Device'
+      required:
+        - device
+    Gateway:
+      title: Gateway
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+        gatewayEUI:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+      required:
+        - id
+        - gatewayEUI
+        - latitude
+        - longitude

@@ -1,0 +1,108 @@
+package database
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sync"
+)
+
+type JSONRepository[T any] struct {
+	path string
+	mu   sync.RWMutex
+}
+
+// NewJSONRepository creates a repository backed by a JSON file.
+func NewJSONRepository[T any](dataDir string, filename string) *JSONRepository[T] {
+	return &JSONRepository[T]{
+		path: filepath.Join(dataDir, filename),
+	}
+}
+
+// GetAll returns all records stored in the JSON file.
+func (r *JSONRepository[T]) GetAll() ([]T, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	return r.load()
+}
+
+// Save replaces all records stored in the JSON file.
+func (r *JSONRepository[T]) Save(items []T) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return r.save(items)
+}
+
+func (r *JSONRepository[T]) load() ([]T, error) {
+	data, err := os.ReadFile(r.path)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", r.path, err)
+	}
+
+	var items []T
+
+	if len(data) == 0 {
+		return []T{}, nil
+	}
+
+	if err := json.Unmarshal(data, &items); err != nil {
+		return nil, fmt.Errorf("decode %s: %w", r.path, err)
+	}
+
+	return items, nil
+}
+
+func (r *JSONRepository[T]) save(items []T) error {
+	data, err := json.MarshalIndent(items, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode %s: %w", r.path, err)
+	}
+
+	data = append(data, '\n')
+
+	if err := os.MkdirAll(filepath.Dir(r.path), 0755); err != nil {
+		return fmt.Errorf("create directory for %s: %w", r.path, err)
+	}
+
+	// Write to a temporary file first, then replace the original.
+	// This prevents leaving a partially written JSON file if the
+	// application is interrupted during the write.
+	temp, err := os.CreateTemp(filepath.Dir(r.path), ".tmp-*.json")
+	if err != nil {
+		return fmt.Errorf("create temporary file for %s: %w", r.path, err)
+	}
+
+	tempPath := temp.Name()
+
+	defer func() {
+		_ = os.Remove(tempPath)
+	}()
+
+	if err := temp.Chmod(0644); err != nil {
+		_ = temp.Close()
+		return fmt.Errorf("set permissions for %s: %w", tempPath, err)
+	}
+
+	if _, err := temp.Write(data); err != nil {
+		_ = temp.Close()
+		return fmt.Errorf("write temporary file %s: %w", tempPath, err)
+	}
+
+	if err := temp.Sync(); err != nil {
+		_ = temp.Close()
+		return fmt.Errorf("sync temporary file %s: %w", tempPath, err)
+	}
+
+	if err := temp.Close(); err != nil {
+		return fmt.Errorf("close temporary file %s: %w", tempPath, err)
+	}
+
+	if err := os.Rename(tempPath, r.path); err != nil {
+		return fmt.Errorf("replace %s: %w", r.path, err)
+	}
+
+	return nil
+}
