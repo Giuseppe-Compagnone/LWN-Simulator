@@ -2,18 +2,24 @@ package services
 
 import (
 	"fmt"
-	"lwn-simulator-backend/internal/repositories"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/google/uuid"
 )
 
+type DeviceRepository interface {
+	GetAll() ([]contracts.Device, error)
+	GetByID(id string) (contracts.Device, error)
+	Save(devices []contracts.Device) error
+	Update(device contracts.Device) error
+	Delete(device contracts.Device) error
+}
 type DeviceService struct {
-	repository *repositories.DeviceRepository
+	repository DeviceRepository
 }
 
 func NewDeviceService(
-	repository *repositories.DeviceRepository,
+	repository DeviceRepository,
 ) *DeviceService {
 	return &DeviceService{
 		repository: repository,

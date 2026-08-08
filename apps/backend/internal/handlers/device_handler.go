@@ -6,17 +6,37 @@ import (
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
-
-	"lwn-simulator-backend/internal/services"
 )
 
+type DeviceService interface {
+	CreateDevice(
+		req contracts.CreateDeviceRequest,
+	) (contracts.CreateDeviceResponse, error)
+
+	GetDevice(
+		req contracts.GetDeviceRequest,
+	) (contracts.GetDeviceResponse, error)
+
+	GetDevices(
+		req contracts.GetDevicesRequest,
+	) (contracts.GetDevicesResponse, error)
+
+	UpdateDevice(
+		req contracts.UpdateDeviceRequest,
+	) (contracts.UpdateDeviceResponse, error)
+
+	DeleteDevice(
+		req contracts.DeleteDeviceRequest,
+	) (contracts.DeleteDeviceResponse, error)
+}
+
 type DeviceHandler struct {
-	service   *services.DeviceService
+	service   DeviceService
 	validator *validator.Validate
 }
 
 func NewDeviceHandler(
-	service *services.DeviceService,
+	service DeviceService,
 	validator *validator.Validate,
 ) *DeviceHandler {
 	return &DeviceHandler{
@@ -64,10 +84,6 @@ func (h *DeviceHandler) GetDevice(c *gin.Context) {
 func (h *DeviceHandler) GetDevices(c *gin.Context) {
 	var req contracts.GetDevicesRequest
 
-	if !bindUriAndValidate(c, h.validator, &req) {
-		return
-	}
-
 	res, err := h.service.GetDevices(req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -108,7 +124,7 @@ func (h *DeviceHandler) DeleteDevice(c *gin.Context) {
 		return
 	}
 
-	res, err := h.service.DeleteDevice(req)
+	_, err := h.service.DeleteDevice(req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
@@ -116,5 +132,5 @@ func (h *DeviceHandler) DeleteDevice(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusNoContent, res)
+	c.Status(http.StatusNoContent)
 }
