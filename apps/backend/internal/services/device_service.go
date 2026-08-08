@@ -84,3 +84,36 @@ func (s *DeviceService) GetDevices(
 		Devices: &devices,
 	}, nil
 }
+
+func (s *DeviceService) UpdateDevice(
+	req contracts.UpdateDeviceRequest,
+) (contracts.UpdateDeviceResponse, error) {
+	device, err := s.repository.GetByID(req.ID)
+
+	if err != nil {
+		return contracts.UpdateDeviceResponse{}, fmt.Errorf("get device by id: %w", err)
+	}
+
+	if req.DevEUI != nil {
+		device.DevEUI = *req.DevEUI
+	}
+
+	if req.Latitude != nil {
+		device.Latitude = *req.Latitude
+	}
+
+	if req.Longitude != nil {
+		device.Longitude = *req.Longitude
+	}
+
+	if err := s.repository.Update(device); err != nil {
+		return contracts.UpdateDeviceResponse{}, fmt.Errorf(
+			"update device: %w",
+			err,
+		)
+	}
+
+	return contracts.UpdateDeviceResponse{
+		Device: device,
+	}, nil
+}

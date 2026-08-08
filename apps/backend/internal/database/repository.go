@@ -50,6 +50,36 @@ func (r *JSONRepository[T]) GetByID(
 	return zero, fmt.Errorf("item with id %q not found", id)
 }
 
+func (r *JSONRepository[T]) Update(
+	id string,
+	item T,
+	idGetter func(T) string,
+) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	items, err := r.load()
+	if err != nil {
+		return err
+	}
+
+	for i, existing := range items {
+		if idGetter(existing) != id {
+			continue
+		}
+
+		items[i] = item
+
+		if err := r.save(items); err != nil {
+			return fmt.Errorf("update item with id %q: %w", id, err)
+		}
+
+		return nil
+	}
+
+	return fmt.Errorf("item with id %q not found", id)
+}
+
 func (r *JSONRepository[T]) Save(items []T) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

@@ -19,6 +19,10 @@ func NewDeviceRepository(dataDir string) *DeviceRepository {
 	}
 }
 
+func deviceIdGetter(device contracts.Device) string {
+	return device.ID
+}
+
 func (r *DeviceRepository) GetAll() ([]contracts.Device, error) {
 	return r.repository.GetAll()
 }
@@ -28,7 +32,9 @@ func (r *DeviceRepository) Save(devices []contracts.Device) error {
 }
 
 func (r *DeviceRepository) GetByID(id string) (contracts.Device, error) {
-	return r.repository.GetByID(id, func(device contracts.Device) string {
-		return device.ID
-	})
+	return r.repository.GetByID(id, deviceIdGetter)
+}
+
+func (r *DeviceRepository) Update(device contracts.Device) error {
+	return r.repository.Update(device.ID, device, deviceIdGetter)
 }

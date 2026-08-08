@@ -78,3 +78,25 @@ func (h *DeviceHandler) GetDevices(c *gin.Context) {
 
 	c.JSON(http.StatusOK, res)
 }
+
+func (h *DeviceHandler) UpdateDevice(c *gin.Context) {
+	var req contracts.UpdateDeviceRequest
+
+	if !bindUriAndValidate(c, h.validator, &req) {
+		return
+	}
+
+	if !bindJSONAndValidate(c, h.validator, &req) {
+		return
+	}
+
+	res, err := h.service.UpdateDevice(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, res)
+}
