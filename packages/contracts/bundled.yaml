@@ -82,6 +82,7 @@ components:
           x-go-name: ID
           x-oapi-codegen-extra-tags:
             validate: required,len=36
+            uri: id
       required:
         - id
     GetDeviceResponse:

@@ -28,7 +28,7 @@ func NewDeviceHandler(
 func (h *DeviceHandler) CreateDevice(c *gin.Context) {
 	var req contracts.CreateDeviceRequest
 
-	if !bindAndValidate(c, h.validator, &req) {
+	if !bindJSONAndValidate(c, h.validator, &req) {
 		return
 	}
 
@@ -46,7 +46,7 @@ func (h *DeviceHandler) CreateDevice(c *gin.Context) {
 func (h *DeviceHandler) GetDevice(c *gin.Context) {
 	var req contracts.GetDeviceRequest
 
-	if !bindAndValidate(c, h.validator, &req) {
+	if !bindUriAndValidate(c, h.validator, &req) {
 		return
 	}
 
