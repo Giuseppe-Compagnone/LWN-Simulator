@@ -50,7 +50,7 @@ components:
         devEUI:
           type: string
           x-oapi-codegen-extra-tags:
-            validate: required
+            validate: required,len=16
         latitude:
           type: number
           x-go-type: '*float32'
@@ -98,7 +98,7 @@ components:
         gatewayEUI:
           type: string
           x-oapi-codegen-extra-tags:
-            validate: required
+            validate: required,len=16
         latitude:
           type: number
           x-go-type: '*float32'

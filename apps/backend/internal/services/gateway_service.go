@@ -5,22 +5,18 @@ import (
 	"lwn-simulator-backend/internal/repositories"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
-	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 )
 
 type GatewayService struct {
 	repository *repositories.GatewayRepository
-	validator  *validator.Validate
 }
 
 func NewGatewayService(
 	repository *repositories.GatewayRepository,
-	validator *validator.Validate,
 ) *GatewayService {
 	return &GatewayService{
 		repository: repository,
-		validator:  validator,
 	}
 }
 

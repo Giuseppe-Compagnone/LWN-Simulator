@@ -9,7 +9,8 @@ import (
 )
 
 type Services struct {
-	Device *services.DeviceService
+	Device  *services.DeviceService
+	Gateway *services.GatewayService
 }
 
 func registerRoutes(r *gin.Engine, port string, services Services) {
@@ -27,4 +28,10 @@ func registerRoutes(r *gin.Engine, port string, services Services) {
 	deviceHandler := handlers.NewDeviceHandler(services.Device, validator)
 
 	device.POST("/create-device", deviceHandler.CreateDevice)
+
+	gateway := api.Group("/gateway")
+
+	gatewayHandler := handlers.NewGatewayHandler(services.Gateway, validator)
+
+	gateway.POST("/create-gateway", gatewayHandler.CreateGateway)
 }

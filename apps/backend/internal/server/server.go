@@ -55,10 +55,14 @@ func New(port string) *gin.Engine {
 	deviceRepository := repositories.NewDeviceRepository(dataDir)
 	deviceService := services.NewDeviceService(deviceRepository)
 
+	gatewayRepository := repositories.NewGatewayRepository(dataDir)
+	gatewayService := services.NewGatewayService(gatewayRepository)
+
 	registerMiddleware(r)
 
 	registerRoutes(r, port, Services{
-		Device: deviceService,
+		Device:  deviceService,
+		Gateway: gatewayService,
 	})
 
 	registerFrontend(r)
