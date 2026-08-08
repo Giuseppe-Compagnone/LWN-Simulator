@@ -93,6 +93,22 @@ components:
           $ref: '#/components/schemas/Device'
       required:
         - device
+    GetDevicesRequest:
+      title: GetDevicesRequest
+      type: object
+      x-go-type: struct{}
+      additionalProperties: false
+      properties: {}
+    GetDevicesResponse:
+      title: GetDeviceResponse
+      type: object
+      properties:
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/Device'
+      required:
+        - device
     Gateway:
       title: Gateway
       type: object

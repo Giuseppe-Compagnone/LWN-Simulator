@@ -28,6 +28,7 @@ func registerRoutes(r *gin.Engine, port string, services Services) {
 
 	device.POST("/create-device", deviceHandler.CreateDevice)
 	device.GET("/get-device/:id", deviceHandler.GetDevice)
+	device.GET("/get-devices", deviceHandler.GetDevices)
 
 	gateway := api.Group("/gateway")
 

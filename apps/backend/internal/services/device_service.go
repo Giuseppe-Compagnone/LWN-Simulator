@@ -70,3 +70,17 @@ func (s *DeviceService) GetDevice(
 		Device: device,
 	}, nil
 }
+
+func (s *DeviceService) GetDevices(
+	req contracts.GetDevicesRequest,
+) (contracts.GetDevicesResponse, error) {
+	devices, err := s.repository.GetAll()
+
+	if err != nil {
+		return contracts.GetDevicesResponse{}, fmt.Errorf("get all devices: %w", err)
+	}
+
+	return contracts.GetDevicesResponse{
+		Devices: &devices,
+	}, nil
+}

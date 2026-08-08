@@ -23,6 +23,10 @@ components:
       $ref: "./schemas/Device/GetDeviceRequest.yaml"
     GetDeviceResponse:
       $ref: "./schemas/Device/GetDeviceResponse.yaml"
+    GetDevicesRequest:
+      $ref: "./schemas/Device/GetDevicesRequest.yaml"
+    GetDevicesResponse:
+      $ref: "./schemas/Device/GetDevicesResponse.yaml"
     Gateway:
       $ref: "./schemas/Gateway/Gateway.yaml"
     CreateGatewayRequest:

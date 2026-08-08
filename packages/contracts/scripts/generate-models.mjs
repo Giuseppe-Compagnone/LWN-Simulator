@@ -13,22 +13,36 @@ if (!schemasSection) {
   throw new Error("Schemas section not found");
 }
 
-const schemas = [
-  ...schemasSection[1].matchAll(/^\s{8}(\w+): \{([\s\S]*?)^\s{8}\};/gm),
-];
+const schemasContent = schemasSection[1];
 
 let result = "";
 
-for (const schema of schemas) {
+// Empty schemas:
+// GetDevicesRequest: Record<string, never>;
+for (const schema of schemasContent.matchAll(
+  /^\s{8}(\w+): Record<string, never>;\s*$/gm,
+)) {
+  const name = schema[1].charAt(0).toUpperCase() + schema[1].slice(1);
+
+  result += `export interface ${name} {}\n\n`;
+}
+
+// Normal schemas:
+// Device: {
+//   id: string;
+//   ...
+// };
+for (const schema of schemasContent.matchAll(
+  /^\s{8}(\w+): \{([\s\S]*?)^\s{8}\};/gm,
+)) {
   const name = schema[1].charAt(0).toUpperCase() + schema[1].slice(1);
 
   let body = schema[2];
 
-  // Convert openapi-typescript schema references:
   // components["schemas"]["Device"] -> Device
   body = body.replace(/components\["schemas"\]\["(\w+)"\]/g, "$1");
 
-  // Remove the indentation inherited from openapi-typescript
+  // Remove indentation inherited from openapi-typescript
   body = body
     .split("\n")
     .map((line) => line.replace(/^ {8}/, ""))
