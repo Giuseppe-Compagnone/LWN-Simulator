@@ -1,8 +1,8 @@
-title: CreateDeviceRequest
+title: CreateGatewayRequest
 type: object
 
 properties:
-  devEUI:
+  gatewayEUI:
     type: string
     x-oapi-codegen-extra-tags:
       validate: required
@@ -18,6 +18,6 @@ properties:
       validate: "required,min=-180,max=180"
 
 required:
-  - devEUI
+  - gatewayEUI
   - latitude
   - longitude

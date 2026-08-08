@@ -2,6 +2,7 @@ package server
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 
 	"lwn-simulator-backend/internal/handlers"
 	"lwn-simulator-backend/internal/services"
@@ -13,6 +14,8 @@ type Services struct {
 
 func registerRoutes(r *gin.Engine, port string, services Services) {
 
+	validator := validator.New()
+
 	api := r.Group("/api")
 
 	api.GET("/info", handlers.Info)
@@ -21,7 +24,7 @@ func registerRoutes(r *gin.Engine, port string, services Services) {
 
 	device := api.Group("/device")
 
-	deviceHandler := handlers.NewDeviceHandler(services.Device)
+	deviceHandler := handlers.NewDeviceHandler(services.Device, validator)
 
 	device.POST("/create-device", deviceHandler.CreateDevice)
 }

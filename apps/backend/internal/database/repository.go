@@ -13,14 +13,12 @@ type JSONRepository[T any] struct {
 	mu   sync.RWMutex
 }
 
-// NewJSONRepository creates a repository backed by a JSON file.
 func NewJSONRepository[T any](dataDir string, filename string) *JSONRepository[T] {
 	return &JSONRepository[T]{
 		path: filepath.Join(dataDir, filename),
 	}
 }
 
-// GetAll returns all records stored in the JSON file.
 func (r *JSONRepository[T]) GetAll() ([]T, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -28,7 +26,6 @@ func (r *JSONRepository[T]) GetAll() ([]T, error) {
 	return r.load()
 }
 
-// Save replaces all records stored in the JSON file.
 func (r *JSONRepository[T]) Save(items []T) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -67,9 +64,6 @@ func (r *JSONRepository[T]) save(items []T) error {
 		return fmt.Errorf("create directory for %s: %w", r.path, err)
 	}
 
-	// Write to a temporary file first, then replace the original.
-	// This prevents leaving a partially written JSON file if the
-	// application is interrupted during the write.
 	temp, err := os.CreateTemp(filepath.Dir(r.path), ".tmp-*.json")
 	if err != nil {
 		return fmt.Errorf("create temporary file for %s: %w", r.path, err)

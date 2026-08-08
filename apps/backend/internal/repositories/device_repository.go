@@ -12,10 +12,10 @@ type DeviceRepository struct {
 
 func NewDeviceRepository(dataDir string) *DeviceRepository {
 	return &DeviceRepository{
-		repository: database.NewJSONRepository[contracts.Device](
+		repository: (*database.JSONRepository[contracts.Device])(database.NewJSONRepository[contracts.Device](
 			dataDir,
 			"devices.json",
-		),
+		)),
 	}
 }
 

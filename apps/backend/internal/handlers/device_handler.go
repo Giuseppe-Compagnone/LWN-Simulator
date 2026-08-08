@@ -5,17 +5,23 @@ import (
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 
 	"lwn-simulator-backend/internal/services"
 )
 
 type DeviceHandler struct {
-	service *services.DeviceService
+	service   *services.DeviceService
+	validator *validator.Validate
 }
 
-func NewDeviceHandler(service *services.DeviceService) *DeviceHandler {
+func NewDeviceHandler(
+	service *services.DeviceService,
+	validator *validator.Validate,
+) *DeviceHandler {
 	return &DeviceHandler{
-		service: service,
+		service:   service,
+		validator: validator,
 	}
 }
 
@@ -25,6 +31,13 @@ func (h *DeviceHandler) CreateDevice(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "invalid request body",
+		})
+		return
+	}
+
+	if err := h.validator.Struct(req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
 		})
 		return
 	}

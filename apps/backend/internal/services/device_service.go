@@ -20,15 +20,9 @@ func NewDeviceService(
 	}
 }
 
-// CreateDevice creates a new device after validating the request
-// and checking that the DevEUI is not already in use.
 func (s *DeviceService) CreateDevice(
 	req contracts.CreateDeviceRequest,
 ) (contracts.Device, error) {
-
-	if err := validateCreateDeviceRequest(req); err != nil {
-		return contracts.Device{}, err
-	}
 
 	devices, err := s.repository.GetAll()
 	if err != nil {
@@ -47,8 +41,8 @@ func (s *DeviceService) CreateDevice(
 	device := contracts.Device{
 		ID:        uuid.NewString(),
 		DevEUI:    req.DevEUI,
-		Latitude:  req.Latitude,
-		Longitude: req.Longitude,
+		Latitude:  *req.Latitude,
+		Longitude: *req.Longitude,
 	}
 
 	devices = append(devices, device)
@@ -58,22 +52,4 @@ func (s *DeviceService) CreateDevice(
 	}
 
 	return device, nil
-}
-
-func validateCreateDeviceRequest(
-	req contracts.CreateDeviceRequest,
-) error {
-	if req.DevEUI == "" {
-		return fmt.Errorf("devEUI is required")
-	}
-
-	if req.Latitude < -90 || req.Latitude > 90 {
-		return fmt.Errorf("latitude must be between -90 and 90")
-	}
-
-	if req.Longitude < -180 || req.Longitude > 180 {
-		return fmt.Errorf("longitude must be between -180 and 180")
-	}
-
-	return nil
 }
