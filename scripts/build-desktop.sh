@@ -41,6 +41,13 @@ cd "$ROOT_DIR/packages/ui-components"
 yarn build
 
 
+echo "Building SDK"
+
+cd "$ROOT_DIR/packages/sdk"
+
+yarn build
+
+
 echo "Building frontend"
 
 cd "$ROOT_DIR/apps/frontend"
