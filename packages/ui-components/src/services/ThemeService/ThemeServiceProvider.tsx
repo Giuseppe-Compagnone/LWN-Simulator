@@ -5,6 +5,7 @@ import { Theme, ThemeServiceProviderProps } from "./ThemeService.types";
 import { ThemeServiceContext } from "./ThemeServiceContext";
 import cn from "classnames";
 import storage from "@/utils/storage";
+import { ThemeService } from "./ThemeService";
 
 const ThemeServiceProvider = (props: ThemeServiceProviderProps) => {
   // States
@@ -12,18 +13,9 @@ const ThemeServiceProvider = (props: ThemeServiceProviderProps) => {
 
   // Functions
   const setDefaultTheme = async () => {
-    const cached = await storage.get("theme");
+    const defaultTheme = await ThemeService.instance.getDefaultTheme();
 
-    if (cached) {
-      setTheme(cached as Theme);
-      return;
-    }
-
-    const prefersDark = window.matchMedia(
-      "(prefers-color-scheme: dark)",
-    ).matches;
-
-    setTheme(prefersDark ? Theme.Dark : Theme.Light);
+    setTheme(defaultTheme);
   };
 
   // Effects

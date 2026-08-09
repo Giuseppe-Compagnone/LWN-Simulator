@@ -36,6 +36,7 @@
   },
   "devDependencies": {
     "@lwn-simulator/contracts": "workspace:*",
+    "@lwn-simulator/sdk": "workspace:*",
     "@storybook/addon-docs": "10.5.5",
     "@storybook/nextjs-vite": "^10.5.4",
     "@types/node": "^20",
@@ -60,6 +61,7 @@
   },
   "peerDependencies": {
     "@lwn-simulator/contracts": "workspace:*",
+    "@lwn-simulator/sdk": "workspace:*",
     "material-symbols": "^0.45.9",
     "react-toastify": "^11.1.0"
   }

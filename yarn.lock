@@ -1474,7 +1474,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@lwn-simulator/sdk@workspace:packages/sdk":
+"@lwn-simulator/sdk@workspace:*, @lwn-simulator/sdk@workspace:packages/sdk":
   version: 0.0.0-use.local
   resolution: "@lwn-simulator/sdk@workspace:packages/sdk"
   dependencies:
@@ -1502,6 +1502,7 @@ __metadata:
   resolution: "@lwn-simulator/ui-components@workspace:packages/ui-components"
   dependencies:
     "@lwn-simulator/contracts": "workspace:*"
+    "@lwn-simulator/sdk": "workspace:*"
     "@storybook/addon-docs": "npm:10.5.5"
     "@storybook/nextjs-vite": "npm:^10.5.4"
     "@types/node": "npm:^20"
@@ -1530,6 +1531,7 @@ __metadata:
     vite: "npm:^8.1.5"
   peerDependencies:
     "@lwn-simulator/contracts": "workspace:*"
+    "@lwn-simulator/sdk": "workspace:*"
     material-symbols: ^0.45.9
     react-toastify: ^11.1.0
   languageName: unknown
