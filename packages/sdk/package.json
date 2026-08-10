@@ -12,12 +12,13 @@
     }
   },
   "scripts": {
-    "build": "yarn build:esm && yarn build:cjs",
+    "build": "rm -rf dist && yarn build:esm && yarn build:cjs",
     "build:esm": "tsc --outDir dist/esm",
     "build:cjs": "tsc -p tsconfig.cjs.json"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@lwn-simulator/contracts": "workspace:*",
     "eslint": "^10.8.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react": "^7.37.5",
@@ -30,6 +31,7 @@
     "typescript-eslint": "^8.66.0"
   },
   "peerDependencies": {
+    "@lwn-simulator/contracts": "workspace:*",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "typescript": "^5"

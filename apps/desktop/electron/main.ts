@@ -16,7 +16,6 @@ app.whenReady().then(() => {
 
   session.defaultSession.setPermissionRequestHandler(
     (webContents, permission, callback) => {
-      console.log("PERMISSION", permission);
       if (permission === "geolocation") {
         callback(true);
       } else {

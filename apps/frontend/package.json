@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@lwn-simulator/contracts": "workspace:*",
+    "@lwn-simulator/sdk": "workspace:*",
     "@lwn-simulator/ui-components": "workspace:*",
     "classnames": "^2.5.1",
     "maplibre-gl": "5.9.0",

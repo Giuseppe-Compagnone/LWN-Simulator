@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@lwn-simulator/sdk": "workspace:*",
     "@lwn-simulator/ui-components": "workspace:*",
     "classnames": "^2.5.1",
     "material-symbols": "^0.45.10",

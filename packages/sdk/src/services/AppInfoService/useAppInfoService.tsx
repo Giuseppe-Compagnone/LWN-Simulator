@@ -1,7 +1,7 @@
 import { useContext } from "react";
 import AppInfoServiceContext from "./AppInfoServiceContext";
 
-const useAppInfoService = () => {
+export const useAppInfoService = () => {
   const context = useContext(AppInfoServiceContext);
 
   if (context === undefined) {

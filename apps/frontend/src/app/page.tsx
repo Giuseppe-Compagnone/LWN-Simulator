@@ -1,25 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { StatusResponse } from "@lwn-simulator/contracts";
 import { Button, ButtonType, PageHeader } from "@lwn-simulator/ui-components";
 import { SensorMap } from "@/components";
+import { useAppInfoService } from "@lwn-simulator/sdk";
 
 export default function HomePage() {
+  // States
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [port, setPort] = useState<StatusResponse | null>(null);
+  const [port, setPort] = useState<string | null>(null);
 
+  // Hooks
+  const appInfo = useAppInfoService();
+
+  // Functions
   const getData = async (): Promise<void> => {
     setIsLoading(true);
 
-    const response = await fetch(
-      `${process.env.NODE_ENV === "development" ? "http://localhost:8080" : window.location.origin}/api/status`,
-    );
-
-    const data: StatusResponse = await response.json();
+    const data = await appInfo.status();
 
     console.log("Data", data);
-    setPort(data);
+    setPort(data.port);
 
     setIsLoading(false);
   };
@@ -38,7 +39,7 @@ export default function HomePage() {
         <Button value={"Stop"} type={ButtonType.Outlined} />
       </PageHeader>
       <SensorMap />
-      {isLoading ? "Loading..." : `Running on port: ${port?.port}`}
+      {isLoading ? "Loading..." : `Running on port: ${port}`}
     </div>
   );
 }

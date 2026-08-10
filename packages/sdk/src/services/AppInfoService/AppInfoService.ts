@@ -1,3 +1,4 @@
+import { StatusResponse } from "@lwn-simulator/contracts";
 import { BaseService } from "../../models";
 
 export class AppInfoService extends BaseService {
@@ -14,4 +15,10 @@ export class AppInfoService extends BaseService {
   constructor() {
     super("app-info");
   }
+
+  public status = async (): Promise<StatusResponse> => {
+    const res: StatusResponse = await this.apiCaller.get("/status");
+
+    return res;
+  };
 }

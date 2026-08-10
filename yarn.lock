@@ -1408,6 +1408,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@lwn-simulator/desktop-launcher@workspace:apps/launcher"
   dependencies:
+    "@lwn-simulator/sdk": "workspace:*"
     "@lwn-simulator/ui-components": "workspace:*"
     "@types/node": "npm:^20"
     "@types/react": "npm:^19"
@@ -1452,6 +1453,7 @@ __metadata:
   resolution: "@lwn-simulator/frontend@workspace:apps/frontend"
   dependencies:
     "@lwn-simulator/contracts": "workspace:*"
+    "@lwn-simulator/sdk": "workspace:*"
     "@lwn-simulator/ui-components": "workspace:*"
     "@types/node": "npm:^20"
     "@types/react": "npm:^19"
@@ -1479,6 +1481,7 @@ __metadata:
   resolution: "@lwn-simulator/sdk@workspace:packages/sdk"
   dependencies:
     "@eslint/js": "npm:^10.0.1"
+    "@lwn-simulator/contracts": "workspace:*"
     axios: "npm:^1.19.0"
     eslint: "npm:^10.8.1"
     eslint-config-prettier: "npm:^10.1.8"
@@ -1491,6 +1494,7 @@ __metadata:
     typescript: "npm:^5"
     typescript-eslint: "npm:^8.66.0"
   peerDependencies:
+    "@lwn-simulator/contracts": "workspace:*"
     react: ^19.2.8
     react-dom: ^19.2.8
     typescript: ^5

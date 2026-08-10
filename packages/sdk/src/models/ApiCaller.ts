@@ -1,12 +1,25 @@
 import axios, { AxiosRequestConfig } from "axios";
 
 export class ApiCaller {
-  constructor(private readonly baseUrl: string) {}
+  constructor(private readonly serviceName: string) {
+    this.serviceName = serviceName;
+  }
+
+  public static baseUrl: string | null = null;
+
+  public static joinUrl(base: string, path: string) {
+    return new URL(
+      path.replace(/^\/+/, ""),
+      `${base.replace(/\/+$/, "")}/`,
+    ).toString();
+  }
 
   private async request<T>(config: AxiosRequestConfig): Promise<T> {
+    if (!ApiCaller.baseUrl) throw new Error("BaseUrl is undefined");
+
     const response = await axios<T>({
       ...config,
-      baseURL: this.baseUrl,
+      baseURL: ApiCaller.joinUrl(ApiCaller.baseUrl, this.serviceName),
     });
 
     return response.data;

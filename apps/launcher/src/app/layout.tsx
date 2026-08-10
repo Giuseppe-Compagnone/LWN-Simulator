@@ -6,6 +6,7 @@ import "./../styles/main.scss";
 import { ToastContainer } from "react-toastify";
 import cn from "classnames";
 import { ThemeServiceProvider } from "@lwn-simulator/ui-components";
+import { AppInfoServiceProvider } from "@lwn-simulator/sdk";
 
 export const metadata: Metadata = {
   title: "LWN Simulator Desktop Launcher",
@@ -31,8 +32,12 @@ export default function RootLayout({
     <html lang="en">
       <body className={cn(inter.variable, jetBrains.variable)}>
         <ThemeServiceProvider>
-          <main>{children}</main>
-          <ToastContainer />
+          <AppInfoServiceProvider
+            baseUrl={`${process.env.NODE_ENV === "development" ? "http://localhost:8080" : window.location.origin}/api`}
+          >
+            <main>{children}</main>
+            <ToastContainer />
+          </AppInfoServiceProvider>
         </ThemeServiceProvider>
       </body>
     </html>
