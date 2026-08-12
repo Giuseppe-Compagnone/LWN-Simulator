@@ -1,7 +1,7 @@
 "use client";
 
 import { SensorMapProps } from "./SensorMap.types";
-import Map from "react-map-gl/maplibre";
+import Map, { Layer, Marker, Source } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Spinner, Theme, useThemeService } from "@lwn-simulator/ui-components";
 import { useEffect, useState } from "react";
@@ -13,7 +13,7 @@ const DEFAULT_POSITION = {
 };
 
 const SensorMap = (props: SensorMapProps) => {
-  const themeLogic = useThemeService();
+  const themeService = useThemeService();
 
   const [position, setPosition] = useState(DEFAULT_POSITION);
   const [loading, setLoading] = useState(true);
@@ -46,6 +46,28 @@ const SensorMap = (props: SensorMapProps) => {
     );
   }, []);
 
+  const markerA = {
+    longitude: 9.19,
+    latitude: 45.4642,
+  };
+
+  const markerB = {
+    longitude: 9.19,
+    latitude: 45.4742,
+  };
+
+  const lineGeoJSON = {
+    type: "Feature" as const,
+    geometry: {
+      type: "LineString" as const,
+      coordinates: [
+        [markerA.longitude, markerA.latitude],
+        [markerB.longitude, markerB.latitude],
+      ],
+    },
+    properties: {},
+  };
+
   if (loading) {
     return (
       <div className="sensor-map">
@@ -63,14 +85,46 @@ const SensorMap = (props: SensorMapProps) => {
           height: "100%",
         }}
         mapStyle={
-          themeLogic.theme === Theme.Dark
+          themeService.theme === Theme.Dark
             ? "/dark-map-theme.json"
             : "/light-map-theme.json"
         }
         attributionControl={false}
         dragRotate={false}
         touchZoomRotate={false}
-      />
+      >
+        <Source id="marker-line" type="geojson" data={lineGeoJSON}>
+          <Layer
+            id="marker-line-layer"
+            type="line"
+            paint={{
+              "line-color":
+                themeService.theme === Theme.Dark ? "#38bdf8" : "#005cff",
+              "line-width": 3,
+              "line-opacity": 0.8,
+              "line-dasharray": [2, 2],
+            }}
+          />
+        </Source>
+        <Marker
+          longitude={markerA.longitude}
+          latitude={markerA.latitude}
+          anchor="center"
+        >
+          <span className="material-symbols-outlined marker sensor-marker">
+            sensors
+          </span>
+        </Marker>
+        <Marker
+          longitude={markerB.longitude}
+          latitude={markerB.latitude}
+          anchor="center"
+        >
+          <span className="material-symbols-outlined marker gateway-marker">
+            router
+          </span>
+        </Marker>
+      </Map>
     </div>
   );
 };

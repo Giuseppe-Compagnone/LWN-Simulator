@@ -306,7 +306,7 @@ func TestDeviceHandler_GetDevices(t *testing.T) {
 			name: "returns devices",
 			service: &mockDeviceService{
 				getDevicesResponse: contracts.GetDevicesResponse{
-					Devices: &[]contracts.Device{
+					Devices: []contracts.Device{
 						{
 							ID:     testDeviceID1,
 							DevEUI: "0102030405060708",

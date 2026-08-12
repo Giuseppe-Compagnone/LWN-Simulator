@@ -10,4 +10,20 @@
   overflow: hidden;
   background: var(--secondary-bg-color);
   box-shadow: 0 0 5px #0003;
+
+  .marker {
+    text-shadow:
+      -1px -1px 0 var(--base-color),
+      1px -1px 0 var(--base-color),
+      -1px 1px 0 var(--base-color),
+      1px 1px 0 var(--base-color);
+
+    &.sensor-marker {
+      color: var(--primary-color);
+    }
+
+    &.gateway-marker {
+      color: var(--secondary-color);
+    }
+  }
 }

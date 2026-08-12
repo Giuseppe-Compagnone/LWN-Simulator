@@ -410,10 +410,10 @@ func TestDeviceService_GetDevices(t *testing.T) {
 				t.Fatal("GetDevices() returned nil Devices")
 			}
 
-			if !reflect.DeepEqual(*got.Devices, tt.want) {
+			if !reflect.DeepEqual(got.Devices, tt.want) {
 				t.Errorf(
 					"GetDevices() = %v, want %v",
-					*got.Devices,
+					got.Devices,
 					tt.want,
 				)
 			}

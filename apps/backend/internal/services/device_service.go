@@ -87,7 +87,7 @@ func (s *DeviceService) GetDevices(
 	}
 
 	return contracts.GetDevicesResponse{
-		Devices: &devices,
+		Devices: devices,
 	}, nil
 }
 
