@@ -8,4 +8,4 @@ properties:
       $ref: "./Device.yaml"
 
 required:
-  - device
+  - devices

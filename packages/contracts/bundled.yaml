@@ -109,7 +109,7 @@ components:
           items:
             $ref: '#/components/schemas/Device'
       required:
-        - device
+        - devices
     UpdateDeviceRequest:
       title: UpdateDeviceRequest
       type: object

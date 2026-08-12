@@ -4,7 +4,13 @@ import {
   DeviceServiceProviderProps,
 } from "./DeviceService.types";
 import DeviceServiceContext from "./DeviceServiceContext";
-import { CreateDeviceRequest, Device } from "@lwn-simulator/contracts";
+import {
+  CreateDeviceRequest,
+  DeleteDeviceRequest,
+  Device,
+  GetDeviceRequest,
+  UpdateDeviceRequest,
+} from "@lwn-simulator/contracts";
 import { DeviceService } from "./DeviceService";
 
 const DeviceServiceProvider = (props: DeviceServiceProviderProps) => {
@@ -16,10 +22,41 @@ const DeviceServiceProvider = (props: DeviceServiceProviderProps) => {
     [],
   );
 
+  const getDevice = useCallback(
+    async (req: GetDeviceRequest): Promise<Device> => {
+      return DeviceService.instance.getDevice(req);
+    },
+    [],
+  );
+
+  const getDevices = useCallback(async (): Promise<Array<Device>> => {
+    return DeviceService.instance.getDevices();
+  }, []);
+
+  const updateDevice = useCallback(
+    async (req: UpdateDeviceRequest): Promise<Device> => {
+      return DeviceService.instance.updateDevice(req);
+    },
+    [],
+  );
+
+  const deleteDevice = useCallback(
+    async (req: DeleteDeviceRequest): Promise<void> => {
+      return DeviceService.instance.deleteDevice(req);
+    },
+    [],
+  );
+
   // Memos
   const value = useMemo(
-    (): DeviceServiceContent => ({ createDevice }),
-    [createDevice],
+    (): DeviceServiceContent => ({
+      createDevice,
+      getDevice,
+      getDevices,
+      updateDevice,
+      deleteDevice,
+    }),
+    [createDevice, getDevice, getDevices, updateDevice, deleteDevice],
   );
 
   return (

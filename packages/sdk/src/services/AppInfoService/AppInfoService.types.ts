@@ -3,9 +3,23 @@ import { PropsWithChildren } from "react";
 
 /**
  * Represents the content exposed by the application information service.
+ *
+ * Provides methods for retrieving the application's current status and
+ * application information from the configured backend.
  */
 export interface AppInfoServiceContent {
+  /**
+   * Retrieves the current application status.
+   *
+   * @returns A promise resolving to the application's status information.
+   */
   status: () => Promise<StatusResponse>;
+
+  /**
+   * Retrieves information about the application.
+   *
+   * @returns A promise resolving to the application's information.
+   */
   appInfo: () => Promise<AppInfoResponse>;
 }
 

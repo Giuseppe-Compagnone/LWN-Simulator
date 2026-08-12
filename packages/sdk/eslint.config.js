@@ -54,15 +54,15 @@ export default tseslint.config(
     },
 
     rules: {
-      // React
       "react/jsx-uses-react": "off",
       "react/react-in-jsx-scope": "off",
       "react/prop-types": "off",
+      "@typescript-eslint/no-empty-object-type": "off",
 
-      // React Hooks
       ...reactHooks.configs.recommended.rules,
 
-      // React Refresh
+      "react-hooks/immutability": "off",
+
       "react-refresh/only-export-components": [
         "warn",
         {
@@ -70,10 +70,10 @@ export default tseslint.config(
         },
       ],
 
-      // TypeScript
       "@typescript-eslint/no-explicit-any": "warn",
+
       "@typescript-eslint/no-unused-vars": [
-        "warn",
+        "error",
         {
           argsIgnorePattern: "^_",
           varsIgnorePattern: "^_",
@@ -81,7 +81,8 @@ export default tseslint.config(
         },
       ],
 
-      // General
+      "no-unused-vars": "off",
+
       "no-console": "warn",
       "no-debugger": "warn",
       "no-duplicate-imports": "error",
@@ -89,6 +90,5 @@ export default tseslint.config(
     },
   },
 
-  // Prettier deve essere l'ultimo config
   prettier,
 );
