@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Button, ButtonType, PageHeader } from "@lwn-simulator/ui-components";
 import { SensorMap } from "@/components";
-import { useAppInfoService } from "@lwn-simulator/sdk";
+import { useAppInfoService, useDeviceService } from "@lwn-simulator/sdk";
 
 export default function HomePage() {
   // States
@@ -11,14 +11,15 @@ export default function HomePage() {
   const [port, setPort] = useState<string | null>(null);
 
   // Hooks
-  const appInfo = useAppInfoService();
+  const appInfoService = useAppInfoService();
+  const deviceService = useDeviceService();
 
   // Effects
   useEffect(() => {
     const getData = async (): Promise<void> => {
       setIsLoading(true);
 
-      const data = await appInfo.status();
+      const data = await appInfoService.status();
       console.log("Data", data);
       setPort(data.port);
 
@@ -26,7 +27,7 @@ export default function HomePage() {
     };
 
     getData();
-  }, [appInfo]);
+  }, [appInfoService]);
 
   return (
     <div className="home-page page">
@@ -34,7 +35,22 @@ export default function HomePage() {
         title="Simulation Dashboard"
         subTitle="View results, scenarios and performance in real time"
       >
-        <Button value={"Start Simulation"} />
+        <Button
+          value={"Start Simulation"}
+          onClick={async () => {
+            try {
+              const device = await deviceService.createDevice({
+                devEUI: "70B3D57ED0000001",
+                latitude: 45.4642,
+                longitude: 9.19,
+              });
+
+              console.log("DEVICE", device);
+            } catch (err) {
+              console.log(err);
+            }
+          }}
+        />
         <Button value={"Stop"} type={ButtonType.Outlined} />
       </PageHeader>
       <SensorMap />

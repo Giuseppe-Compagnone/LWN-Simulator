@@ -1,3 +1,8 @@
+import {
+  CreateDeviceRequest,
+  CreateDeviceResponse,
+  Device,
+} from "@lwn-simulator/contracts";
 import { BaseService } from "../../models";
 
 export class DeviceService extends BaseService {
@@ -14,4 +19,13 @@ export class DeviceService extends BaseService {
   private constructor() {
     super("device");
   }
+
+  public createDevice = async (req: CreateDeviceRequest): Promise<Device> => {
+    const device: CreateDeviceResponse = await this.apiCaller.post(
+      "/create-device",
+      req,
+    );
+
+    return device.device;
+  };
 }

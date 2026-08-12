@@ -13,7 +13,7 @@ import { AppInfoResponse, StatusResponse } from "@lwn-simulator/contracts";
 const AppInfoServiceProvider = (props: AppInfoServiceProviderProps) => {
   ApiCaller.baseUrl = props.baseUrl;
 
-  // Functions
+  // Callbacks
   const status = useCallback(async (): Promise<StatusResponse> => {
     return AppInfoService.instance.status();
   }, []);

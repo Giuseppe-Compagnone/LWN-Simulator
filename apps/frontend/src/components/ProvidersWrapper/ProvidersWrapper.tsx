@@ -2,7 +2,10 @@
 
 import { ThemeServiceProvider } from "@lwn-simulator/ui-components";
 import { ProvidersWrapperProps } from "./ProvidersWrapper.types";
-import { AppInfoServiceProvider } from "@lwn-simulator/sdk";
+import {
+  AppInfoServiceProvider,
+  DeviceServiceProvider,
+} from "@lwn-simulator/sdk";
 import Navbar from "../Navbar";
 import Sidebar from "../Sidebar";
 import Footer from "../Footer";
@@ -21,11 +24,13 @@ const ProvidersWrapper = (props: ProvidersWrapperProps) => {
   return (
     <ThemeServiceProvider>
       <AppInfoServiceProvider baseUrl={origin}>
-        <Navbar />
-        <Sidebar>
-          {props.children}
-          <Footer />
-        </Sidebar>
+        <DeviceServiceProvider>
+          <Navbar />
+          <Sidebar>
+            {props.children}
+            <Footer />
+          </Sidebar>
+        </DeviceServiceProvider>
       </AppInfoServiceProvider>
     </ThemeServiceProvider>
   );
