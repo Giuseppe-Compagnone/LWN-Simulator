@@ -13,21 +13,20 @@ export default function HomePage() {
   // Hooks
   const appInfo = useAppInfoService();
 
-  // Functions
-  const getData = async (): Promise<void> => {
-    setIsLoading(true);
-
-    const data = await appInfo.status();
-
-    console.log("Data", data);
-    setPort(data.port);
-
-    setIsLoading(false);
-  };
-
+  // Effects
   useEffect(() => {
+    const getData = async (): Promise<void> => {
+      setIsLoading(true);
+
+      const data = await appInfo.status();
+      console.log("Data", data);
+      setPort(data.port);
+
+      setIsLoading(false);
+    };
+
     getData();
-  }, []);
+  }, [appInfo]);
 
   return (
     <div className="home-page page">

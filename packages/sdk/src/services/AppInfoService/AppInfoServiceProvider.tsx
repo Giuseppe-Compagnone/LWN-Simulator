@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppInfoServiceProviderProps } from "./AppInfoService.types";
 import AppInfoServiceContext from "./AppInfoServiceContext";
 import { ApiCaller } from "../../models";
@@ -8,26 +8,23 @@ import { AppInfoService } from "./AppInfoService";
 import { StatusResponse } from "@lwn-simulator/contracts";
 
 const AppInfoServiceProvider = (props: AppInfoServiceProviderProps) => {
-  // States
-  const [canMount, setCanMount] = useState<boolean>(false);
+  ApiCaller.baseUrl = props.baseUrl;
 
-  // Effects
-  useEffect(() => {
-    ApiCaller.baseUrl = props.baseUrl;
-    setCanMount(true);
-  }, [props.baseUrl]);
+  const status = useCallback(async (): Promise<StatusResponse> => {
+    return AppInfoService.instance.status();
+  }, []);
 
-  // Functions
-  const status = async (): Promise<StatusResponse> => {
-    return await AppInfoService.instance.status();
-  };
+  const value = useMemo(
+    () => ({
+      status,
+    }),
+    [status],
+  );
 
-  return canMount ? (
-    <AppInfoServiceContext.Provider value={{ status }}>
+  return (
+    <AppInfoServiceContext.Provider value={value}>
       {props.children}
     </AppInfoServiceContext.Provider>
-  ) : (
-    <></>
   );
 };
 
