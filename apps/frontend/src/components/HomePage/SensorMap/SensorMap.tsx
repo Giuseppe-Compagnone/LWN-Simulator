@@ -68,6 +68,8 @@ const SensorMap = (props: SensorMapProps) => {
             : "/light-map-theme.json"
         }
         attributionControl={false}
+        dragRotate={false}
+        touchZoomRotate={false}
       />
     </div>
   );
