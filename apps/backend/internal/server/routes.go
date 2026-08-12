@@ -21,8 +21,10 @@ func registerRoutes(r *gin.Engine, port string, services Services) {
 
 	appInfo := api.Group("/app-info")
 
-	appInfo.GET("/info", handlers.Info)
-	appInfo.GET("/status", handlers.Status(port))
+	appInfoHandler := handlers.NewAppInfoHandler()
+
+	appInfo.GET("/info", appInfoHandler.Info)
+	appInfo.GET("/status", appInfoHandler.Status(port))
 
 	device := api.Group("/device")
 

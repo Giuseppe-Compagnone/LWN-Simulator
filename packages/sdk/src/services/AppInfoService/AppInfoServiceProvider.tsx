@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AppInfoServiceProviderProps } from "./AppInfoService.types";
+import {
+  AppInfoServiceContent,
+  AppInfoServiceProviderProps,
+} from "./AppInfoService.types";
 import AppInfoServiceContext from "./AppInfoServiceContext";
 import { ApiCaller } from "../../models";
 import { AppInfoService } from "./AppInfoService";
@@ -25,13 +28,12 @@ const AppInfoServiceProvider = (props: AppInfoServiceProviderProps) => {
   }, [props.baseUrl]);
 
   // Memos
-
   const value = useMemo(
-    () => ({
+    (): AppInfoServiceContent => ({
       status,
       appInfo,
     }),
-    [status],
+    [status, appInfo],
   );
 
   return (

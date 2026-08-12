@@ -45,4 +45,6 @@ export class ThemeService {
 
     return prefersDark ? Theme.Dark : Theme.Light;
   };
+
+  private constructor() {}
 }

@@ -8,7 +8,7 @@ export const useThemeService = () => {
 
   if (context === undefined) {
     throw new Error(
-      "useThemeService must be use inside `ThemeServiceProvider`",
+      "useThemeService must be used inside `ThemeServiceProvider`",
     );
   }
 

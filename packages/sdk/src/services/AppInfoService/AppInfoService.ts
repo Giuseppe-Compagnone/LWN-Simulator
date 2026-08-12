@@ -12,7 +12,7 @@ export class AppInfoService extends BaseService {
     return this._instance;
   }
 
-  constructor() {
+  private constructor() {
     super("app-info");
   }
 
