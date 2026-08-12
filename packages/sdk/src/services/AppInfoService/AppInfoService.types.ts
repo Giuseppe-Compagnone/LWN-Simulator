@@ -1,4 +1,4 @@
-import { StatusResponse } from "@lwn-simulator/contracts";
+import { AppInfoResponse, StatusResponse } from "@lwn-simulator/contracts";
 import { PropsWithChildren } from "react";
 
 /**
@@ -6,6 +6,7 @@ import { PropsWithChildren } from "react";
  */
 export interface AppInfoServiceContent {
   status: () => Promise<StatusResponse>;
+  appInfo: () => Promise<AppInfoResponse>;
 }
 
 /**

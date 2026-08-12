@@ -4,13 +4,14 @@
   "desktopName": "lwn-simulator",
   "main": "dist/main.js",
   "scripts": {
-    "compile": "tsc",
+    "compile": "tsc --build",
     "start": "yarn compile && electron .",
     "build": "rm -rf dist && yarn compile && electron-builder",
     "lint": "eslint"
   },
   "dependencies": {
     "@lwn-simulator/contracts": "workspace:*",
+    "@lwn-simulator/sdk": "workspace:*",
     "electron-store": "^11.0.2"
   },
   "devDependencies": {

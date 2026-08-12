@@ -34,7 +34,7 @@ const Sidebar = (props: SidebarProps) => {
           <span>Documentation</span>
         </a>
       </aside>
-      <div className="content">{props.children}</div>
+      <main className="content">{props.children}</main>
     </div>
   );
 };

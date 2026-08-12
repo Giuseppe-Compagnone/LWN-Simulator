@@ -1436,6 +1436,7 @@ __metadata:
   dependencies:
     "@eslint/js": "npm:^10.0.1"
     "@lwn-simulator/contracts": "workspace:*"
+    "@lwn-simulator/sdk": "workspace:*"
     "@types/electron": "npm:^1.6.12"
     "@types/node": "npm:^26.1.2"
     electron: "npm:38.0.0"
