@@ -1,4 +1,5 @@
 // SensorMap
+@use "./components/components";
 
 .sensor-map {
   display: flex;
@@ -17,13 +18,5 @@
       1px -1px 0 var(--base-color),
       -1px 1px 0 var(--base-color),
       1px 1px 0 var(--base-color);
-
-    &.sensor-marker {
-      color: var(--primary-color);
-    }
-
-    &.gateway-marker {
-      color: var(--secondary-color);
-    }
   }
 }
