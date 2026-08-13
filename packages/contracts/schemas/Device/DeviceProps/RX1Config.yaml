@@ -1,0 +1,15 @@
+title: RX1Config
+type: object
+
+properties:
+  delay:
+    type: number
+  duration:
+    type: number
+  dataRateOffset:
+    type: number
+
+required:
+  - delay
+  - duration
+  - dataRateOffset

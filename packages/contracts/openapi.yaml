@@ -13,6 +13,18 @@ components:
       $ref: "./schemas/AppInfoResponse.yaml"
     StatusResponse:
       $ref: "./schemas/StatusResponse.yaml"
+    DeviceClass:
+      $ref: "./schemas/Device/DeviceProps/DeviceClass.yaml"
+    DeviceActivation:
+      $ref: "./schemas/Device/DeviceProps/DeviceActivation.yaml"
+    OOTAConfig:
+      $ref: "./schemas/Device/DeviceProps/OOTAConfig.yaml"
+    ABPConfig:
+      $ref: "./schemas/Device/DeviceProps/ABPConfig.yaml"
+    DeviceRegion:
+      $ref: "./schemas/Device/DeviceProps/DeviceRegion.yaml"
+    LocationConfig:
+      $ref: "./schemas/Device/DeviceProps/LocationConfig.yaml"
     Device:
       $ref: "./schemas/Device/Device.yaml"
     CreateDeviceRequest:

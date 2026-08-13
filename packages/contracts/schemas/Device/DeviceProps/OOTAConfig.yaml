@@ -1,0 +1,15 @@
+title: OOTAConfig
+type: object
+
+properties:
+  joinEUI:
+    type: string
+  appKey:
+    type: string
+  devNonce:
+    type: number
+
+required:
+  - joinEUI
+  - appKey
+  - devNonce

@@ -5,15 +5,34 @@ properties:
   id:
     type: string
     x-go-name: ID
+  active:
+    type: boolean
+  name:
+    type: string
   devEUI:
     type: string
-  latitude:
-    type: number
-  longitude:
-    type: number
+  class:
+    $ref: "./DeviceProps/DeviceClass.yaml"
+  RX1Config:
+    $ref: "./DeviceProps/RX1Config.yaml"
+  RX2Config:
+    $ref: "./DeviceProps/RX2Config.yaml"
+  activation:
+    $ref: "./DeviceProps/DeviceActivation.yaml"
+  OOTAConfig:
+    $ref: "./DeviceProps/OOTAConfig.yaml"
+  ABPConfig:
+    $ref: "./DeviceProps/ABPConfig.yaml"
+  locationConfig:
+    $ref: "./DeviceProps/LocationConfig.yaml"
 
 required:
   - id
+  - active
+  - name
   - devEUI
-  - latitude
-  - longitude
+  - class
+  - RX1Config
+  - RX2Config
+  - activation
+  - locationConfig

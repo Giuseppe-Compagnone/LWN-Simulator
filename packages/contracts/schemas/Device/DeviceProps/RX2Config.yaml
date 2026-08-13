@@ -1,0 +1,21 @@
+title: RX2Config
+type: object
+
+properties:
+  delay:
+    type: number
+  duration:
+    type: number
+  channelFrequency:
+    type: number
+  dataRate:
+    type: number
+  ACKTimeout:
+    type: number
+
+required:
+  - delay
+  - duration
+  - channelFrequency
+  - dataRate
+  - ACKTimeout

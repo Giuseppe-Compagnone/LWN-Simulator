@@ -25,6 +25,96 @@ components:
           type: string
       required:
         - port
+    DeviceClass:
+      title: DeviceClass
+      type: string
+      enum:
+        - class-a
+        - class-b
+        - class-c
+      x-enum-varnames:
+        - ClassA
+        - ClassB
+        - ClassC
+    DeviceActivation:
+      title: DeviceClass
+      type: string
+      enum:
+        - oota
+        - abp
+      x-enum-varnames:
+        - OOTA
+        - ABP
+    OOTAConfig:
+      title: OOTAConfig
+      type: object
+      properties:
+        joinEUI:
+          type: string
+        appKey:
+          type: string
+        devNonce:
+          type: number
+      required:
+        - joinEUI
+        - appKey
+        - devNonce
+    ABPConfig:
+      title: ABPConfig
+      type: object
+      properties:
+        devAddr:
+          type: string
+        nwkSKey:
+          type: string
+        appSKey:
+          type: string
+      required:
+        - devAddr
+        - nwkSKey
+        - appSKey
+    DeviceRegion:
+      title: DeviceClass
+      type: string
+      enum:
+        - EU868
+        - US915
+        - CN779
+        - EU433
+        - AU915
+        - CN470
+        - AS923
+        - KR920
+        - IN865
+        - RU864
+      x-enum-varnames:
+        - EU868
+        - US915
+        - CN779
+        - EU433
+        - AU915
+        - CN470
+        - AS923
+        - KR920
+        - IN865
+        - RU864
+    LocationConfig:
+      title: LocationConfig
+      type: object
+      properties:
+        latitude:
+          type: number
+        longitude:
+          type: number
+        altitude:
+          type: number
+        region:
+          $ref: '#/components/schemas/DeviceRegion'
+      required:
+        - latitude
+        - longitude
+        - altitude
+        - region
     Device:
       title: Device
       type: object
@@ -32,17 +122,36 @@ components:
         id:
           type: string
           x-go-name: ID
+        active:
+          type: boolean
+        name:
+          type: string
         devEUI:
           type: string
-        latitude:
-          type: number
-        longitude:
-          type: number
+        class:
+          $ref: '#/components/schemas/DeviceClass'
+        RX1Config:
+          $ref: '#/components/schemas/RX1Config'
+        RX2Config:
+          $ref: '#/components/schemas/RX2Config'
+        activation:
+          $ref: '#/components/schemas/DeviceActivation'
+        OOTAConfig:
+          $ref: '#/components/schemas/OOTAConfig'
+        ABPConfig:
+          $ref: '#/components/schemas/ABPConfig'
+        locationConfig:
+          $ref: '#/components/schemas/LocationConfig'
       required:
         - id
+        - active
+        - name
         - devEUI
-        - latitude
-        - longitude
+        - class
+        - RX1Config
+        - RX2Config
+        - activation
+        - locationConfig
     CreateDeviceRequest:
       title: CreateDeviceRequest
       type: object
@@ -210,3 +319,37 @@ components:
           $ref: '#/components/schemas/Gateway'
       required:
         - gateway
+    RX1Config:
+      title: RX1Config
+      type: object
+      properties:
+        delay:
+          type: number
+        duration:
+          type: number
+        dataRateOffset:
+          type: number
+      required:
+        - delay
+        - duration
+        - dataRateOffset
+    RX2Config:
+      title: RX2Config
+      type: object
+      properties:
+        delay:
+          type: number
+        duration:
+          type: number
+        channelFrequency:
+          type: number
+        dataRate:
+          type: number
+        ACKTimeout:
+          type: number
+      required:
+        - delay
+        - duration
+        - channelFrequency
+        - dataRate
+        - ACKTimeout

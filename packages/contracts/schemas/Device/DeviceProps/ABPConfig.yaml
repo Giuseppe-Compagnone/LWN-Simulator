@@ -1,0 +1,15 @@
+title: ABPConfig
+type: object
+
+properties:
+  devAddr:
+    type: string
+  nwkSKey:
+    type: string
+  appSKey:
+    type: string
+
+required:
+  - devAddr
+  - nwkSKey
+  - appSKey
