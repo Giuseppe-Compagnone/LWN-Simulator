@@ -40,11 +40,19 @@ cd "$ROOT_DIR/packages/ui-components"
 
 yarn build
 
+
+echo "Building SDK"
+
+cd "$ROOT_DIR/packages/sdk"
+
+yarn build
+
+
 echo "Building frontend"
 
 cd "$ROOT_DIR/apps/frontend"
 
-yarn build
+VERSION=$VERSION yarn build
 
 
 echo "Building backend"
@@ -55,6 +63,13 @@ go build \
 -ldflags "-X lwn-simulator-backend/version.AppVersion=$VERSION" \
 -o "$DESKTOP_ASSETS/lwn-server" \
 cmd/server/main.go
+
+
+echo "Building launcher"
+
+cd "$ROOT_DIR/apps/launcher"
+
+VERSION=$VERSION yarn build
 
 
 echo "Building Electron"

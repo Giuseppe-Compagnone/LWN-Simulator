@@ -10,10 +10,13 @@ import {
   getMainWindow,
   setConnected,
 } from "../window/window-manager";
+import Store from "electron-store";
 
 import { validateRemote } from "../remote/remote-validator";
 
 export function registerIpcHandlers() {
+  const store = new Store();
+
   ipcMain.handle("connect-local", async () => {
     const window = getMainWindow();
 
@@ -65,5 +68,13 @@ export function registerIpcHandlers() {
     }
 
     setConnected(false);
+  });
+
+  ipcMain.handle("sync-storage", (_, key: string, value: string) => {
+    store.set(key, value);
+  });
+
+  ipcMain.handle("get-storage", (_, key: string) => {
+    return store.get(key);
   });
 }

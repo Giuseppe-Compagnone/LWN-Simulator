@@ -1,0 +1,26 @@
+title: UpdateDeviceRequest
+type: object
+
+properties:
+  id:
+    type: string
+    x-go-name: ID
+    x-go-json-ignore: true
+    x-oapi-codegen-extra-tags:
+      validate: "required,len=36"
+      uri: "id"
+  devEUI:
+    type: string
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,len=16"
+  latitude:
+    type: number
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,min=-90,max=90"
+  longitude:
+    type: number
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,min=-180,max=180"
+
+required:
+  - id

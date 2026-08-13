@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "concurrently \"yarn dev:frontend\" \"yarn dev:backend\"",
     "dev:frontend": "yarn workspace @lwn-simulator/frontend dev",
-    "dev:backend": "cd apps/backend && go run cmd/server/main.go",
+    "dev:backend": "cd apps/backend && LWN_ENV=development go run cmd/server/main.go",
     "build:desktop": "./scripts/build-desktop.sh",
     "build:server": "./scripts/build-server.sh",
     "build": "yarn build:desktop && yarn build:server"
@@ -19,5 +19,5 @@
   "devDependencies": {
     "concurrently": "^10.0.3"
   },
-  "packageManager": "yarn@4.17.1"
+  "packageManager": "yarn@4.18.0"
 }

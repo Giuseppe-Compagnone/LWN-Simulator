@@ -4,7 +4,6 @@ type: object
 properties:
   port:
     type: string
-    # x-go-name: ID
 
 required:
   - port

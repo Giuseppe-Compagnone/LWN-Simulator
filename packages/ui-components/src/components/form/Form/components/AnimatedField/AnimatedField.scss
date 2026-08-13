@@ -48,14 +48,20 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: var(--gap);
 
     .field-label {
       font-weight: 600;
       font-size: font-size(lg);
+      text-wrap: nowrap;
     }
 
     .error {
-      color: var(--secondary-color);
+      color: var(--error-color);
+      text-wrap: nowrap;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
   }
 

@@ -6,9 +6,6 @@
 :root {
   --primary-font: "Inter", sans-serif;
   --secondary-font: "JetBrains Mono", monospace;
-  --font-h1: clamp(2rem, 4vw, 3.5rem);
-  --font-h2: clamp(1.5rem, 3vw, 2.5rem);
-  --font-h3: clamp(1.25rem, 2vw, 2rem);
 }
 
 $font-sizes: (

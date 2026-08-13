@@ -1,7 +1,11 @@
 package server
 
 import (
+	"log"
+	"lwn-simulator-backend/internal/database"
 	"lwn-simulator-backend/internal/frontend"
+	"lwn-simulator-backend/internal/repositories"
+	"lwn-simulator-backend/internal/services"
 	"net/http"
 
 	"github.com/gin-contrib/cors"
@@ -43,9 +47,23 @@ func New(port string) *gin.Engine {
 		},
 	}))
 
+	dataDir, err := database.Initialize()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	deviceRepository := repositories.NewDeviceRepository(dataDir)
+	deviceService := services.NewDeviceService(deviceRepository)
+
+	gatewayRepository := repositories.NewGatewayRepository(dataDir)
+	gatewayService := services.NewGatewayService(gatewayRepository)
+
 	registerMiddleware(r)
 
-	registerRoutes(r, port)
+	registerRoutes(r, port, Services{
+		Device:  deviceService,
+		Gateway: gatewayService,
+	})
 
 	registerFrontend(r)
 

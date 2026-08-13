@@ -59,5 +59,5 @@ export class NotificationHandler {
     toast.warning(text, this._config);
   }
 
-  constructor() {}
+  private constructor() {}
 }

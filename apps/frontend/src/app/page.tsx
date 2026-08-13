@@ -1,31 +1,44 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import { useEffect, useState } from "react";
-import { StatusResponse } from "@lwn-simulator/contracts";
+import { Button, ButtonType, PageHeader } from "@lwn-simulator/ui-components";
+import { SensorMap } from "@/components";
+import { useAppInfoService } from "@lwn-simulator/sdk";
 
-export default function Home() {
+export default function HomePage() {
+  // States
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [port, setPort] = useState<StatusResponse | null>(null);
+  const [port, setPort] = useState<string | null>(null);
 
-  const getData = async (): Promise<void> => {
-    setIsLoading(true);
+  // Hooks
+  const appInfoService = useAppInfoService();
 
-    const response = await fetch(`${window.location.origin}/api/status`);
-
-    const data: StatusResponse = await response.json();
-
-    console.log("Data", data);
-    setPort(data);
-
-    setIsLoading(false);
-  };
-
+  // Effects
   useEffect(() => {
+    const getData = async (): Promise<void> => {
+      setIsLoading(true);
+
+      const data = await appInfoService.status();
+      console.log("Data", data);
+      setPort(data.port);
+
+      setIsLoading(false);
+    };
+
     getData();
-  }, []);
+  }, [appInfoService]);
 
   return (
-    <div>{isLoading ? "Loading..." : `Running on port: ${port?.port}`}</div>
+    <div className="home-page page">
+      <PageHeader
+        title="Simulation Dashboard"
+        subTitle="View results, scenarios and performance in real time"
+      >
+        <Button value={"Start Simulation"} />
+        <Button value={"Stop"} type={ButtonType.Outlined} />
+      </PageHeader>
+      <SensorMap />
+      {isLoading ? "Loading..." : `Running on port: ${port}`}
+    </div>
   );
 }

@@ -16,6 +16,12 @@
   overflow: hidden;
   text-wrap: nowrap;
 
+  &:not(.outlined) {
+    * {
+      color: var(--primary-bg-color);
+    }
+  }
+
   &.primary {
     background: var(--primary-color);
   }

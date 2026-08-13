@@ -16,8 +16,18 @@ async function disconnect() {
   return ipcRenderer.invoke("disconnect");
 }
 
+async function syncStorage(key: string, value: string) {
+  return ipcRenderer.invoke("sync-storage", key, value);
+}
+
+async function getStorage(key: string) {
+  return ipcRenderer.invoke("get-storage", key);
+}
+
 contextBridge.exposeInMainWorld("electron", {
   connectLocal,
   connectRemote,
   disconnect,
+  syncStorage,
+  getStorage,
 });

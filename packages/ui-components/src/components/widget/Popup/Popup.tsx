@@ -1,3 +1,5 @@
+"use client";
+
 import { Card } from "@/components/layout";
 import { PopupProps } from "./Popup.types";
 import cn from "classnames";

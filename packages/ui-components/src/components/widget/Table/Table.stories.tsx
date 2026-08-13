@@ -394,7 +394,7 @@ export const ScrollableTable: Story = {
   ),
 };
 
-export const AlphabeticSortedTable: Story = {
+export const NumericSortedTable: Story = {
   args: {
     rowLabels: [
       { value: "id", sort: TableRecordItemSort.Numeric },
@@ -411,7 +411,7 @@ export const AlphabeticSortedTable: Story = {
   ),
 };
 
-export const NumericSortedTable: Story = {
+export const AlphabeticSortedTable: Story = {
   args: {
     rowLabels: [
       { value: "id" },

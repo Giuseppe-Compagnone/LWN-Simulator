@@ -3,8 +3,8 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "@lwn-simulator/ui-components/styles.css";
 import "material-symbols/index.css";
 import "./../styles/main.scss";
-import { ToastContainer } from "react-toastify";
 import cn from "classnames";
+import { ProvidersWrapper } from "@/components";
 
 export const metadata: Metadata = {
   title: "LWN Simulator Desktop Launcher",
@@ -28,9 +28,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={cn("dark-theme", inter.variable, jetBrains.variable)}>
-        <main>{children}</main>
-        <ToastContainer />
+      <body className={cn(inter.variable, jetBrains.variable)}>
+        <ProvidersWrapper>{children}</ProvidersWrapper>
       </body>
     </html>
   );

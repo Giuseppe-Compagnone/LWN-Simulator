@@ -19,6 +19,7 @@ node_modules/
 **/dist/
 **/web/**
 !**/web/.gitkeep
+**/dev-db/**
 **/generated/
 **/assets/
 **/storybook-static/

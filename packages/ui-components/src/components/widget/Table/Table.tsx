@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { TableProps } from "./Table.types";
 import useTable from "./useTable";

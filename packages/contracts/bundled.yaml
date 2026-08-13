@@ -25,3 +25,188 @@ components:
           type: string
       required:
         - port
+    Device:
+      title: Device
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+        devEUI:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+      required:
+        - id
+        - devEUI
+        - latitude
+        - longitude
+    CreateDeviceRequest:
+      title: CreateDeviceRequest
+      type: object
+      properties:
+        devEUI:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required,len=16
+        latitude:
+          type: number
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=-90,max=90
+        longitude:
+          type: number
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=-180,max=180
+      required:
+        - devEUI
+        - latitude
+        - longitude
+    CreateDeviceResponse:
+      title: CreateDeviceResponse
+      type: object
+      properties:
+        device:
+          $ref: '#/components/schemas/Device'
+      required:
+        - device
+    GetDeviceRequest:
+      title: GetDeviceRequest
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+          x-go-json-ignore: true
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36
+            uri: id
+      required:
+        - id
+    GetDeviceResponse:
+      title: GetDeviceResponse
+      type: object
+      properties:
+        device:
+          $ref: '#/components/schemas/Device'
+      required:
+        - device
+    GetDevicesRequest:
+      title: GetDevicesRequest
+      type: object
+      x-go-type: struct{}
+      additionalProperties: false
+      properties: {}
+    GetDevicesResponse:
+      title: GetDeviceResponse
+      type: object
+      properties:
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/Device'
+      required:
+        - devices
+    UpdateDeviceRequest:
+      title: UpdateDeviceRequest
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+          x-go-json-ignore: true
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36
+            uri: id
+        devEUI:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,len=16
+        latitude:
+          type: number
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=-90,max=90
+        longitude:
+          type: number
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=-180,max=180
+      required:
+        - id
+    UpdateDeviceResponse:
+      title: UpdateDeviceResponse
+      type: object
+      properties:
+        device:
+          $ref: '#/components/schemas/Device'
+      required:
+        - device
+    DeleteDeviceRequest:
+      title: GetDeviceRequest
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+          x-go-json-ignore: true
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36
+            uri: id
+      required:
+        - id
+    DeleteDeviceResponse:
+      title: GetDevicesResponse
+      type: object
+      x-go-type: struct{}
+      additionalProperties: false
+      properties: {}
+    Gateway:
+      title: Gateway
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+        gatewayEUI:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+      required:
+        - id
+        - gatewayEUI
+        - latitude
+        - longitude
+    CreateGatewayRequest:
+      title: CreateGatewayRequest
+      type: object
+      properties:
+        gatewayEUI:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required,len=16
+        latitude:
+          type: number
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=-90,max=90
+        longitude:
+          type: number
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=-180,max=180
+      required:
+        - gatewayEUI
+        - latitude
+        - longitude
+    CreateGatewayResponse:
+      title: CreateGatewayResponse
+      type: object
+      properties:
+        gateway:
+          $ref: '#/components/schemas/Gateway'
+      required:
+        - gateway
