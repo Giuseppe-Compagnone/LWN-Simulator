@@ -3,11 +3,17 @@ type: object
 
 properties:
   delay:
-    type: number
+    type: integer
+    x-oapi-codegen-extra-tags:
+      validate: "required,min=0"
   duration:
-    type: number
+    type: integer
+    x-oapi-codegen-extra-tags:
+      validate: "required,min=0"
   dataRateOffset:
-    type: number
+    type: integer
+    x-oapi-codegen-extra-tags:
+      validate: "required,min=0"
 
 required:
   - delay

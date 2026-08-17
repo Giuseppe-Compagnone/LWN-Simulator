@@ -3,15 +3,25 @@ type: object
 
 properties:
   delay:
-    type: number
+    type: integer
+    x-oapi-codegen-extra-tags:
+      validate: "required,min=0"
   duration:
-    type: number
+    type: integer
+    x-oapi-codegen-extra-tags:
+      validate: "required,min=0"
   channelFrequency:
     type: number
+    x-oapi-codegen-extra-tags:
+      validate: "required,gt=0"
   dataRate:
-    type: number
+    type: integer
+    x-oapi-codegen-extra-tags:
+      validate: "required,min=0"
   ACKTimeout:
-    type: number
+    type: integer
+    x-oapi-codegen-extra-tags:
+      validate: "required,min=1000,max=3000"
 
 required:
   - delay

@@ -3,13 +3,21 @@ type: object
 
 properties:
   fPort:
-    type: number
+    type: integer
+    x-oapi-codegen-extra-tags:
+      validate: "required,min=1,max=223"
   retransmission:
-    type: number
+    type: integer
+    x-oapi-codegen-extra-tags:
+      validate: "required,min=0"
   FCntUp:
-    type: number
+    type: integer
+    x-oapi-codegen-extra-tags:
+      validate: "required,min=0"
   FCntDown:
-    type: number
+    type: integer
+    x-oapi-codegen-extra-tags:
+      validate: "required,min=0"
   disableFrameCounterValidation:
     type: boolean
 

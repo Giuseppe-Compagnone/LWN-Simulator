@@ -4,6 +4,8 @@ type: object
 properties:
   antennaRange:
     type: number
+    x-oapi-codegen-extra-tags:
+      validate: "required,gt=0"
   ADREnabled:
     type: boolean
 

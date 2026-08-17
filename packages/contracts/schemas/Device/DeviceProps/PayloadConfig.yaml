@@ -4,6 +4,8 @@ type: object
 properties:
   uplinkInterval:
     type: number
+    x-oapi-codegen-extra-tags:
+      validate: "required,gt=0"
   oversizedPayloadBehavior:
     $ref: "./OversizedPayloadBehavior.yaml"
   MType:

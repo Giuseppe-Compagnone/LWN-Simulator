@@ -5,12 +5,16 @@ properties:
   id:
     type: string
     x-go-name: ID
+    x-oapi-codegen-extra-tags:
+      validate: "required,len=36"
   active:
     type: boolean
   name:
     type: string
   devEUI:
     type: string
+    x-oapi-codegen-extra-tags:
+      validate: "required,len=16"
   class:
     $ref: "./DeviceProps/DeviceClass.yaml"
   RX1Config:

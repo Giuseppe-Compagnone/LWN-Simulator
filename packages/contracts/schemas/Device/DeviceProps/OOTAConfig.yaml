@@ -4,12 +4,13 @@ type: object
 properties:
   joinEUI:
     type: string
+    x-oapi-codegen-extra-tags:
+      validate: "required,len=16"
   appKey:
     type: string
-  devNonce:
-    type: number
+    x-oapi-codegen-extra-tags:
+      validate: "required,len=32"
 
 required:
   - joinEUI
   - appKey
-  - devNonce
