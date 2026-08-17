@@ -1,0 +1,12 @@
+title: AdvancedConfig
+type: object
+
+properties:
+  antennaRange:
+    type: number
+  ADREnabled:
+    type: boolean
+
+required:
+  - antennaRange
+  - ADREnabled

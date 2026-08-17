@@ -1,0 +1,10 @@
+title: DeviceClass
+type: string
+
+enum:
+  - confirmedDataUp
+  - unconfirmedDataUp
+
+x-enum-varnames:
+  - ConfirmedDataUp
+  - UnconfirmedDataUp

@@ -25,6 +25,12 @@ properties:
     $ref: "./DeviceProps/ABPConfig.yaml"
   locationConfig:
     $ref: "./DeviceProps/LocationConfig.yaml"
+  frameConfig:
+    $ref: "./DeviceProps/FrameConfig.yaml"
+  payloadConfig:
+    $ref: "./DeviceProps/PayloadConfig.yaml"
+  advancedConfig:
+    $ref: "./DeviceProps/AdvancedConfig.yaml"
 
 required:
   - id
@@ -36,3 +42,6 @@ required:
   - RX2Config
   - activation
   - locationConfig
+  - frameConfig
+  - payloadConfig
+  - advancedConfig

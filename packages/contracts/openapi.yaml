@@ -25,6 +25,16 @@ components:
       $ref: "./schemas/Device/DeviceProps/DeviceRegion.yaml"
     LocationConfig:
       $ref: "./schemas/Device/DeviceProps/LocationConfig.yaml"
+    FrameConfig:
+      $ref: "./schemas/Device/DeviceProps/FrameConfig.yaml"
+    OversizedPayloadBehavior:
+      $ref: "./schemas/Device/DeviceProps/OversizedPayloadBehavior.yaml"
+    DeviceMType:
+      $ref: "./schemas/Device/DeviceProps/DeviceMType.yaml"
+    PayloadConfig:
+      $ref: "./schemas/Device/DeviceProps/PayloadConfig.yaml"
+    AdvancedConfig:
+      $ref: "./schemas/Device/DeviceProps/AdvancedConfig.yaml"
     Device:
       $ref: "./schemas/Device/Device.yaml"
     CreateDeviceRequest:

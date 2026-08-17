@@ -115,6 +115,73 @@ components:
         - longitude
         - altitude
         - region
+    FrameConfig:
+      title: FrameConfig
+      type: object
+      properties:
+        fPort:
+          type: number
+        retransmission:
+          type: number
+        FCntUp:
+          type: number
+        FCntDown:
+          type: number
+        disableFrameCounterValidation:
+          type: boolean
+      required:
+        - fPort
+        - retransmission
+        - disableFrameCounterValidation
+    OversizedPayloadBehavior:
+      title: DeviceClass
+      type: string
+      enum:
+        - fragment
+        - truncate
+      x-enum-varnames:
+        - Fragment
+        - Truncate
+    DeviceMType:
+      title: DeviceClass
+      type: string
+      enum:
+        - confirmedDataUp
+        - unconfirmedDataUp
+      x-enum-varnames:
+        - ConfirmedDataUp
+        - UnconfirmedDataUp
+    PayloadConfig:
+      title: PayloadConfig
+      type: object
+      properties:
+        uplinkInterval:
+          type: number
+        oversizedPayloadBehavior:
+          $ref: '#/components/schemas/OversizedPayloadBehavior'
+        MType:
+          $ref: '#/components/schemas/DeviceMType'
+        payload:
+          type: string
+        base64Encoded:
+          type: boolean
+      required:
+        - uplinkInterval
+        - oversizedPayloadBehavior
+        - MType
+        - payload
+        - base64Encoded
+    AdvancedConfig:
+      title: AdvancedConfig
+      type: object
+      properties:
+        antennaRange:
+          type: number
+        ADREnabled:
+          type: boolean
+      required:
+        - antennaRange
+        - ADREnabled
     Device:
       title: Device
       type: object
@@ -142,6 +209,12 @@ components:
           $ref: '#/components/schemas/ABPConfig'
         locationConfig:
           $ref: '#/components/schemas/LocationConfig'
+        frameConfig:
+          $ref: '#/components/schemas/FrameConfig'
+        payloadConfig:
+          $ref: '#/components/schemas/PayloadConfig'
+        advancedConfig:
+          $ref: '#/components/schemas/AdvancedConfig'
       required:
         - id
         - active
@@ -152,6 +225,9 @@ components:
         - RX2Config
         - activation
         - locationConfig
+        - frameConfig
+        - payloadConfig
+        - advancedConfig
     CreateDeviceRequest:
       title: CreateDeviceRequest
       type: object

@@ -1,0 +1,19 @@
+title: FrameConfig
+type: object
+
+properties:
+  fPort:
+    type: number
+  retransmission:
+    type: number
+  FCntUp:
+    type: number
+  FCntDown:
+    type: number
+  disableFrameCounterValidation:
+    type: boolean
+
+required:
+  - fPort
+  - retransmission
+  - disableFrameCounterValidation
