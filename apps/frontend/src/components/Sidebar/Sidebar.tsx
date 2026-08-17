@@ -1,6 +1,20 @@
+"use client";
+
 import { SidebarProps } from "./Sidebar.types";
+import { usePathname } from "next/navigation";
+import cn from "classnames";
+import Link from "next/link";
 
 const Sidebar = (props: SidebarProps) => {
+  const routes: Record<string, Array<{ route: string; icon: string }>> = {
+    simulation: [{ route: "dashboard", icon: "dashboard" }],
+    hardware: [{ route: "devices", icon: "sensors" }],
+    logs: [],
+  };
+
+  // Hooks
+  const pathname = usePathname();
+
   return (
     <div className="sidebar">
       <aside>
@@ -12,18 +26,24 @@ const Sidebar = (props: SidebarProps) => {
             <div className="inactive">Simulation inactive</div>
           )}
         </div>
-        <div className="sub-section active">
-          <span className="material-symbols-outlined icon">dashboard</span>
-          <span>Dashboard</span>
-        </div>
-        <div className="sub-section">
-          <span className="material-symbols-outlined icon">dashboard</span>
-          <span>Dashboard</span>
-        </div>
-        <div className="sub-section">
-          <span className="material-symbols-outlined icon">dashboard</span>
-          <span>Dashboard</span>
-        </div>
+        {pathname.split("/")[1] &&
+          routes[pathname.split("/")[1]].map((route, i) => {
+            return (
+              <Link
+                className={cn(
+                  "sub-section",
+                  (pathname.split("/")[2] || "") === route.route && "active",
+                )}
+                key={i}
+                href={`/${pathname.split("/")[1]}/${route.route}`}
+              >
+                <span className="material-symbols-outlined icon">
+                  {route.icon}
+                </span>
+                <span>{route.route}</span>
+              </Link>
+            );
+          })}
         <hr />
         <a
           href="https://giuseppe-compagnone.github.io/LWN-Simulator/docs/"

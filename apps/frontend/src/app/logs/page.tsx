@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
-const HomePage = () => {
+const LogsPage = () => {
   redirect("/simulation");
 };
 
-export default HomePage;
+export default LogsPage;

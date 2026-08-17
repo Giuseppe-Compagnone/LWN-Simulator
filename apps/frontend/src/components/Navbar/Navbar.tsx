@@ -15,9 +15,9 @@ import { usePathname } from "next/navigation";
 
 const Navbar = (props: NavbarProps) => {
   const pages = [
-    { name: "Simulation", path: "/" },
-    { name: "Hardware", path: "/hardware/" },
-    { name: "Logs", path: "/logs/" },
+    { name: "Simulation", path: "simulation" },
+    { name: "Hardware", path: "hardware" },
+    { name: "Logs", path: "logs" },
   ];
   // Hooks
   const themeLogic = useThemeService();
@@ -32,8 +32,13 @@ const Navbar = (props: NavbarProps) => {
       <div className="pages">
         {pages.map((page, i) => {
           return (
-            <nav key={i} className={cn(pathname === page.path && "current")}>
-              <Link href={page.path}>{page.name}</Link>
+            <nav
+              key={i}
+              className={cn(
+                (pathname.split("/")[1] || "") === page.path && "current",
+              )}
+            >
+              <Link href={`/${page.path}`}>{page.name}</Link>
             </nav>
           );
         })}
