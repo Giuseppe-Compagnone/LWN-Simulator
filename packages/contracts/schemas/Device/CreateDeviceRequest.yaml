@@ -6,18 +6,52 @@ properties:
     type: string
     x-oapi-codegen-extra-tags:
       validate: "required,len=16"
-  latitude:
-    type: number
-    x-go-type: "*float32"
-    x-oapi-codegen-extra-tags:
-      validate: "required,min=-90,max=90"
-  longitude:
-    type: number
-    x-go-type: "*float32"
-    x-oapi-codegen-extra-tags:
-      validate: "required,min=-180,max=180"
+
+  name:
+    type: string
+
+  active:
+    type: boolean
+
+  activation:
+    $ref: "./DeviceProps/DeviceActivation.yaml"
+
+  class:
+    $ref: "./DeviceProps/DeviceClass.yaml"
+
+  locationConfig:
+    $ref: "./DeviceProps/LocationConfig.yaml"
+
+  ABPConfig:
+    $ref: "./DeviceProps/ABPConfig.yaml"
+
+  OOTAConfig:
+    $ref: "./DeviceProps/OOTAConfig.yaml"
+
+  RX1Config:
+    $ref: "./DeviceProps/RX1Config.yaml"
+
+  RX2Config:
+    $ref: "./DeviceProps/RX2Config.yaml"
+
+  advancedConfig:
+    $ref: "./DeviceProps/AdvancedConfig.yaml"
+
+  frameConfig:
+    $ref: "./DeviceProps/FrameConfig.yaml"
+
+  payloadConfig:
+    $ref: "./DeviceProps/PayloadConfig.yaml"
 
 required:
   - devEUI
-  - latitude
-  - longitude
+  - name
+  - active
+  - activation
+  - class
+  - locationConfig
+  - RX1Config
+  - RX2Config
+  - advancedConfig
+  - frameConfig
+  - payloadConfig

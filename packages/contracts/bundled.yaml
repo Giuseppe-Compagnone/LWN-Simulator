@@ -51,24 +51,31 @@ components:
       properties:
         joinEUI:
           type: string
+          x-oapi-codegen-extra-tags:
+            validate: required,len=16
         appKey:
           type: string
-        devNonce:
-          type: number
+          x-oapi-codegen-extra-tags:
+            validate: required,len=32
       required:
         - joinEUI
         - appKey
-        - devNonce
     ABPConfig:
       title: ABPConfig
       type: object
       properties:
         devAddr:
           type: string
+          x-oapi-codegen-extra-tags:
+            validate: required,len=8
         nwkSKey:
           type: string
+          x-oapi-codegen-extra-tags:
+            validate: required,len=32
         appSKey:
           type: string
+          x-oapi-codegen-extra-tags:
+            validate: required,len=32
       required:
         - devAddr
         - nwkSKey
@@ -104,10 +111,19 @@ components:
       properties:
         latitude:
           type: number
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=-90,max=90
         longitude:
           type: number
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=-180,max=180
         altitude:
           type: number
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required
         region:
           $ref: '#/components/schemas/DeviceRegion'
       required:
@@ -120,13 +136,24 @@ components:
       type: object
       properties:
         fPort:
-          type: number
+          type: integer
+          x-oapi-codegen-extra-tags:
+            validate: required,min=1,max=223
         retransmission:
-          type: number
+          type: integer
+          x-go-type: '*int'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=0
         FCntUp:
-          type: number
+          type: integer
+          x-go-type: '*int'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=0
         FCntDown:
-          type: number
+          type: integer
+          x-go-type: '*int'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=0
         disableFrameCounterValidation:
           type: boolean
       required:
@@ -157,6 +184,8 @@ components:
       properties:
         uplinkInterval:
           type: number
+          x-oapi-codegen-extra-tags:
+            validate: required,gt=0
         oversizedPayloadBehavior:
           $ref: '#/components/schemas/OversizedPayloadBehavior'
         MType:
@@ -177,6 +206,8 @@ components:
       properties:
         antennaRange:
           type: number
+          x-oapi-codegen-extra-tags:
+            validate: required,gt=0
         ADREnabled:
           type: boolean
       required:
@@ -240,20 +271,42 @@ components:
           type: string
           x-oapi-codegen-extra-tags:
             validate: required,len=16
-        latitude:
-          type: number
-          x-go-type: '*float32'
-          x-oapi-codegen-extra-tags:
-            validate: required,min=-90,max=90
-        longitude:
-          type: number
-          x-go-type: '*float32'
-          x-oapi-codegen-extra-tags:
-            validate: required,min=-180,max=180
+        name:
+          type: string
+        active:
+          type: boolean
+        activation:
+          $ref: '#/components/schemas/DeviceActivation'
+        class:
+          $ref: '#/components/schemas/DeviceClass'
+        locationConfig:
+          $ref: '#/components/schemas/LocationConfig'
+        ABPConfig:
+          $ref: '#/components/schemas/ABPConfig'
+        OOTAConfig:
+          $ref: '#/components/schemas/OOTAConfig'
+        RX1Config:
+          $ref: '#/components/schemas/RX1Config'
+        RX2Config:
+          $ref: '#/components/schemas/RX2Config'
+        advancedConfig:
+          $ref: '#/components/schemas/AdvancedConfig'
+        frameConfig:
+          $ref: '#/components/schemas/FrameConfig'
+        payloadConfig:
+          $ref: '#/components/schemas/PayloadConfig'
       required:
         - devEUI
-        - latitude
-        - longitude
+        - name
+        - active
+        - activation
+        - class
+        - locationConfig
+        - RX1Config
+        - RX2Config
+        - advancedConfig
+        - frameConfig
+        - payloadConfig
     CreateDeviceResponse:
       title: CreateDeviceResponse
       type: object
@@ -310,20 +363,11 @@ components:
           x-oapi-codegen-extra-tags:
             validate: required,len=36
             uri: id
-        devEUI:
-          type: string
-          x-oapi-codegen-extra-tags:
-            validate: omitempty,len=16
-        latitude:
-          type: number
-          x-oapi-codegen-extra-tags:
-            validate: omitempty,min=-90,max=90
-        longitude:
-          type: number
-          x-oapi-codegen-extra-tags:
-            validate: omitempty,min=-180,max=180
+        device:
+          $ref: '#/components/schemas/Device'
       required:
         - id
+        - device
     UpdateDeviceResponse:
       title: UpdateDeviceResponse
       type: object
@@ -405,14 +449,17 @@ components:
       properties:
         delay:
           type: integer
+          x-go-type: '*int'
           x-oapi-codegen-extra-tags:
             validate: required,min=0
         duration:
           type: integer
+          x-go-type: '*int'
           x-oapi-codegen-extra-tags:
             validate: required,min=0
         dataRateOffset:
           type: integer
+          x-go-type: '*int'
           x-oapi-codegen-extra-tags:
             validate: required,min=0
       required:
@@ -425,10 +472,12 @@ components:
       properties:
         delay:
           type: integer
+          x-go-type: '*int'
           x-oapi-codegen-extra-tags:
             validate: required,min=0
         duration:
           type: integer
+          x-go-type: '*int'
           x-oapi-codegen-extra-tags:
             validate: required,min=0
         channelFrequency:
@@ -437,6 +486,7 @@ components:
             validate: required,gt=0
         dataRate:
           type: integer
+          x-go-type: '*int'
           x-oapi-codegen-extra-tags:
             validate: required,min=0
         ACKTimeout:

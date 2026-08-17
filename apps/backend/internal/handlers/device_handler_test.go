@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -111,6 +112,204 @@ func setupRouter(handler *DeviceHandler) *gin.Engine {
 	return router
 }
 
+// validCreateDeviceJSON returns a body satisfying all validation tags
+// currently generated in contracts.CreateDeviceRequest.
+func validCreateDeviceJSON() string {
+	return `{
+		"devEUI": "0102030405060708",
+		"name": "test-device",
+		"activation": "oota",
+		"active": true,
+		"class": "class-a",
+
+		"locationConfig": {
+			"altitude": 100,
+			"latitude": 37.5,
+			"longitude": 15.0,
+			"region": "EU868"
+		},
+
+		"RX1Config": {
+			"dataRateOffset": 0,
+			"delay": 1,
+			"duration": 1
+		},
+
+		"RX2Config": {
+			"ACKTimeout": 1000,
+			"channelFrequency": 869.525,
+			"dataRate": 0,
+			"delay": 1,
+			"duration": 1
+		},
+
+		"advancedConfig": {
+			"ADREnabled": true,
+			"antennaRange": 10
+		},
+
+		"frameConfig": {
+			"FCntDown": 0,
+			"FCntUp": 0,
+			"disableFrameCounterValidation": false,
+			"fPort": 1,
+			"retransmission": 0
+		},
+
+		"payloadConfig": {
+			"MType": "unconfirmedDataUp",
+			"base64Encoded": false,
+			"oversizedPayloadBehavior": "truncate",
+			"payload": "",
+			"uplinkInterval": 10
+		}
+	}`
+}
+
+// validDeviceJSON returns a complete valid Device object.
+// This is important for UpdateDeviceRequest because the generated
+// contracts.Device contains required validation tags.
+func validDeviceJSON(id string) string {
+	return fmt.Sprintf(`{
+		"id": "%s",
+		"devEUI": "0102030405060708",
+		"name": "test-device",
+		"activation": "oota",
+		"active": true,
+		"class": "class-a",
+
+		"locationConfig": {
+			"altitude": 100,
+			"latitude": 37.5,
+			"longitude": 15.0,
+			"region": "EU868"
+		},
+
+		"RX1Config": {
+			"dataRateOffset": 0,
+			"delay": 1,
+			"duration": 1
+		},
+
+		"RX2Config": {
+			"ACKTimeout": 1000,
+			"channelFrequency": 869.525,
+			"dataRate": 0,
+			"delay": 1,
+			"duration": 1
+		},
+
+		"advancedConfig": {
+			"ADREnabled": true,
+			"antennaRange": 10
+		},
+
+		"frameConfig": {
+			"FCntDown": 0,
+			"FCntUp": 0,
+			"disableFrameCounterValidation": false,
+			"fPort": 1,
+			"retransmission": 0
+		},
+
+		"payloadConfig": {
+			"MType": "unconfirmedDataUp",
+			"base64Encoded": false,
+			"oversizedPayloadBehavior": "truncate",
+			"payload": "",
+			"uplinkInterval": 10
+		}
+	}`, id)
+}
+
+// validUpdateDeviceJSON creates an UpdateDeviceRequest with a complete
+// and therefore valid Device object.
+func validUpdateDeviceJSON(id, devEUI, name string, active bool) string {
+	return fmt.Sprintf(`{
+		"device": {
+			"id": "%s",
+			"devEUI": "%s",
+			"name": "%s",
+			"activation": "oota",
+			"active": %t,
+			"class": "class-a",
+
+			"locationConfig": {
+				"altitude": 100,
+				"latitude": 37.5,
+				"longitude": 15.0,
+				"region": "EU868"
+			},
+
+			"RX1Config": {
+				"dataRateOffset": 0,
+				"delay": 1,
+				"duration": 1
+			},
+
+			"RX2Config": {
+				"ACKTimeout": 1000,
+				"channelFrequency": 869.525,
+				"dataRate": 0,
+				"delay": 1,
+				"duration": 1
+			},
+
+			"advancedConfig": {
+				"ADREnabled": true,
+				"antennaRange": 10
+			},
+
+			"frameConfig": {
+				"FCntDown": 0,
+				"FCntUp": 0,
+				"disableFrameCounterValidation": false,
+				"fPort": 1,
+				"retransmission": 0
+			},
+
+			"payloadConfig": {
+				"MType": "unconfirmedDataUp",
+				"base64Encoded": false,
+				"oversizedPayloadBehavior": "truncate",
+				"payload": "",
+				"uplinkInterval": 10
+			}
+		}
+	}`, id, devEUI, name, active)
+}
+
+func performRequest(
+	router *gin.Engine,
+	method string,
+	path string,
+	body string,
+) *httptest.ResponseRecorder {
+	var reader *strings.Reader
+
+	if body == "" {
+		reader = strings.NewReader("")
+	} else {
+		reader = strings.NewReader(body)
+	}
+
+	req := httptest.NewRequest(
+		method,
+		path,
+		reader,
+	)
+
+	if body != "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	recorder := httptest.NewRecorder()
+
+	router.ServeHTTP(recorder, req)
+
+	return recorder
+}
+
 func TestDeviceHandler_CreateDevice(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -121,18 +320,16 @@ func TestDeviceHandler_CreateDevice(t *testing.T) {
 	}{
 		{
 			name: "creates device",
-			body: `{
-				"devEUI": "0102030405060708",
-				"latitude": 37.5,
-				"longitude": 15.0
-			}`,
+			body: validCreateDeviceJSON(),
 			service: &mockDeviceService{
 				createDeviceResponse: contracts.CreateDeviceResponse{
 					Device: contracts.Device{
-						ID:        testDeviceID1,
-						DevEUI:    "0102030405060708",
-						Latitude:  37.5,
-						Longitude: 15.0,
+						ID:         testDeviceID1,
+						DevEUI:     "0102030405060708",
+						Name:       "test-device",
+						Activation: contracts.OOTA,
+						Active:     true,
+						Class:      contracts.ClassA,
 					},
 				},
 			},
@@ -142,7 +339,7 @@ func TestDeviceHandler_CreateDevice(t *testing.T) {
 		{
 			name: "returns bad request for invalid JSON",
 			body: `{
-				"devEUI": "invalid"
+				"devEUI": "0102030405060708"
 			`,
 			service:        &mockDeviceService{},
 			wantStatusCode: http.StatusBadRequest,
@@ -151,9 +348,16 @@ func TestDeviceHandler_CreateDevice(t *testing.T) {
 		{
 			name: "returns bad request for validation error",
 			body: `{
-				"devEUI": "0102030405060708",
-				"latitude": 100,
-				"longitude": 15
+				"devEUI": "invalid"
+			}`,
+			service:        &mockDeviceService{},
+			wantStatusCode: http.StatusBadRequest,
+			wantCalls:      0,
+		},
+		{
+			name: "returns bad request when required fields are missing",
+			body: `{
+				"devEUI": "0102030405060708"
 			}`,
 			service:        &mockDeviceService{},
 			wantStatusCode: http.StatusBadRequest,
@@ -161,11 +365,7 @@ func TestDeviceHandler_CreateDevice(t *testing.T) {
 		},
 		{
 			name: "returns internal server error",
-			body: `{
-				"devEUI": "0102030405060708",
-				"latitude": 37.5,
-				"longitude": 15
-			}`,
+			body: validCreateDeviceJSON(),
 			service: &mockDeviceService{
 				createDeviceErr: errors.New("database error"),
 			},
@@ -179,23 +379,19 @@ func TestDeviceHandler_CreateDevice(t *testing.T) {
 			handler := newTestDeviceHandler(tt.service)
 			router := setupRouter(handler)
 
-			req := httptest.NewRequest(
+			recorder := performRequest(
+				router,
 				http.MethodPost,
 				"/devices",
-				strings.NewReader(tt.body),
+				tt.body,
 			)
-
-			req.Header.Set("Content-Type", "application/json")
-
-			recorder := httptest.NewRecorder()
-
-			router.ServeHTTP(recorder, req)
 
 			if recorder.Code != tt.wantStatusCode {
 				t.Fatalf(
-					"status code = %d, want %d",
+					"status code = %d, want %d; body = %s",
 					recorder.Code,
 					tt.wantStatusCode,
+					recorder.Body.String(),
 				)
 			}
 
@@ -205,6 +401,34 @@ func TestDeviceHandler_CreateDevice(t *testing.T) {
 					tt.service.createDeviceCalls,
 					tt.wantCalls,
 				)
+			}
+
+			if tt.wantCalls > 0 {
+				got := tt.service.lastCreateRequest
+
+				if got.DevEUI != "0102030405060708" {
+					t.Errorf(
+						"CreateDevice() DevEUI = %q, want %q",
+						got.DevEUI,
+						"0102030405060708",
+					)
+				}
+
+				if got.Activation != contracts.OOTA {
+					t.Errorf(
+						"CreateDevice() Activation = %q, want %q",
+						got.Activation,
+						contracts.OOTA,
+					)
+				}
+
+				if got.Class != contracts.ClassA {
+					t.Errorf(
+						"CreateDevice() Class = %q, want %q",
+						got.Class,
+						contracts.ClassA,
+					)
+				}
 			}
 		})
 	}
@@ -224,10 +448,9 @@ func TestDeviceHandler_GetDevice(t *testing.T) {
 			service: &mockDeviceService{
 				getDeviceResponse: contracts.GetDeviceResponse{
 					Device: contracts.Device{
-						ID:        testDeviceID1,
-						DevEUI:    "0102030405060708",
-						Latitude:  37.5,
-						Longitude: 15.0,
+						ID:     testDeviceID1,
+						DevEUI: "0102030405060708",
+						Name:   "device-1",
 					},
 				},
 			},
@@ -257,21 +480,19 @@ func TestDeviceHandler_GetDevice(t *testing.T) {
 			handler := newTestDeviceHandler(tt.service)
 			router := setupRouter(handler)
 
-			req := httptest.NewRequest(
+			recorder := performRequest(
+				router,
 				http.MethodGet,
 				"/devices/"+tt.id,
-				nil,
+				"",
 			)
-
-			recorder := httptest.NewRecorder()
-
-			router.ServeHTTP(recorder, req)
 
 			if recorder.Code != tt.wantStatusCode {
 				t.Fatalf(
-					"status code = %d, want %d",
+					"status code = %d, want %d; body = %s",
 					recorder.Code,
 					tt.wantStatusCode,
+					recorder.Body.String(),
 				)
 			}
 
@@ -336,21 +557,19 @@ func TestDeviceHandler_GetDevices(t *testing.T) {
 			handler := newTestDeviceHandler(tt.service)
 			router := setupRouter(handler)
 
-			req := httptest.NewRequest(
+			recorder := performRequest(
+				router,
 				http.MethodGet,
 				"/devices",
-				nil,
+				"",
 			)
-
-			recorder := httptest.NewRecorder()
-
-			router.ServeHTTP(recorder, req)
 
 			if recorder.Code != tt.wantStatusCode {
 				t.Fatalf(
-					"status code = %d, want %d",
+					"status code = %d, want %d; body = %s",
 					recorder.Code,
 					tt.wantStatusCode,
+					recorder.Body.String(),
 				)
 			}
 
@@ -377,18 +596,20 @@ func TestDeviceHandler_UpdateDevice(t *testing.T) {
 		{
 			name: "updates device",
 			id:   testDeviceID1,
-			body: `{
-				"devEUI": "1122334455667788",
-				"latitude": 40,
-				"longitude": 20
-			}`,
+			body: validUpdateDeviceJSON(
+				testDeviceID1,
+				"1122334455667788",
+				"updated-device",
+				false,
+			),
 			service: &mockDeviceService{
 				updateDeviceResponse: contracts.UpdateDeviceResponse{
 					Device: contracts.Device{
-						ID:        testDeviceID1,
-						DevEUI:    "1122334455667788",
-						Latitude:  40,
-						Longitude: 20,
+						ID:         testDeviceID1,
+						DevEUI:     "1122334455667788",
+						Name:       "updated-device",
+						Activation: contracts.OOTA,
+						Class:      contracts.ClassA,
 					},
 				},
 			},
@@ -396,16 +617,23 @@ func TestDeviceHandler_UpdateDevice(t *testing.T) {
 			wantCalls:      1,
 		},
 		{
-			name: "updates partial device",
+			name: "updates complete device",
 			id:   testDeviceID1,
-			body: `{
-				"latitude": 40
-			}`,
+			body: validUpdateDeviceJSON(
+				testDeviceID1,
+				"1122334455667788",
+				"updated-device",
+				true,
+			),
 			service: &mockDeviceService{
 				updateDeviceResponse: contracts.UpdateDeviceResponse{
 					Device: contracts.Device{
-						ID:       testDeviceID1,
-						Latitude: 40,
+						ID:         testDeviceID1,
+						DevEUI:     "1122334455667788",
+						Name:       "updated-device",
+						Activation: contracts.OOTA,
+						Active:     true,
+						Class:      contracts.ClassA,
 					},
 				},
 			},
@@ -413,11 +641,22 @@ func TestDeviceHandler_UpdateDevice(t *testing.T) {
 			wantCalls:      1,
 		},
 		{
-			name: "returns bad request for invalid body",
+			name: "returns bad request for invalid device",
 			id:   testDeviceID1,
 			body: `{
-				"latitude": 100
+				"device": {
+					"id": "550e8400-e29b-41d4-a716-446655440000",
+					"devEUI": "invalid"
+				}
 			}`,
+			service:        &mockDeviceService{},
+			wantStatusCode: http.StatusBadRequest,
+			wantCalls:      0,
+		},
+		{
+			name:           "returns bad request when device is missing",
+			id:             testDeviceID1,
+			body:           `{}`,
 			service:        &mockDeviceService{},
 			wantStatusCode: http.StatusBadRequest,
 			wantCalls:      0,
@@ -425,14 +664,30 @@ func TestDeviceHandler_UpdateDevice(t *testing.T) {
 		{
 			name: "returns internal server error",
 			id:   testDeviceID1,
-			body: `{
-				"latitude": 40
-			}`,
+			body: validUpdateDeviceJSON(
+				testDeviceID1,
+				"1122334455667788",
+				"updated-device",
+				true,
+			),
 			service: &mockDeviceService{
 				updateDeviceErr: errors.New("database error"),
 			},
 			wantStatusCode: http.StatusInternalServerError,
 			wantCalls:      1,
+		},
+		{
+			name: "returns bad request for invalid uri id",
+			id:   "invalid",
+			body: validUpdateDeviceJSON(
+				testDeviceID1,
+				"1122334455667788",
+				"updated-device",
+				true,
+			),
+			service:        &mockDeviceService{},
+			wantStatusCode: http.StatusBadRequest,
+			wantCalls:      0,
 		},
 	}
 
@@ -441,23 +696,19 @@ func TestDeviceHandler_UpdateDevice(t *testing.T) {
 			handler := newTestDeviceHandler(tt.service)
 			router := setupRouter(handler)
 
-			req := httptest.NewRequest(
+			recorder := performRequest(
+				router,
 				http.MethodPut,
 				"/devices/"+tt.id,
-				strings.NewReader(tt.body),
+				tt.body,
 			)
-
-			req.Header.Set("Content-Type", "application/json")
-
-			recorder := httptest.NewRecorder()
-
-			router.ServeHTTP(recorder, req)
 
 			if recorder.Code != tt.wantStatusCode {
 				t.Fatalf(
-					"status code = %d, want %d",
+					"status code = %d, want %d; body = %s",
 					recorder.Code,
 					tt.wantStatusCode,
+					recorder.Body.String(),
 				)
 			}
 
@@ -470,13 +721,29 @@ func TestDeviceHandler_UpdateDevice(t *testing.T) {
 			}
 
 			if tt.wantCalls > 0 {
-				req := tt.service.lastUpdateRequest
+				got := tt.service.lastUpdateRequest
 
-				if req.ID != tt.id {
+				if got.ID != tt.id {
 					t.Errorf(
 						"UpdateDevice() ID = %q, want %q",
-						req.ID,
+						got.ID,
 						tt.id,
+					)
+				}
+
+				if got.Device.ID != tt.id {
+					t.Errorf(
+						"UpdateDevice() Device.ID = %q, want %q",
+						got.Device.ID,
+						tt.id,
+					)
+				}
+
+				if got.Device.DevEUI != "1122334455667788" {
+					t.Errorf(
+						"UpdateDevice() Device.DevEUI = %q, want %q",
+						got.Device.DevEUI,
+						"1122334455667788",
 					)
 				}
 			}
@@ -524,21 +791,19 @@ func TestDeviceHandler_DeleteDevice(t *testing.T) {
 			handler := newTestDeviceHandler(tt.service)
 			router := setupRouter(handler)
 
-			req := httptest.NewRequest(
+			recorder := performRequest(
+				router,
 				http.MethodDelete,
 				"/devices/"+tt.id,
-				nil,
+				"",
 			)
-
-			recorder := httptest.NewRecorder()
-
-			router.ServeHTTP(recorder, req)
 
 			if recorder.Code != tt.wantStatusCode {
 				t.Fatalf(
-					"status code = %d, want %d",
+					"status code = %d, want %d; body = %s",
 					recorder.Code,
 					tt.wantStatusCode,
+					recorder.Body.String(),
 				)
 			}
 

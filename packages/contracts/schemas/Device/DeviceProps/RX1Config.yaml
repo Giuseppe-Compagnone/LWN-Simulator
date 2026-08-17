@@ -4,14 +4,17 @@ type: object
 properties:
   delay:
     type: integer
+    x-go-type: "*int"
     x-oapi-codegen-extra-tags:
       validate: "required,min=0"
   duration:
     type: integer
+    x-go-type: "*int"
     x-oapi-codegen-extra-tags:
       validate: "required,min=0"
   dataRateOffset:
     type: integer
+    x-go-type: "*int"
     x-oapi-codegen-extra-tags:
       validate: "required,min=0"
 

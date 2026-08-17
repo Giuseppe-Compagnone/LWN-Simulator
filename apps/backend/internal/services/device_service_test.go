@@ -122,8 +122,7 @@ func TestDeviceService_CreateDevice(t *testing.T) {
 		wantErr       bool
 		errorContains string
 		wantDevEUI    string
-		wantLatitude  float32
-		wantLongitude float32
+		wantName      string
 	}{
 		{
 			name: "creates device",
@@ -131,13 +130,11 @@ func TestDeviceService_CreateDevice(t *testing.T) {
 				devices: []contracts.Device{},
 			},
 			request: contracts.CreateDeviceRequest{
-				DevEUI:    "0102030405060708",
-				Latitude:  float32Ptr(37.5),
-				Longitude: float32Ptr(15.0),
+				DevEUI: "0102030405060708",
+				Name:   "test-device",
 			},
-			wantDevEUI:    "0102030405060708",
-			wantLatitude:  37.5,
-			wantLongitude: 15.0,
+			wantDevEUI: "0102030405060708",
+			wantName:   "test-device",
 		},
 		{
 			name: "returns error when DevEUI already exists",
@@ -150,9 +147,7 @@ func TestDeviceService_CreateDevice(t *testing.T) {
 				},
 			},
 			request: contracts.CreateDeviceRequest{
-				DevEUI:    "0102030405060708",
-				Latitude:  float32Ptr(37.5),
-				Longitude: float32Ptr(15.0),
+				DevEUI: "0102030405060708",
 			},
 			wantErr:       true,
 			errorContains: "already exists",
@@ -163,9 +158,7 @@ func TestDeviceService_CreateDevice(t *testing.T) {
 				getAllErr: errors.New("database error"),
 			},
 			request: contracts.CreateDeviceRequest{
-				DevEUI:    "0102030405060708",
-				Latitude:  float32Ptr(37.5),
-				Longitude: float32Ptr(15.0),
+				DevEUI: "0102030405060708",
 			},
 			wantErr:       true,
 			errorContains: "get devices",
@@ -177,9 +170,7 @@ func TestDeviceService_CreateDevice(t *testing.T) {
 				saveErr: errors.New("database error"),
 			},
 			request: contracts.CreateDeviceRequest{
-				DevEUI:    "0102030405060708",
-				Latitude:  float32Ptr(37.5),
-				Longitude: float32Ptr(15.0),
+				DevEUI: "0102030405060708",
 			},
 			wantErr:       true,
 			errorContains: "save device",
@@ -224,19 +215,11 @@ func TestDeviceService_CreateDevice(t *testing.T) {
 				)
 			}
 
-			if got.Device.Latitude != tt.wantLatitude {
+			if got.Device.Name != tt.wantName {
 				t.Errorf(
-					"Latitude = %v, want %v",
-					got.Device.Latitude,
-					tt.wantLatitude,
-				)
-			}
-
-			if got.Device.Longitude != tt.wantLongitude {
-				t.Errorf(
-					"Longitude = %v, want %v",
-					got.Device.Longitude,
-					tt.wantLongitude,
+					"Name = %q, want %q",
+					got.Device.Name,
+					tt.wantName,
 				)
 			}
 
@@ -246,12 +229,23 @@ func TestDeviceService_CreateDevice(t *testing.T) {
 					tt.repository.saveCalls,
 				)
 			}
+
+			if len(tt.repository.lastSavedDevices) != 1 {
+				t.Fatalf(
+					"Save() received %d devices, want 1",
+					len(tt.repository.lastSavedDevices),
+				)
+			}
+
+			if tt.repository.lastSavedDevices[0].ID != got.Device.ID {
+				t.Errorf(
+					"saved device ID = %q, want %q",
+					tt.repository.lastSavedDevices[0].ID,
+					got.Device.ID,
+				)
+			}
 		})
 	}
-}
-
-func float32Ptr(value float32) *float32 {
-	return &value
 }
 
 func TestDeviceService_GetDevice(t *testing.T) {
@@ -268,10 +262,9 @@ func TestDeviceService_GetDevice(t *testing.T) {
 			repository: &mockDeviceRepository{
 				devices: []contracts.Device{
 					{
-						ID:        testDeviceID1,
-						DevEUI:    "0102030405060708",
-						Latitude:  37.5,
-						Longitude: 15.0,
+						ID:     testDeviceID1,
+						DevEUI: "0102030405060708",
+						Name:   "test-device",
 					},
 				},
 			},
@@ -279,10 +272,9 @@ func TestDeviceService_GetDevice(t *testing.T) {
 				ID: testDeviceID1,
 			},
 			want: contracts.Device{
-				ID:        testDeviceID1,
-				DevEUI:    "0102030405060708",
-				Latitude:  37.5,
-				Longitude: 15.0,
+				ID:     testDeviceID1,
+				DevEUI: "0102030405060708",
+				Name:   "test-device",
 			},
 		},
 		{
@@ -431,99 +423,69 @@ func TestDeviceService_UpdateDevice(t *testing.T) {
 		errorContains string
 	}{
 		{
-			name: "updates DevEUI",
+			name: "updates complete device",
 			repository: &mockDeviceRepository{
 				devices: []contracts.Device{
 					{
-						ID:        testDeviceID1,
-						DevEUI:    "0102030405060708",
-						Latitude:  37.5,
-						Longitude: 15.0,
+						ID:     testDeviceID1,
+						DevEUI: "0102030405060708",
+						Name:   "old-device",
 					},
 				},
 			},
 			request: contracts.UpdateDeviceRequest{
 				ID: testDeviceID1,
-				DevEUI: stringPtr(
-					"1122334455667788",
-				),
+				Device: contracts.Device{
+					DevEUI: "1122334455667788",
+					Name:   "updated-device",
+				},
 			},
 			want: contracts.Device{
-				ID:        testDeviceID1,
-				DevEUI:    "1122334455667788",
-				Latitude:  37.5,
-				Longitude: 15.0,
+				ID:     testDeviceID1,
+				DevEUI: "1122334455667788",
+				Name:   "updated-device",
 			},
 		},
 		{
-			name: "updates latitude",
+			name: "updates all device fields",
 			repository: &mockDeviceRepository{
 				devices: []contracts.Device{
 					{
-						ID:        testDeviceID1,
-						DevEUI:    "0102030405060708",
-						Latitude:  37.5,
-						Longitude: 15.0,
+						ID:     testDeviceID1,
+						DevEUI: "0102030405060708",
+						Name:   "old-device",
 					},
 				},
 			},
 			request: contracts.UpdateDeviceRequest{
-				ID:       testDeviceID1,
-				Latitude: float32Ptr(40.0),
-			},
-			want: contracts.Device{
-				ID:        testDeviceID1,
-				DevEUI:    "0102030405060708",
-				Latitude:  40.0,
-				Longitude: 15.0,
-			},
-		},
-		{
-			name: "updates longitude",
-			repository: &mockDeviceRepository{
-				devices: []contracts.Device{
-					{
-						ID:        testDeviceID1,
-						DevEUI:    "0102030405060708",
-						Latitude:  37.5,
-						Longitude: 15.0,
-					},
+				ID: testDeviceID1,
+				Device: contracts.Device{
+					DevEUI:         "1122334455667788",
+					Name:           "updated-device",
+					Active:         true,
+					Activation:     contracts.OOTA,
+					Class:          contracts.ClassA,
+					RX1Config:      contracts.RX1Config{},
+					RX2Config:      contracts.RX2Config{},
+					AdvancedConfig: contracts.AdvancedConfig{},
+					FrameConfig:    contracts.FrameConfig{},
+					LocationConfig: contracts.LocationConfig{},
+					PayloadConfig:  contracts.PayloadConfig{},
 				},
 			},
-			request: contracts.UpdateDeviceRequest{
-				ID:        testDeviceID1,
-				Longitude: float32Ptr(20.0),
-			},
 			want: contracts.Device{
-				ID:        testDeviceID1,
-				DevEUI:    "0102030405060708",
-				Latitude:  37.5,
-				Longitude: 20.0,
-			},
-		},
-		{
-			name: "updates all fields",
-			repository: &mockDeviceRepository{
-				devices: []contracts.Device{
-					{
-						ID:        testDeviceID1,
-						DevEUI:    "0102030405060708",
-						Latitude:  37.5,
-						Longitude: 15.0,
-					},
-				},
-			},
-			request: contracts.UpdateDeviceRequest{
-				ID:        testDeviceID1,
-				DevEUI:    stringPtr("1122334455667788"),
-				Latitude:  float32Ptr(40.0),
-				Longitude: float32Ptr(20.0),
-			},
-			want: contracts.Device{
-				ID:        testDeviceID1,
-				DevEUI:    "1122334455667788",
-				Latitude:  40.0,
-				Longitude: 20.0,
+				ID:             testDeviceID1,
+				DevEUI:         "1122334455667788",
+				Name:           "updated-device",
+				Active:         true,
+				Activation:     contracts.OOTA,
+				Class:          contracts.ClassA,
+				RX1Config:      contracts.RX1Config{},
+				RX2Config:      contracts.RX2Config{},
+				AdvancedConfig: contracts.AdvancedConfig{},
+				FrameConfig:    contracts.FrameConfig{},
+				LocationConfig: contracts.LocationConfig{},
+				PayloadConfig:  contracts.PayloadConfig{},
 			},
 		},
 		{
@@ -532,8 +494,24 @@ func TestDeviceService_UpdateDevice(t *testing.T) {
 				devices: []contracts.Device{},
 			},
 			request: contracts.UpdateDeviceRequest{
-				ID:       "unknown-device",
-				Latitude: float32Ptr(40.0),
+				ID: "unknown-device",
+				Device: contracts.Device{
+					DevEUI: "1122334455667788",
+				},
+			},
+			wantErr:       true,
+			errorContains: "get device by id",
+		},
+		{
+			name: "returns error when get device fails",
+			repository: &mockDeviceRepository{
+				getByIDErr: errors.New("database error"),
+			},
+			request: contracts.UpdateDeviceRequest{
+				ID: testDeviceID1,
+				Device: contracts.Device{
+					DevEUI: "1122334455667788",
+				},
 			},
 			wantErr:       true,
 			errorContains: "get device by id",
@@ -543,14 +521,17 @@ func TestDeviceService_UpdateDevice(t *testing.T) {
 			repository: &mockDeviceRepository{
 				devices: []contracts.Device{
 					{
-						ID: testDeviceID1,
+						ID:     testDeviceID1,
+						DevEUI: "0102030405060708",
 					},
 				},
 				updateErr: errors.New("database error"),
 			},
 			request: contracts.UpdateDeviceRequest{
-				ID:       testDeviceID1,
-				Latitude: float32Ptr(40.0),
+				ID: testDeviceID1,
+				Device: contracts.Device{
+					DevEUI: "1122334455667788",
+				},
 			},
 			wantErr:       true,
 			errorContains: "update device",
@@ -601,12 +582,15 @@ func TestDeviceService_UpdateDevice(t *testing.T) {
 					tt.want,
 				)
 			}
+
+			if tt.repository.updateCalls != 1 {
+				t.Errorf(
+					"Update() calls = %d, want 1",
+					tt.repository.updateCalls,
+				)
+			}
 		})
 	}
-}
-
-func stringPtr(value string) *string {
-	return &value
 }
 
 func TestDeviceService_DeleteDevice(t *testing.T) {

@@ -4,10 +4,12 @@ type: object
 properties:
   delay:
     type: integer
+    x-go-type: "*int"
     x-oapi-codegen-extra-tags:
       validate: "required,min=0"
   duration:
     type: integer
+    x-go-type: "*int"
     x-oapi-codegen-extra-tags:
       validate: "required,min=0"
   channelFrequency:
@@ -16,6 +18,7 @@ properties:
       validate: "required,gt=0"
   dataRate:
     type: integer
+    x-go-type: "*int"
     x-oapi-codegen-extra-tags:
       validate: "required,min=0"
   ACKTimeout:

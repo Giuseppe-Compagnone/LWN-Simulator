@@ -16,22 +16,19 @@ const (
 func testDevices() []contracts.Device {
 	return []contracts.Device{
 		{
-			ID:        testDeviceID1,
-			DevEUI:    "0102030405060708",
-			Latitude:  37.5079,
-			Longitude: 15.0830,
+			ID:     testDeviceID1,
+			DevEUI: "0102030405060708",
+			Name:   "device-1",
 		},
 		{
-			ID:        testDeviceID2,
-			DevEUI:    "1122334455667788",
-			Latitude:  38.1157,
-			Longitude: 13.3615,
+			ID:     testDeviceID2,
+			DevEUI: "1122334455667788",
+			Name:   "device-2",
 		},
 		{
-			ID:        testDeviceID3,
-			DevEUI:    "AABBCCDDEEFF0011",
-			Latitude:  45.4642,
-			Longitude: 9.1900,
+			ID:     testDeviceID3,
+			DevEUI: "AABBCCDDEEFF0011",
+			Name:   "device-3",
 		},
 	}
 }
@@ -86,7 +83,11 @@ func TestDeviceRepository_GetAll(t *testing.T) {
 			}
 
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetAll() = %v, want %v", got, tt.want)
+				t.Errorf(
+					"GetAll() = %v, want %v",
+					got,
+					tt.want,
+				)
 			}
 		})
 	}
@@ -103,10 +104,9 @@ func TestDeviceRepository_GetByID(t *testing.T) {
 			name: "returns existing device",
 			id:   testDeviceID2,
 			want: contracts.Device{
-				ID:        testDeviceID2,
-				DevEUI:    "1122334455667788",
-				Latitude:  38.1157,
-				Longitude: 13.3615,
+				ID:     testDeviceID2,
+				DevEUI: "1122334455667788",
+				Name:   "device-2",
 			},
 		},
 		{
@@ -158,16 +158,14 @@ func TestDeviceRepository_Save(t *testing.T) {
 			name: "saves multiple devices",
 			devices: []contracts.Device{
 				{
-					ID:        testDeviceID1,
-					DevEUI:    "0102030405060708",
-					Latitude:  37.5079,
-					Longitude: 15.0830,
+					ID:     testDeviceID1,
+					DevEUI: "0102030405060708",
+					Name:   "device-1",
 				},
 				{
-					ID:        testDeviceID2,
-					DevEUI:    "1122334455667788",
-					Latitude:  38.1157,
-					Longitude: 13.3615,
+					ID:     testDeviceID2,
+					DevEUI: "1122334455667788",
+					Name:   "device-2",
 				},
 			},
 		},
@@ -208,49 +206,43 @@ func TestDeviceRepository_Save(t *testing.T) {
 func TestDeviceRepository_Update(t *testing.T) {
 	tests := []struct {
 		name    string
-		id      string
 		update  contracts.Device
 		want    []contracts.Device
 		wantErr bool
 	}{
 		{
 			name: "updates existing device",
-			id:   testDeviceID2,
 			update: contracts.Device{
-				ID:        testDeviceID2,
-				DevEUI:    "FFEEDDCCBBAA9988",
-				Latitude:  40.0000,
-				Longitude: 14.0000,
+				ID:     testDeviceID2,
+				DevEUI: "FFEEDDCCBBAA9988",
+				Name:   "updated-device",
+				Active: true,
 			},
 			want: []contracts.Device{
 				{
-					ID:        testDeviceID1,
-					DevEUI:    "0102030405060708",
-					Latitude:  37.5079,
-					Longitude: 15.0830,
+					ID:     testDeviceID1,
+					DevEUI: "0102030405060708",
+					Name:   "device-1",
 				},
 				{
-					ID:        testDeviceID2,
-					DevEUI:    "FFEEDDCCBBAA9988",
-					Latitude:  40.0000,
-					Longitude: 14.0000,
+					ID:     testDeviceID2,
+					DevEUI: "FFEEDDCCBBAA9988",
+					Name:   "updated-device",
+					Active: true,
 				},
 				{
-					ID:        testDeviceID3,
-					DevEUI:    "AABBCCDDEEFF0011",
-					Latitude:  45.4642,
-					Longitude: 9.1900,
+					ID:     testDeviceID3,
+					DevEUI: "AABBCCDDEEFF0011",
+					Name:   "device-3",
 				},
 			},
 		},
 		{
 			name: "returns error when device does not exist",
-			id:   "unknown-device",
 			update: contracts.Device{
-				ID:        "unknown-device",
-				DevEUI:    "0102030405060708",
-				Latitude:  37.5,
-				Longitude: 15.0,
+				ID:     "unknown-device",
+				DevEUI: "0102030405060708",
+				Name:   "unknown",
 			},
 			wantErr: true,
 		},
@@ -310,16 +302,14 @@ func TestDeviceRepository_Delete(t *testing.T) {
 			},
 			want: []contracts.Device{
 				{
-					ID:        testDeviceID1,
-					DevEUI:    "0102030405060708",
-					Latitude:  37.5079,
-					Longitude: 15.0830,
+					ID:     testDeviceID1,
+					DevEUI: "0102030405060708",
+					Name:   "device-1",
 				},
 				{
-					ID:        testDeviceID3,
-					DevEUI:    "AABBCCDDEEFF0011",
-					Latitude:  45.4642,
-					Longitude: 9.1900,
+					ID:     testDeviceID3,
+					DevEUI: "AABBCCDDEEFF0011",
+					Name:   "device-3",
 				},
 			},
 		},
@@ -330,16 +320,14 @@ func TestDeviceRepository_Delete(t *testing.T) {
 			},
 			want: []contracts.Device{
 				{
-					ID:        testDeviceID2,
-					DevEUI:    "1122334455667788",
-					Latitude:  38.1157,
-					Longitude: 13.3615,
+					ID:     testDeviceID2,
+					DevEUI: "1122334455667788",
+					Name:   "device-2",
 				},
 				{
-					ID:        testDeviceID3,
-					DevEUI:    "AABBCCDDEEFF0011",
-					Latitude:  45.4642,
-					Longitude: 9.1900,
+					ID:     testDeviceID3,
+					DevEUI: "AABBCCDDEEFF0011",
+					Name:   "device-3",
 				},
 			},
 		},
@@ -350,16 +338,14 @@ func TestDeviceRepository_Delete(t *testing.T) {
 			},
 			want: []contracts.Device{
 				{
-					ID:        testDeviceID1,
-					DevEUI:    "0102030405060708",
-					Latitude:  37.5079,
-					Longitude: 15.0830,
+					ID:     testDeviceID1,
+					DevEUI: "0102030405060708",
+					Name:   "device-1",
 				},
 				{
-					ID:        testDeviceID2,
-					DevEUI:    "1122334455667788",
-					Latitude:  38.1157,
-					Longitude: 13.3615,
+					ID:     testDeviceID2,
+					DevEUI: "1122334455667788",
+					Name:   "device-2",
 				},
 			},
 		},

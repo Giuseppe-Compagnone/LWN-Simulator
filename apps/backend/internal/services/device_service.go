@@ -45,10 +45,20 @@ func (s *DeviceService) CreateDevice(
 	}
 
 	device := contracts.Device{
-		ID:        uuid.NewString(),
-		DevEUI:    req.DevEUI,
-		Latitude:  *req.Latitude,
-		Longitude: *req.Longitude,
+		ID:             uuid.NewString(),
+		DevEUI:         req.DevEUI,
+		Name:           req.Name,
+		Activation:     req.Activation,
+		Active:         req.Active,
+		Class:          req.Class,
+		LocationConfig: req.LocationConfig,
+		ABPConfig:      req.ABPConfig,
+		OOTAConfig:     req.OOTAConfig,
+		RX1Config:      req.RX1Config,
+		RX2Config:      req.RX2Config,
+		AdvancedConfig: req.AdvancedConfig,
+		FrameConfig:    req.FrameConfig,
+		PayloadConfig:  req.PayloadConfig,
 	}
 
 	devices = append(devices, device)
@@ -94,23 +104,16 @@ func (s *DeviceService) GetDevices(
 func (s *DeviceService) UpdateDevice(
 	req contracts.UpdateDeviceRequest,
 ) (contracts.UpdateDeviceResponse, error) {
-	device, err := s.repository.GetByID(req.ID)
-
+	_, err := s.repository.GetByID(req.ID)
 	if err != nil {
-		return contracts.UpdateDeviceResponse{}, fmt.Errorf("get device by id: %w", err)
+		return contracts.UpdateDeviceResponse{}, fmt.Errorf(
+			"get device by id: %w",
+			err,
+		)
 	}
 
-	if req.DevEUI != nil {
-		device.DevEUI = *req.DevEUI
-	}
-
-	if req.Latitude != nil {
-		device.Latitude = *req.Latitude
-	}
-
-	if req.Longitude != nil {
-		device.Longitude = *req.Longitude
-	}
+	device := req.Device
+	device.ID = req.ID
 
 	if err := s.repository.Update(device); err != nil {
 		return contracts.UpdateDeviceResponse{}, fmt.Errorf(
