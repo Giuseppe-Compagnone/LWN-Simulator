@@ -273,8 +273,6 @@ components:
             validate: required,len=16
         name:
           type: string
-        active:
-          type: boolean
         activation:
           $ref: '#/components/schemas/DeviceActivation'
         class:

@@ -10,9 +10,6 @@ properties:
   name:
     type: string
 
-  active:
-    type: boolean
-
   activation:
     $ref: "./DeviceProps/DeviceActivation.yaml"
 
