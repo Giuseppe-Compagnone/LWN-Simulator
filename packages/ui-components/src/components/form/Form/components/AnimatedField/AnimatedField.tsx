@@ -58,7 +58,10 @@ export const AnimatedField = (props: AnimatedFieldProps) => {
       {props.field.info && (
         <div className="field-info">
           <span className="material-symbols-outlined icon">info</span>
-          <span>{props.field.info}</span>
+          <span>
+            {props.field.info[props.field.value as string] ||
+              props.field.info.default}
+          </span>
         </div>
       )}
     </div>

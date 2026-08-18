@@ -1,0 +1,22 @@
+.new-device-page {
+  position: relative;
+
+  .page-content {
+    display: flex;
+    justify-content: center;
+    height: 100%;
+    gap: var(--gap);
+
+    .submit-button {
+      position: absolute;
+      top: 1.5rem;
+      right: 1.5rem;
+      margin-top: 0;
+    }
+
+    .sensor-map {
+      width: 80%;
+      height: 100%;
+    }
+  }
+}

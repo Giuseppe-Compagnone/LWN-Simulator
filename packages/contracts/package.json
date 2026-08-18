@@ -2,7 +2,17 @@
   "name": "@lwn-simulator/contracts",
   "version": "1.0.0",
   "private": true,
+  "main": "./generated/models.ts",
   "types": "./generated/models.ts",
+  "exports": {
+    ".": {
+      "import": "./generated/models.ts",
+      "types": "./generated/models.ts"
+    }
+  },
+  "files": [
+    "generated"
+  ],
   "scripts": {
     "build": "yarn clean && yarn generate:bundle && yarn generate:ts && yarn generate:go && yarn generate:models",
     "clean": "rm -rf generated",

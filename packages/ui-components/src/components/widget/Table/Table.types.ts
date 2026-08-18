@@ -94,6 +94,15 @@ export interface TableProps {
    * single page without showing pagination controls.
    */
   pageSize?: number;
+  /**
+   * Indicates whether the table is currently loading.
+   *
+   * When enabled, the table displays its loading state instead of the
+   * available records.
+   *
+   * @default false
+   */
+  isLoading?: boolean;
 }
 
 /**

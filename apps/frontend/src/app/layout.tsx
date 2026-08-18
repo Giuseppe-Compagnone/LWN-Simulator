@@ -9,7 +9,7 @@ import cn from "classnames";
 
 export const metadata: Metadata = {
   title: "LWN Simulator",
-  icons: ["./icon.png"],
+  icons: ["/icon.png"],
 };
 
 const inter = Inter({

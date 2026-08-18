@@ -77,8 +77,14 @@ export interface FormField {
 
   /**
    * Additional information or helper text displayed alongside the field.
+   *
+   * The key is matched against the field value. If no key matches,
+   * the `default` value is used.
    */
-  info?: string;
+  info?: {
+    default: string;
+    [value: string]: string;
+  };
 
   /**
    * Function used to transform the raw input value before storing it.

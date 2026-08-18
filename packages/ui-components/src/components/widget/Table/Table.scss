@@ -4,12 +4,32 @@
 @use "../../../styles/breakpoints" as *;
 
 .table {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: flex-start;
   flex-direction: column;
   width: 100%;
   max-height: 100%;
+
+  .loading-wrapper {
+    position: absolute;
+    inset: 0;
+    top: 4rem;
+    bottom: 4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 0;
+    background: color-mix(in srgb, var(--tertiary-bg-color) 80%, transparent);
+    backdrop-filter: blur(0);
+    transition: all 0.3s ease-in-out;
+
+    &.visible {
+      backdrop-filter: blur(4px);
+      height: unset;
+    }
+  }
 
   table {
     display: flex;
@@ -18,7 +38,7 @@
     flex-direction: column;
     width: 100%;
     min-height: 0;
-    max-height: calc(100% - 65px);
+    max-height: calc(100% - 4rem);
 
     .table-header {
       width: 100%;
@@ -28,7 +48,7 @@
         align-items: center;
         justify-content: center;
         width: 100%;
-        height: 65px;
+        height: 4rem;
         background: var(--tertiary-bg-color);
         border-bottom: 1px solid var(--border-color);
 
@@ -55,7 +75,6 @@
     }
 
     .table-rows {
-      position: relative;
       display: flex;
       align-items: center;
       justify-content: flex-start;
@@ -63,27 +82,7 @@
       width: 100%;
       background: var(--secondary-bg-color);
       overflow-x: auto;
-
-      .loading-wrapper {
-        position: absolute;
-        display: flex;
-        inset: 0;
-        align-items: center;
-        justify-content: center;
-        height: 0;
-        background: color-mix(
-          in srgb,
-          var(--tertiary-bg-color) 80%,
-          transparent
-        );
-        backdrop-filter: blur(0);
-        transition: all 0.3s ease-in-out;
-
-        &.visible {
-          backdrop-filter: blur(4px);
-          height: unset;
-        }
-      }
+      transition: all 0.2s ease-in-out;
 
       .table-row {
         display: flex;
@@ -117,13 +116,24 @@
           padding: 1rem;
         }
       }
+
+      .empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: calc(75px * 5);
+        color: var(--secondary-text-color);
+        font-size: 6rem;
+        opacity: 0.3;
+      }
     }
   }
 
   .table-footer {
     width: 100%;
-    min-height: 65px;
-    max-height: 65px;
+    min-height: 4rem;
+    max-height: 4rem;
     background: var(--tertiary-bg-color);
     border-top: 1px solid var(--border-color);
   }
