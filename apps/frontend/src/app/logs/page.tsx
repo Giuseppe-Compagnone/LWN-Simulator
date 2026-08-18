@@ -1,7 +1,7 @@
-import { redirect } from "next/navigation";
+import { PageLoader } from "@/components";
 
 const LogsPage = () => {
-  redirect("/simulation");
+  return <PageLoader href="/simulation" />;
 };
 
 export default LogsPage;

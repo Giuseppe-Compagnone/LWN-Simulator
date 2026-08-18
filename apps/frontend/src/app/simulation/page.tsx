@@ -1,7 +1,7 @@
-import { redirect } from "next/navigation";
+import { PageLoader } from "@/components";
 
 const SimulationPage = () => {
-  redirect("/simulation/dashboard");
+  return <PageLoader href="/simulation/dashboard" />;
 };
 
 export default SimulationPage;

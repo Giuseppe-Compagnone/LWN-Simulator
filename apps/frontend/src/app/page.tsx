@@ -1,7 +1,7 @@
-import { redirect } from "next/navigation";
+import { PageLoader } from "@/components";
 
 const HomePage = () => {
-  redirect("/simulation");
+  return <PageLoader href={"/simulation"} />;
 };
 
 export default HomePage;
