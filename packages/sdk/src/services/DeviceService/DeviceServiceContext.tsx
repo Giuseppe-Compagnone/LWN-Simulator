@@ -7,6 +7,7 @@ const DeviceServiceContext = createContext<DeviceServiceContent>({
   getDevices: () => new Promise(() => {}),
   updateDevice: () => new Promise(() => {}),
   deleteDevice: () => new Promise(() => {}),
+  devices: null,
 });
 
 export default DeviceServiceContext;

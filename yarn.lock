@@ -1468,6 +1468,7 @@ __metadata:
     react: "npm:19.2.4"
     react-dom: "npm:19.2.4"
     react-map-gl: "npm:^8.1.2"
+    react-toastify: "npm:^11.1.0"
     stylelint: "npm:^17.14.1"
     stylelint-config-standard-scss: "npm:^17.0.0"
     stylelint-order: "npm:^8.1.1"
@@ -1483,6 +1484,7 @@ __metadata:
   dependencies:
     "@eslint/js": "npm:^10.0.1"
     "@lwn-simulator/contracts": "workspace:*"
+    "@lwn-simulator/ui-components": "workspace:*"
     axios: "npm:^1.19.0"
     eslint: "npm:^10.8.1"
     eslint-config-prettier: "npm:^10.1.8"
@@ -1496,6 +1498,7 @@ __metadata:
     typescript-eslint: "npm:^8.66.0"
   peerDependencies:
     "@lwn-simulator/contracts": "workspace:*"
+    "@lwn-simulator/ui-components": "workspace:*"
     react: ^19.2.8
     react-dom: ^19.2.8
     typescript: ^5

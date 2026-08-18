@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   DeviceServiceContent,
   DeviceServiceProviderProps,
@@ -11,9 +11,13 @@ import {
   GetDeviceRequest,
   UpdateDeviceRequest,
 } from "@lwn-simulator/contracts";
+import { NotificationHandler } from "@lwn-simulator/ui-components";
 import { DeviceService } from "./DeviceService";
 
 const DeviceServiceProvider = (props: DeviceServiceProviderProps) => {
+  // States
+  const [devices, setDevices] = useState<Array<Device> | null>(null);
+
   // Callbacks
   const createDevice = useCallback(
     async (req: CreateDeviceRequest): Promise<Device> => {
@@ -47,6 +51,19 @@ const DeviceServiceProvider = (props: DeviceServiceProviderProps) => {
     [],
   );
 
+  // Effects
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await getDevices();
+
+        setDevices(res);
+      } catch {
+        NotificationHandler.instance.error("Failed to load devices");
+      }
+    })();
+  }, [getDevices]);
+
   // Memos
   const value = useMemo(
     (): DeviceServiceContent => ({
@@ -55,8 +72,9 @@ const DeviceServiceProvider = (props: DeviceServiceProviderProps) => {
       getDevices,
       updateDevice,
       deleteDevice,
+      devices,
     }),
-    [createDevice, getDevice, getDevices, updateDevice, deleteDevice],
+    [createDevice, getDevice, getDevices, updateDevice, deleteDevice, devices],
   );
 
   return (

@@ -25,6 +25,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@lwn-simulator/contracts": "workspace:*",
+    "@lwn-simulator/ui-components": "workspace:*",
     "eslint": "^10.8.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react": "^7.37.5",
@@ -38,6 +39,7 @@
   },
   "peerDependencies": {
     "@lwn-simulator/contracts": "workspace:*",
+    "@lwn-simulator/ui-components": "workspace:*",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "typescript": "^5"

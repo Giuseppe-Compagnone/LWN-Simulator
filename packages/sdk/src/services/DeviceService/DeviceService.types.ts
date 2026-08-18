@@ -50,6 +50,13 @@ export interface DeviceServiceContent {
    * @param req Request containing the device identifier.
    */
   deleteDevice: (req: DeleteDeviceRequest) => Promise<void>;
+  /**
+   * Currently loaded devices.
+   *
+   * A `null` value indicates that the device collection has not been loaded
+   * yet.
+   */
+  devices: Array<Device> | null;
 }
 
 /**

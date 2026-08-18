@@ -10,6 +10,7 @@ import Navbar from "../Navbar";
 import Sidebar from "../Sidebar";
 import Footer from "../Footer";
 import { useEffect, useState } from "react";
+import { ToastContainer } from "react-toastify";
 
 const ProvidersWrapper = (props: ProvidersWrapperProps) => {
   // States
@@ -30,6 +31,7 @@ const ProvidersWrapper = (props: ProvidersWrapperProps) => {
             {props.children}
             <Footer />
           </Sidebar>
+          <ToastContainer />
         </DeviceServiceProvider>
       </AppInfoServiceProvider>
     </ThemeServiceProvider>
