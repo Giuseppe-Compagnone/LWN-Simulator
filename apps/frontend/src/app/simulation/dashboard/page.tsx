@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button, ButtonType, PageHeader } from "@lwn-simulator/ui-components";
-import { SensorMap } from "@/components";
+import { SensorMap, useSensorMap } from "@/components";
 import { useAppInfoService } from "@lwn-simulator/sdk";
 
 const DashboardPage = () => {
@@ -12,6 +12,7 @@ const DashboardPage = () => {
 
   // Hooks
   const appInfoService = useAppInfoService();
+  const mapLogic = useSensorMap({});
 
   // Effects
   useEffect(() => {
@@ -37,7 +38,7 @@ const DashboardPage = () => {
         <Button value={"Start Simulation"} />
         <Button value={"Stop"} type={ButtonType.Outlined} />
       </PageHeader>
-      <SensorMap />
+      <SensorMap logic={mapLogic} />
       {isLoading ? "Loading..." : `Running on port: ${port}`}
     </div>
   );

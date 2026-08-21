@@ -1,7 +1,7 @@
 "use client";
 
 import { SensorMapProps } from "./SensorMap.types";
-import Map from "react-map-gl/maplibre";
+import Map, { Marker } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Spinner, Theme, useThemeService } from "@lwn-simulator/ui-components";
 import { useEffect, useState } from "react";
@@ -14,11 +14,14 @@ const DEFAULT_POSITION = {
 };
 
 const SensorMap = (props: SensorMapProps) => {
-  const themeService = useThemeService();
-
+  // States
   const [position, setPosition] = useState(DEFAULT_POSITION);
+
+  // Hooks
+  const themeService = useThemeService();
   const [loading, setLoading] = useState(true);
 
+  // Effects
   useEffect(() => {
     if (!navigator.geolocation) {
       setLoading(false);
@@ -68,6 +71,7 @@ const SensorMap = (props: SensorMapProps) => {
   return (
     <div className="sensor-map">
       <Map
+        onClick={props.logic.onClick}
         initialViewState={position}
         style={{
           width: "100%",
@@ -85,6 +89,15 @@ const SensorMap = (props: SensorMapProps) => {
         <DeviceMarker marker={markerA} />
         <GatewayMarker marker={markerB} />
         <LinkMarker from={markerA} to={markerB} />
+        {props.logic.selectedPos && (
+          <Marker
+            longitude={props.logic.selectedPos.lng}
+            latitude={props.logic.selectedPos.lat}
+            anchor="bottom"
+          >
+            <span className="material-symbols-outlined">location_on</span>
+          </Marker>
+        )}
       </Map>
     </div>
   );

@@ -1,17 +1,25 @@
 "use client";
 
-import { SensorMap } from "@/components";
-import { DeviceActivation, DeviceClass } from "@lwn-simulator/contracts";
+import { SensorMap, SensorMapMode, useSensorMap } from "@/components";
+import {
+  DeviceActivation,
+  DeviceClass,
+  DeviceRegion,
+} from "@lwn-simulator/contracts";
 import {
   Form,
   FormField,
   FormValue,
   PageHeader,
   radioField,
+  selectField,
   textField,
 } from "@lwn-simulator/ui-components";
 
 const NewDevicePage = () => {
+  // Hooks
+  const mapLogic = useSensorMap({ mode: SensorMapMode.Coords });
+
   return (
     <div className="page new-device-page">
       <PageHeader title={"Create new Device"} />
@@ -47,7 +55,90 @@ const NewDevicePage = () => {
               info: {
                 default: "Unique identifier assigned to the LoRaWAN end device",
               },
+              validations: [
+                {
+                  rule: /^[0-9A-F]{16}$/,
+                  error: "Invalid DevEUI",
+                },
+              ],
               error: null,
+              required: true,
+            }),
+            textField({
+              name: "latitude",
+              label: "Latitude",
+              placeholder: "45.4642",
+              value: "",
+              error: null,
+              info: { default: "Decimal degrees (-90 to 90)" },
+              format: (raw: string) => {
+                return raw
+                  .replace(/[^0-9.-]/g, "")
+                  .replace(/(?!^)-/g, "")
+                  .replace(/(\..*)\./g, "$1");
+              },
+              validations: [
+                {
+                  rule: /^-?(?:90(?:\.0+)?|(?:[0-8]?\d)(?:\.\d+)?)$/,
+                  error: "Invalid latitude",
+                },
+              ],
+              required: true,
+            }),
+            textField({
+              name: "longitude",
+              label: "Longitude",
+              placeholder: "9.1900",
+              value: "",
+              error: null,
+              info: { default: "Decimal degrees (-180 to 180)" },
+              format: (raw: string) => {
+                return raw
+                  .replace(/[^0-9.-]/g, "")
+                  .replace(/(?!^)-/g, "")
+                  .replace(/(\..*)\./g, "$1");
+              },
+              validations: [
+                {
+                  rule: /^-?(?:180(?:\.0+)?|1[0-7]\d(?:\.\d+)?|[0-9]?\d(?:\.\d+)?)$/,
+                  error: "Invalid longitude",
+                },
+              ],
+              required: true,
+            }),
+            textField({
+              name: "altitude",
+              label: "Altitude",
+              placeholder: "120",
+              value: "",
+              error: null,
+              info: { default: "Meters above sea level" },
+              format: (raw: string) => {
+                return raw
+                  .replace(/[^0-9.-]/g, "")
+                  .replace(/(?!^)-/g, "")
+                  .replace(/(\..*)\./g, "$1");
+              },
+              validations: [
+                {
+                  rule: /^-?\d+(?:\.\d+)?$/,
+                  error: "Invalid altitude",
+                },
+              ],
+              required: true,
+            }),
+            selectField({
+              value: null,
+              name: "region",
+              label: "Region",
+              error: null,
+              placeholder: "Select a region",
+              options: Object.values(DeviceRegion).map((reg: string) => {
+                return {
+                  value: reg,
+                };
+              }),
+              info: { default: "LoRaWAN regional frequency plan" },
               required: true,
             }),
             radioField({
@@ -103,6 +194,12 @@ const NewDevicePage = () => {
                   .slice(0, 16)
                   .toUpperCase();
               },
+              validations: [
+                {
+                  rule: /^[0-9A-F]{16}$/,
+                  error: "Invalid JoinEUI",
+                },
+              ],
               info: {
                 default:
                   "Identifies the application entity handling the device join.",
@@ -123,6 +220,12 @@ const NewDevicePage = () => {
                   .slice(0, 32)
                   .toUpperCase();
               },
+              validations: [
+                {
+                  rule: /^[0-9A-F]{32}$/,
+                  error: "Invalid AppKey",
+                },
+              ],
               info: {
                 default:
                   "Secret key used to securely authenticate an OTAA join",
@@ -143,6 +246,12 @@ const NewDevicePage = () => {
                   .slice(0, 8)
                   .toUpperCase();
               },
+              validations: [
+                {
+                  rule: /^[0-9A-F]{8}$/,
+                  error: "Invalid DevAddr",
+                },
+              ],
               info: {
                 default:
                   "32-bit address assigned to the device during ABP activation",
@@ -163,6 +272,12 @@ const NewDevicePage = () => {
                   .slice(0, 32)
                   .toUpperCase();
               },
+              validations: [
+                {
+                  rule: /^[0-9A-F]{32}$/,
+                  error: "Invalid NwkSKey",
+                },
+              ],
               info: {
                 default:
                   "Session key used to secure LoRaWAN network-layer communication",
@@ -183,6 +298,12 @@ const NewDevicePage = () => {
                   .slice(0, 32)
                   .toUpperCase();
               },
+              validations: [
+                {
+                  rule: /^[0-9A-F]{32}$/,
+                  error: "Invalid AppSKey",
+                },
+              ],
               info: {
                 default: "Session key used to encrypt application payload data",
               },
@@ -193,7 +314,7 @@ const NewDevicePage = () => {
             }),
           ]}
         />
-        <SensorMap />
+        <SensorMap logic={mapLogic} />
       </div>
     </div>
   );
