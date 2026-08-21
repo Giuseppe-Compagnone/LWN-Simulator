@@ -9,16 +9,90 @@ import {
 import {
   Form,
   FormField,
+  FormLogic,
   FormValue,
   PageHeader,
   radioField,
   selectField,
   textField,
 } from "@lwn-simulator/ui-components";
+import { useEffect, useRef } from "react";
+
+export function estimateRegion(lat: number, lng: number): DeviceRegion | null {
+  // Europe
+  if (lat >= 35 && lat <= 72 && lng >= -25 && lng <= 45) {
+    return DeviceRegion.EU868;
+  }
+
+  // Russia
+  if (lat >= 41 && lat <= 82 && lng >= 19 && lng <= 180) {
+    return DeviceRegion.RU864;
+  }
+
+  // South Korea
+  if (lat >= 33 && lat <= 39 && lng >= 124 && lng <= 132) {
+    return DeviceRegion.KR920;
+  }
+
+  // India
+  if (lat >= 6 && lat <= 37 && lng >= 68 && lng <= 98) {
+    return DeviceRegion.IN865;
+  }
+
+  // China
+  if (lat >= 18 && lat <= 54 && lng >= 73 && lng <= 135) {
+    return DeviceRegion.CN470;
+  }
+
+  // Australia
+  if (lat >= -44 && lat <= -10 && lng >= 112 && lng <= 154) {
+    return DeviceRegion.AU915;
+  }
+
+  // USA / Canada / part of Americas
+  if (lat >= 24 && lat <= 72 && lng >= -170 && lng <= -50) {
+    return DeviceRegion.US915;
+  }
+
+  // South America / Japan / Taiwan / SE Asia etc.
+  if (lat >= -50 && lat <= 50 && lng >= 95 && lng <= 180) {
+    return DeviceRegion.AS923;
+  }
+
+  return null;
+}
 
 const NewDevicePage = () => {
   // Hooks
+  const formLogicRef = useRef<FormLogic | null>(null);
   const mapLogic = useSensorMap({ mode: SensorMapMode.Coords });
+
+  // Effects
+  useEffect(() => {
+    if (formLogicRef.current && mapLogic.selectedPos) {
+      formLogicRef.current.setValue(
+        "latitude",
+        mapLogic.selectedPos.lat.toString(),
+      );
+      formLogicRef.current.setValue(
+        "longitude",
+        mapLogic.selectedPos.lng.toString(),
+      );
+      formLogicRef.current.setValue(
+        "altitude",
+        mapLogic.selectedPos.alt.toString(),
+      );
+
+      const region = estimateRegion(
+        mapLogic.selectedPos.lat,
+        mapLogic.selectedPos.lng,
+      );
+
+      if (region) {
+        formLogicRef.current.setValue("region", region);
+      }
+    }
+  }, [mapLogic.selectedPos]);
 
   return (
     <div className="page new-device-page">
@@ -31,6 +105,9 @@ const NewDevicePage = () => {
           submitButton={{
             value: "Create",
             className: "submit-button",
+          }}
+          onLogicReady={(logic) => {
+            formLogicRef.current = logic;
           }}
           fields={[
             textField({

@@ -28,6 +28,10 @@ const Form = (props: FormProps) => {
 
   // Effects
   useEffect(() => {
+    props.onLogicReady?.(formLogic);
+  }, [formLogic, props.onLogicReady]);
+
+  useEffect(() => {
     mounted.current = true;
   }, []);
 

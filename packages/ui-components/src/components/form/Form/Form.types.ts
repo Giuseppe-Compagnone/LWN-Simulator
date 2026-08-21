@@ -160,6 +160,16 @@ export interface FormProps {
    * Configuration of the submit button displayed by the form.
    */
   submitButton?: ButtonProps;
+
+  /**
+   * Callback invoked when the form logic is initialized and becomes available.
+   *
+   * The provided logic can be used to access the form state and interact with
+   * its fields programmatically.
+   *
+   * @param logic The form logic instance exposed by the form.
+   */
+  onLogicReady?: (logic: FormLogic) => void;
 }
 
 /**
