@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { FormField, FormLogic, FormValue, UseFormProps } from "./Form.types";
 
 export const useForm = (props: UseFormProps): FormLogic => {
@@ -13,22 +13,45 @@ export const useForm = (props: UseFormProps): FormLogic => {
   const setValue = (name: string, value: FormValue) => {
     setFieldsState((prev) => {
       const field = prev[name];
-      field.value = value;
-      field.error = null;
 
-      if (field.validations && field.value) {
-        for (let i = 0; i < field.validations.length; i++) {
-          const validation = field.validations[i];
+      const updatedField: FormField = {
+        ...field,
+        value,
+        error: null,
+      };
 
+      if (updatedField.validations && updatedField.value) {
+        for (const validation of updatedField.validations) {
           if (!validation.realtime) continue;
 
-          const isValid = validation.rule.test(field.value as string);
+          const isValid = validation.rule.test(updatedField.value as string);
+
           if (!isValid) {
-            field.error = validation.error;
+            updatedField.error = validation.error;
             break;
           }
         }
       }
+
+      const nextState = {
+        ...prev,
+        [name]: updatedField,
+      };
+
+      return nextState;
+    });
+
+    const field = fieldsState[name];
+
+    if (field?.onChange) {
+      field.onChange(formLogic);
+    }
+  };
+
+  const setProp = (name: string, prop: string, value: unknown) => {
+    setFieldsState((prev) => {
+      const field = prev[name];
+      field[prop as keyof FormField] = value as never;
 
       return { ...prev };
     });
@@ -88,11 +111,23 @@ export const useForm = (props: UseFormProps): FormLogic => {
     return isValid;
   };
 
-  return {
+  const formLogic = useMemo<FormLogic>(() => {
+    return {
+      fieldsState,
+      setValue,
+      setProp,
+      isFieldDisabled,
+      isFieldDisplayed,
+      validate,
+    };
+  }, [
     fieldsState,
     setValue,
+    setProp,
     isFieldDisabled,
     isFieldDisplayed,
     validate,
-  };
+  ]);
+
+  return formLogic;
 };

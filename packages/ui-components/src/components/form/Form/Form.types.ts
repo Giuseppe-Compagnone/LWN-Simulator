@@ -71,6 +71,14 @@ export interface FormField {
   value: FormValue;
 
   /**
+   * Callback invoked when the field value changes.
+   *
+   * Receives the current form logic, which can be used to access the form
+   * state or interact with other fields.
+   */
+  onChange?: (logic: FormLogic) => void;
+
+  /**
    * Placeholder text displayed when the field has no value.
    */
   placeholder?: string;
@@ -195,6 +203,15 @@ export interface FormLogic {
    * @param value New value assigned to the field.
    */
   setValue(name: string, value: FormValue): void;
+
+  /**
+   * Updates a property of a specific form field.
+   *
+   * @param name Name of the field to update.
+   * @param prop Name of the property to update.
+   * @param value New value assigned to the property.
+   */
+  setProp(name: string, prop: string, value: unknown): void;
 
   /**
    * Determines whether a field should be disabled.

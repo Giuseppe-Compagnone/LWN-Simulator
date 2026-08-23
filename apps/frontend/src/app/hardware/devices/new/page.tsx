@@ -14,6 +14,7 @@ import {
   PageHeader,
   radioField,
   selectField,
+  SelectFieldOptions,
   textField,
 } from "@lwn-simulator/ui-components";
 import { useEffect, useRef } from "react";
@@ -216,6 +217,14 @@ const NewDevicePage = () => {
                 };
               }),
               info: { default: "LoRaWAN regional frequency plan" },
+              onChange: (logic: FormLogic) => {
+                console.log(logic.fieldsState.rx1DRO);
+                logic.setProp("rx1DRO", "options", [
+                  { value: "1" },
+                  { value: "2" },
+                  { value: "3" },
+                ] as Array<SelectFieldOptions>);
+              },
               required: true,
             }),
             radioField({
@@ -388,6 +397,18 @@ const NewDevicePage = () => {
               required: true,
               display: (fieldsState: Record<string, FormField>) =>
                 fieldsState.activation.value == DeviceActivation.Abp,
+            }),
+            selectField({
+              value: null,
+              name: "rx1DRO",
+              label: "RX1 Data Rate offset",
+              error: null,
+              placeholder: "",
+              options: [],
+              info: { default: "todo" },
+              required: true,
+              display: (fieldsState: Record<string, FormField>) =>
+                !!fieldsState.region.value,
             }),
           ]}
         />
