@@ -14,7 +14,7 @@ import {
   PageHeader,
   radioField,
   selectField,
-  SelectFieldOptions,
+  SelectOption,
   textField,
 } from "@lwn-simulator/ui-components";
 import { useEffect, useRef } from "react";
@@ -62,6 +62,32 @@ export function estimateRegion(lat: number, lng: number): DeviceRegion | null {
 
   return null;
 }
+
+const rx1DataRateOffsetRange: Record<DeviceRegion, [number, number]> = {
+  EU868: [0, 7],
+  US915: [0, 3],
+  CN779: [0, 5],
+  EU433: [0, 7],
+  AU915: [0, 3],
+  CN470: [0, 7],
+  AS923: [0, 7],
+  KR920: [0, 5],
+  IN865: [0, 7],
+  RU864: [0, 7],
+};
+
+const rx2Frequency: Record<DeviceRegion, number> = {
+  EU868: 869525000,
+  US915: 923300000,
+  CN779: 786000000,
+  EU433: 434665000,
+  AU915: 923300000,
+  CN470: 505300000,
+  AS923: 923200000,
+  KR920: 923300000,
+  IN865: 866550000,
+  RU864: 869100000,
+};
 
 const NewDevicePage = () => {
   // Hooks
@@ -128,6 +154,7 @@ const NewDevicePage = () => {
               placeholder: "Device Name",
               error: null,
               required: true,
+              onChange: (logic) => console.table(logic.fieldsState),
             }),
             textField({
               name: "devEUI",
@@ -262,11 +289,34 @@ const NewDevicePage = () => {
               }),
               info: { default: "LoRaWAN regional frequency plan" },
               onChange: (logic: FormLogic) => {
-                logic.setProp("rx1DRO", "options", [
-                  { value: "1" },
-                  { value: "2" },
-                  { value: "3" },
-                ] as Array<SelectFieldOptions>);
+                logic.setValue("rx1DRO", null);
+
+                if (logic.fieldsState.region.value) {
+                  const range =
+                    rx1DataRateOffsetRange[
+                      logic.fieldsState.region.value as DeviceRegion
+                    ];
+
+                  const values: Array<SelectOption> = [];
+
+                  for (let i = range[0]; i <= range[1]; i++) {
+                    values.push({
+                      value: i.toString(),
+                    });
+                  }
+
+                  logic.setProp("rx1DRO", "options", values);
+
+                  const freq =
+                    rx2Frequency[
+                      logic.fieldsState.region.value as DeviceRegion
+                    ];
+
+                  logic.setProp("rx2CF", "placeholder", freq.toString());
+                  logic.setValue("rx2CF", freq.toString());
+                } else {
+                  logic.setProp("rx1DRO", "options", [] as Array<SelectOption>);
+                }
               },
               required: true,
             }),
@@ -331,7 +381,7 @@ const NewDevicePage = () => {
               ],
               info: {
                 default:
-                  "Identifies the application entity handling the device join.",
+                  "Identifies the application entity handling the device join",
               },
               error: null,
               required: true,
@@ -441,14 +491,93 @@ const NewDevicePage = () => {
               display: (fieldsState: Record<string, FormField>) =>
                 fieldsState.activation.value == DeviceActivation.Abp,
             }),
+            textField({
+              name: "rx1Delay",
+              label: "RX1 Delay",
+              value: "",
+              placeholder: "1000",
+              format: (raw: string) => {
+                return raw.replace(/[^0-9]/g, "");
+              },
+              info: {
+                default:
+                  "Delay before opening the RX1 downlink reception window in milliseconds",
+              },
+              error: null,
+              required: true,
+            }),
+            textField({
+              name: "rx1Duration",
+              label: "RX1 Duration",
+              value: "",
+              placeholder: "3000",
+              format: (raw: string) => {
+                return raw.replace(/[^0-9]/g, "");
+              },
+              info: {
+                default:
+                  "Duration of the RX1 downlink reception window in milliseconds",
+              },
+              error: null,
+              required: true,
+            }),
             selectField({
               value: null,
               name: "rx1DRO",
               label: "RX1 Data Rate offset",
               error: null,
-              placeholder: "",
+              placeholder: "Select DRO",
               options: [],
-              info: { default: "todo" },
+              info: {
+                default: "Offset applied to the uplink data rate for RX1",
+              },
+              required: true,
+              display: (fieldsState: Record<string, FormField>) =>
+                !!fieldsState.region.value,
+            }),
+            textField({
+              name: "rx2Delay",
+              label: "RX2 Delay",
+              value: "",
+              placeholder: "1000",
+              format: (raw: string) => {
+                return raw.replace(/[^0-9]/g, "");
+              },
+              info: {
+                default:
+                  "Delay before opening the RX2 downlink reception window in milliseconds",
+              },
+              error: null,
+              required: true,
+            }),
+            textField({
+              name: "rx2Duration",
+              label: "RX2 Duration",
+              value: "",
+              placeholder: "3000",
+              format: (raw: string) => {
+                return raw.replace(/[^0-9]/g, "");
+              },
+              info: {
+                default:
+                  "Duration of the RX2 downlink reception window in milliseconds",
+              },
+              error: null,
+              required: true,
+            }),
+            textField({
+              name: "rx2CF",
+              label: "RX2 Channel Frequency",
+              value: "",
+              placeholder: "",
+              format: (raw: string) => {
+                return raw.replace(/[^0-9]/g, "");
+              },
+              info: {
+                default:
+                  "Frequency used for receiving downlink messages during RX2, in Hz",
+              },
+              error: null,
               required: true,
               display: (fieldsState: Record<string, FormField>) =>
                 !!fieldsState.region.value,
