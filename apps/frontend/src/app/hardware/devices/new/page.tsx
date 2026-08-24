@@ -71,14 +71,24 @@ const NewDevicePage = () => {
   // Effects
   useEffect(() => {
     if (formLogicRef.current && mapLogic.selectedPos) {
-      formLogicRef.current.setValue(
-        "latitude",
-        mapLogic.selectedPos.lat.toString(),
-      );
-      formLogicRef.current.setValue(
-        "longitude",
-        mapLogic.selectedPos.lng.toString(),
-      );
+      if (
+        formLogicRef.current.fieldsState.latitude.value !=
+        mapLogic.selectedPos.lat.toString()
+      )
+        formLogicRef.current.setValue(
+          "latitude",
+          mapLogic.selectedPos.lat.toString(),
+        );
+
+      if (
+        formLogicRef.current.fieldsState.longitude.value !=
+        mapLogic.selectedPos.lng.toString()
+      )
+        formLogicRef.current.setValue(
+          "longitude",
+          mapLogic.selectedPos.lng.toString(),
+        );
+
       formLogicRef.current.setValue(
         "altitude",
         mapLogic.selectedPos.alt.toString(),
@@ -162,6 +172,23 @@ const NewDevicePage = () => {
                 },
               ],
               required: true,
+              onChange: (logic: FormLogic) => {
+                if (
+                  logic.fieldsState.latitude.value &&
+                  (logic.fieldsState.latitude.value as string).match(
+                    /^-?(?:90(?:\.0+)?|(?:[0-8]?\d)(?:\.\d+)?)$/,
+                  ) &&
+                  logic.fieldsState.longitude.value &&
+                  (logic.fieldsState.longitude.value as string).match(
+                    /^-?(?:180(?:\.0+)?|1[0-7]\d(?:\.\d+)?|[0-9]?\d(?:\.\d+)?)$/,
+                  )
+                ) {
+                  mapLogic.updatePos(
+                    Number(logic.fieldsState.latitude.value),
+                    Number(logic.fieldsState.longitude.value),
+                  );
+                }
+              },
             }),
             textField({
               name: "longitude",
@@ -183,6 +210,23 @@ const NewDevicePage = () => {
                 },
               ],
               required: true,
+              onChange: (logic: FormLogic) => {
+                if (
+                  logic.fieldsState.latitude.value &&
+                  (logic.fieldsState.latitude.value as string).match(
+                    /^-?(?:90(?:\.0+)?|(?:[0-8]?\d)(?:\.\d+)?)$/,
+                  ) &&
+                  logic.fieldsState.longitude.value &&
+                  (logic.fieldsState.longitude.value as string).match(
+                    /^-?(?:180(?:\.0+)?|1[0-7]\d(?:\.\d+)?|[0-9]?\d(?:\.\d+)?)$/,
+                  )
+                ) {
+                  mapLogic.updatePos(
+                    Number(logic.fieldsState.latitude.value),
+                    Number(logic.fieldsState.longitude.value),
+                  );
+                }
+              },
             }),
             textField({
               name: "altitude",
@@ -218,7 +262,6 @@ const NewDevicePage = () => {
               }),
               info: { default: "LoRaWAN regional frequency plan" },
               onChange: (logic: FormLogic) => {
-                console.log(logic.fieldsState.rx1DRO);
                 logic.setProp("rx1DRO", "options", [
                   { value: "1" },
                   { value: "2" },

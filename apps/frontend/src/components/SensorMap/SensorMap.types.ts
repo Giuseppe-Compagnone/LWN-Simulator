@@ -21,8 +21,10 @@ export interface useSensorMapProps {
 }
 
 export interface SensorMapLogic {
-  onClick?: (e: MapLayerMouseEvent) => void;
+  handleClick?: (e: MapLayerMouseEvent) => void;
   selectedPos: SensorMapPos | null;
+  markerPos: SensorMapPos | null;
+  updatePos: (lat: number, lng: number) => void;
 }
 export interface SensorMapProps {
   logic: SensorMapLogic;

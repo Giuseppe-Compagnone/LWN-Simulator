@@ -71,7 +71,7 @@ const SensorMap = (props: SensorMapProps) => {
   return (
     <div className="sensor-map">
       <Map
-        onClick={props.logic.onClick}
+        onClick={props.logic.handleClick}
         initialViewState={position}
         style={{
           width: "100%",
@@ -89,10 +89,10 @@ const SensorMap = (props: SensorMapProps) => {
         <DeviceMarker marker={markerA} />
         <GatewayMarker marker={markerB} />
         <LinkMarker from={markerA} to={markerB} />
-        {props.logic.selectedPos && (
+        {props.logic.markerPos && (
           <Marker
-            longitude={props.logic.selectedPos.lng}
-            latitude={props.logic.selectedPos.lat}
+            longitude={props.logic.markerPos.lng}
+            latitude={props.logic.markerPos.lat}
             anchor="bottom"
           >
             <span className="material-symbols-outlined">location_on</span>

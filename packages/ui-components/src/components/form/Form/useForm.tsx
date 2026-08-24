@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { FormField, FormLogic, FormValue, UseFormProps } from "./Form.types";
 
 export const useForm = (props: UseFormProps): FormLogic => {
@@ -9,42 +9,50 @@ export const useForm = (props: UseFormProps): FormLogic => {
     () => Object.fromEntries(props.fields.map((field) => [field.name, field])),
   );
 
+  // Refs
+  const fieldsStateRef = useRef<Record<string, FormField>>(
+    Object.fromEntries(props.fields.map((field) => [field.name, field])),
+  );
+
   // Functions
   const setValue = (name: string, value: FormValue) => {
-    setFieldsState((prev) => {
-      const field = prev[name];
+    const prev = fieldsStateRef.current;
+    const field = prev[name];
 
-      const updatedField: FormField = {
-        ...field,
-        value,
-        error: null,
-      };
+    const updatedField: FormField = {
+      ...field,
+      value,
+      error: null,
+    };
 
-      if (updatedField.validations && updatedField.value) {
-        for (const validation of updatedField.validations) {
-          if (!validation.realtime) continue;
+    if (updatedField.validations && updatedField.value) {
+      for (const validation of updatedField.validations) {
+        if (!validation.realtime) continue;
 
-          const isValid = validation.rule.test(updatedField.value as string);
+        const isValid = validation.rule.test(updatedField.value as string);
 
-          if (!isValid) {
-            updatedField.error = validation.error;
-            break;
-          }
+        if (!isValid) {
+          updatedField.error = validation.error;
+          break;
         }
       }
+    }
 
-      const nextState = {
-        ...prev,
-        [name]: updatedField,
+    const nextState = {
+      ...prev,
+      [name]: updatedField,
+    };
+
+    fieldsStateRef.current = nextState;
+    setFieldsState(nextState);
+
+    if (updatedField.onChange) {
+      const updatedLogic: FormLogic = {
+        ...formLogic,
+        fieldsState: nextState,
       };
 
-      return nextState;
-    });
-
-    const field = fieldsState[name];
-
-    if (field?.onChange) {
-      field.onChange(formLogic);
+      updatedField.onChange(updatedLogic);
     }
   };
 
