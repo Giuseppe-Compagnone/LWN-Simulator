@@ -45,15 +45,20 @@ export const AnimatedField = (props: AnimatedFieldProps) => {
         <div className="error">{props.field.error}</div>
       </div>
 
-      {props.field.render({
-        ...props.field,
-        value: props.formLogic.fieldsState[props.field.name].value,
-        setValue: (v) => props.formLogic.setValue(props.field.name, v),
-        disabled: props.formLogic.isFieldDisabled(
-          props.field,
-          props.formLogic.fieldsState,
-        ),
-      })}
+      <div className="field-wrapper">
+        {props.field.render({
+          ...props.field,
+          value: props.formLogic.fieldsState[props.field.name].value,
+          setValue: (v) => props.formLogic.setValue(props.field.name, v),
+          disabled: props.formLogic.isFieldDisabled(
+            props.field,
+            props.formLogic.fieldsState,
+          ),
+        })}
+        {props.field.toolbar && (
+          <div className="field-toolbar">{props.field.toolbar}</div>
+        )}
+      </div>
 
       {props.field.info && (
         <div className="field-info">

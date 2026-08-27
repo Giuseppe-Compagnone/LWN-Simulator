@@ -36,7 +36,7 @@ const Form = (props: FormProps) => {
   }, []);
 
   return (
-    <form className="form" noValidate>
+    <form className="form" noValidate onSubmit={(e) => e.preventDefault()}>
       {Object.values(formLogic.fieldsState).map((field) => (
         <AnimatedField
           key={field.name}

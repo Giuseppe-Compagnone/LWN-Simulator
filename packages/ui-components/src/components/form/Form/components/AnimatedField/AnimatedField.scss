@@ -65,12 +65,20 @@
     }
   }
 
-  .form-field {
-    transition: all 0.2s ease-in-out;
+  .field-wrapper {
+    display: flex;
+    align-items: center;
+    gap: var(--gap);
+    width: 100%;
 
-    &.disabled {
-      pointer-events: none;
-      filter: saturate(0) brightness(0.5);
+    .form-field {
+      transition: all 0.2s ease-in-out;
+      flex: 1;
+
+      &.disabled {
+        pointer-events: none;
+        filter: saturate(0) brightness(0.5);
+      }
     }
   }
 

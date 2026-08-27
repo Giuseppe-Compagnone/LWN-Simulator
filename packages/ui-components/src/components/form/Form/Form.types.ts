@@ -1,5 +1,5 @@
 import { ButtonProps } from "@/components/common";
-import { ReactNode } from "react";
+import { JSX, ReactNode } from "react";
 
 /**
  * Represents the possible values supported by form fields.
@@ -136,6 +136,14 @@ export interface FormField {
    * current form state.
    */
   display?: boolean | ((fieldsState: Record<string, FormField>) => boolean);
+
+  /**
+   * Optional custom content displayed alongside the field.
+   *
+   * Typically used to render additional controls or actions related to the
+   * field.
+   */
+  toolbar?: JSX.Element;
 
   /**
    * Custom renderer used to define the field UI.

@@ -4,12 +4,9 @@ import cn from "classnames";
 
 const TextAreaFormField = (props: TextAreaFormFieldProps) => {
   return (
-    <>
+    <div className="form-field text-area-form-field">
       <textarea
-        className={cn(
-          "form-field text-area-form-field",
-          props.disabled && "disabled",
-        )}
+        className={cn("text-area", props.disabled && "disabled")}
         value={props.value}
         spellCheck={false}
         disabled={props.disabled}
@@ -43,7 +40,7 @@ const TextAreaFormField = (props: TextAreaFormFieldProps) => {
           </span>
         </div>
       )}
-    </>
+    </div>
   );
 };
 
