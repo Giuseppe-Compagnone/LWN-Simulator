@@ -95,7 +95,9 @@ const SensorMap = (props: SensorMapProps) => {
             latitude={props.logic.markerPos.lat}
             anchor="bottom"
           >
-            <span className="material-symbols-outlined">location_on</span>
+            <span className="material-symbols-outlined pos-marker">
+              location_on
+            </span>
           </Marker>
         )}
       </Map>

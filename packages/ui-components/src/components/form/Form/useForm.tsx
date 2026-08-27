@@ -57,12 +57,23 @@ export const useForm = (props: UseFormProps): FormLogic => {
   };
 
   const setProp = (name: string, prop: string, value: unknown) => {
-    setFieldsState((prev) => {
-      const field = prev[name];
-      field[prop as keyof FormField] = value as never;
+    const prev = fieldsStateRef.current;
+    const field = prev[name];
 
-      return { ...prev };
-    });
+    if (!field) return;
+
+    const updatedField: FormField = {
+      ...field,
+      [prop]: value,
+    };
+
+    const nextState = {
+      ...prev,
+      [name]: updatedField,
+    };
+
+    fieldsStateRef.current = nextState;
+    setFieldsState(nextState);
   };
 
   const isFieldDisabled = (
