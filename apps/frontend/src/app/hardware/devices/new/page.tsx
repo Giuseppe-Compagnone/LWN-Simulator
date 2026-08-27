@@ -13,9 +13,12 @@ import {
 import {
   DeviceActivation,
   DeviceClass,
+  DeviceMType,
   DeviceRegion,
+  OversizedPayloadBehavior,
 } from "@lwn-simulator/contracts";
 import {
+  booleanCheckboxField,
   Button,
   ButtonLayout,
   ButtonType,
@@ -92,7 +95,6 @@ const NewDevicePage = () => {
               placeholder: "Device Name",
               error: null,
               required: true,
-              onChange: (logic) => console.table(logic.fieldsState),
             }),
             textField({
               name: "devEUI",
@@ -302,6 +304,45 @@ const NewDevicePage = () => {
                 }
               },
               required: true,
+              toolbar: (
+                <Button
+                  value={
+                    <span className="material-symbols-outlined">cached</span>
+                  }
+                  layout={ButtonLayout.Icon}
+                  type={ButtonType.Outlined}
+                  onClick={async () => {
+                    if (
+                      !formLogicRef.current ||
+                      !(
+                        formLogicRef.current.fieldsState.longitude
+                          .value as string
+                      ).match(lngValidation) ||
+                      !(
+                        formLogicRef.current.fieldsState.latitude
+                          .value as string
+                      ).match(latValidation)
+                    ) {
+                      NotificationHandler.instance.error(
+                        "Select valid latitude and longitude",
+                      );
+                      return;
+                    }
+
+                    const res = estimateRegion(
+                      Number(formLogicRef.current.fieldsState.latitude.value),
+                      Number(formLogicRef.current.fieldsState.longitude.value),
+                    );
+
+                    if (!res)
+                      NotificationHandler.instance.error(
+                        "Unable to estimate region",
+                      );
+
+                    formLogicRef.current.setValue("region", res);
+                  }}
+                />
+              ),
             }),
             radioField({
               value: null,
@@ -564,6 +605,224 @@ const NewDevicePage = () => {
               required: true,
               display: (fieldsState: Record<string, FormField>) =>
                 !!fieldsState.region.value,
+            }),
+            textField({
+              name: "fPort",
+              label: "FPort",
+              value: "",
+              placeholder: "1",
+              format: (raw: string) => {
+                return raw.replace(/[^0-9]/g, "");
+              },
+              info: {
+                default: "Application port used to identify the payload type",
+              },
+              validations: [
+                {
+                  rule: /^(?:[1-9]|[1-9][0-9]|1[0-9]{2}|2[0-2][0-9]|23[0-3])$/,
+                  error: "Fport must be between 1 and 223",
+                },
+              ],
+              error: null,
+              required: true,
+            }),
+            textField({
+              name: "retransmission",
+              label: "Retransmission",
+              value: "",
+              placeholder: "0",
+              format: (raw: string) => {
+                return raw.replace(/[^0-9]/g, "");
+              },
+              info: {
+                default:
+                  "Number of times an uplink is retransmitted after transmission failure",
+              },
+              error: null,
+              required: true,
+            }),
+            textField({
+              name: "fCntUp",
+              label: "FCntUp",
+              value: "",
+              placeholder: "0",
+              format: (raw: string) => {
+                return raw.replace(/[^0-9]/g, "");
+              },
+              info: {
+                default:
+                  "Uplink frame counter used to track transmitted frames",
+              },
+              error: null,
+            }),
+            textField({
+              name: "fCntDown",
+              label: "FCntDown",
+              value: "",
+              placeholder: "0",
+              format: (raw: string) => {
+                return raw.replace(/[^0-9]/g, "");
+              },
+              info: {
+                default: "Downlink frame counter used to track received frames",
+              },
+              error: null,
+            }),
+            booleanCheckboxField({
+              value: false,
+              name: "disableFrameCounterValidation",
+              label: "Frame Counter Validation",
+              error: null,
+              text: "Disable",
+              info: {
+                default: "Disables validation of downlink frame counters",
+              },
+            }),
+            textField({
+              name: "uplinkInterval",
+              label: "Uplink Interval",
+              value: "",
+              placeholder: "10",
+              format: (raw: string) => {
+                return raw.replace(/[^0-9]/g, "");
+              },
+              validations: [
+                {
+                  rule: /^[1-9][0-9]*$/,
+                  error: "Uplink Interval must be greater than 0",
+                },
+              ],
+              info: {
+                default:
+                  "Time between consecutive uplink transmissions, in seconds",
+              },
+              error: null,
+              required: true,
+            }),
+            radioField({
+              value: null,
+              name: "oversizedPayloadBehavior",
+              label: "Oversized Payload Behavior",
+              error: null,
+              options: Object.keys(OversizedPayloadBehavior).map(
+                (key: string) => {
+                  return {
+                    value:
+                      OversizedPayloadBehavior[
+                        key as keyof typeof OversizedPayloadBehavior
+                      ],
+                    displayed: <>{key}</>,
+                  };
+                },
+              ),
+              info: {
+                default:
+                  "Defines how payloads exceeding the maximum size are handled",
+                [OversizedPayloadBehavior.Fragment]:
+                  "Splits oversized payloads into multiple smaller transmissions",
+                [OversizedPayloadBehavior.Truncate]:
+                  "Truncates oversized payloads to the maximum allowed size",
+              },
+              required: true,
+            }),
+            radioField({
+              value: null,
+              name: "MType",
+              label: "MType",
+              error: null,
+              options: Object.keys(DeviceMType).map((key: string) => {
+                return {
+                  value: DeviceMType[key as keyof typeof DeviceMType],
+                  displayed: (
+                    <>
+                      {DeviceMType[key as keyof typeof DeviceMType].replaceAll(
+                        "-",
+                        " ",
+                      )}
+                    </>
+                  ),
+                };
+              }),
+              info: {
+                default:
+                  "Defines the LoRaWAN message type used for uplink transmissions",
+                [DeviceMType.ConfirmedDataUp]:
+                  "Requires a downlink acknowledgement from the network",
+                [DeviceMType.UnconfirmedDataUp]:
+                  "Does not require a downlink acknowledgement from the network",
+              },
+              required: true,
+            }),
+            textField({
+              name: "payload",
+              label: "Payload",
+              value: "",
+              placeholder: "Hello LoRaWAN",
+              info: {
+                default: "Application payload transmitted by the device",
+              },
+              error: null,
+              required: true,
+            }),
+            booleanCheckboxField({
+              value: false,
+              name: "base64Encoded",
+              label: "Base64 Encoded",
+              error: null,
+              text: "Enable",
+              info: {
+                default: "Application payload transmitted by the device",
+              },
+              onChange: (logic: FormLogic) => {
+                if (logic.fieldsState.base64Encoded.value) {
+                  logic.setProp(
+                    "payload",
+                    "placeholder",
+                    "SGVsbG8gTG9SQVdBTg==",
+                  );
+                  logic.setProp("payload", "validations", [
+                    {
+                      rule: /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/,
+                      error: "Enter a valid Base64 value",
+                    },
+                  ]);
+                } else {
+                  logic.setProp("payload", "placeholder", "Hello LoRaWAN");
+                  logic.setProp("payload", "validations", undefined);
+                }
+              },
+            }),
+            textField({
+              name: "antennaRange",
+              label: "Antenna Range",
+              value: "",
+              placeholder: "10000",
+              info: {
+                default:
+                  "Maximum distance within which the device can communicate, in meters",
+              },
+              format: (raw: string) => {
+                return raw.replace(/[^0-9]/g, "");
+              },
+              validations: [
+                {
+                  rule: /^[1-9][0-9]*$/,
+                  error: "Antenna Range must be greater than 0",
+                },
+              ],
+              error: null,
+              required: true,
+            }),
+            booleanCheckboxField({
+              value: false,
+              name: "ADREnabled",
+              label: "Adaptive Data Rate",
+              error: null,
+              text: "Enable",
+              info: {
+                default:
+                  "Allows the network to optimize the device's data rate and transmission power",
+              },
             }),
           ]}
         />

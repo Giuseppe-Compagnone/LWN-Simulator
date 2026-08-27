@@ -173,8 +173,8 @@ components:
       title: DeviceClass
       type: string
       enum:
-        - confirmedDataUp
-        - unconfirmedDataUp
+        - confirmed-data-up
+        - unconfirmed-data-up
       x-enum-varnames:
         - ConfirmedDataUp
         - UnconfirmedDataUp
