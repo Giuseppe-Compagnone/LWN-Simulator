@@ -13,7 +13,6 @@ export interface Marker {
 export interface SensorMapPos {
   lat: number;
   lng: number;
-  alt: number;
 }
 
 export interface useSensorMapProps {

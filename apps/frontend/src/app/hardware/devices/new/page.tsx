@@ -2,15 +2,28 @@
 
 import { SensorMap, SensorMapMode, useSensorMap } from "@/components";
 import {
+  estimateRegion,
+  getAltitude,
+  latValidation,
+  lngValidation,
+  randomDevEUI,
+  rx1DataRateOffsetRange,
+  rx2Frequency,
+} from "@/utils";
+import {
   DeviceActivation,
   DeviceClass,
   DeviceRegion,
 } from "@lwn-simulator/contracts";
 import {
+  Button,
+  ButtonLayout,
+  ButtonType,
   Form,
   FormField,
   FormLogic,
   FormValue,
+  NotificationHandler,
   PageHeader,
   radioField,
   selectField,
@@ -18,76 +31,6 @@ import {
   textField,
 } from "@lwn-simulator/ui-components";
 import { useEffect, useRef } from "react";
-
-export function estimateRegion(lat: number, lng: number): DeviceRegion | null {
-  // Europe
-  if (lat >= 35 && lat <= 72 && lng >= -25 && lng <= 45) {
-    return DeviceRegion.EU868;
-  }
-
-  // Russia
-  if (lat >= 41 && lat <= 82 && lng >= 19 && lng <= 180) {
-    return DeviceRegion.RU864;
-  }
-
-  // South Korea
-  if (lat >= 33 && lat <= 39 && lng >= 124 && lng <= 132) {
-    return DeviceRegion.KR920;
-  }
-
-  // India
-  if (lat >= 6 && lat <= 37 && lng >= 68 && lng <= 98) {
-    return DeviceRegion.IN865;
-  }
-
-  // China
-  if (lat >= 18 && lat <= 54 && lng >= 73 && lng <= 135) {
-    return DeviceRegion.CN470;
-  }
-
-  // Australia
-  if (lat >= -44 && lat <= -10 && lng >= 112 && lng <= 154) {
-    return DeviceRegion.AU915;
-  }
-
-  // USA / Canada / part of Americas
-  if (lat >= 24 && lat <= 72 && lng >= -170 && lng <= -50) {
-    return DeviceRegion.US915;
-  }
-
-  // South America / Japan / Taiwan / SE Asia etc.
-  if (lat >= -50 && lat <= 50 && lng >= 95 && lng <= 180) {
-    return DeviceRegion.AS923;
-  }
-
-  return null;
-}
-
-const rx1DataRateOffsetRange: Record<DeviceRegion, [number, number]> = {
-  EU868: [0, 7],
-  US915: [0, 3],
-  CN779: [0, 5],
-  EU433: [0, 7],
-  AU915: [0, 3],
-  CN470: [0, 7],
-  AS923: [0, 7],
-  KR920: [0, 5],
-  IN865: [0, 7],
-  RU864: [0, 7],
-};
-
-const rx2Frequency: Record<DeviceRegion, number> = {
-  EU868: 869525000,
-  US915: 923300000,
-  CN779: 786000000,
-  EU433: 434665000,
-  AU915: 923300000,
-  CN470: 505300000,
-  AS923: 923200000,
-  KR920: 923300000,
-  IN865: 866550000,
-  RU864: 869100000,
-};
 
 const NewDevicePage = () => {
   // Hooks
@@ -114,11 +57,6 @@ const NewDevicePage = () => {
           "longitude",
           mapLogic.selectedPos.lng.toString(),
         );
-
-      formLogicRef.current.setValue(
-        "altitude",
-        mapLogic.selectedPos.alt.toString(),
-      );
 
       const region = estimateRegion(
         mapLogic.selectedPos.lat,
@@ -178,6 +116,18 @@ const NewDevicePage = () => {
               ],
               error: null,
               required: true,
+              toolbar: (
+                <Button
+                  value={
+                    <span className="material-symbols-outlined">cached</span>
+                  }
+                  layout={ButtonLayout.Icon}
+                  type={ButtonType.Outlined}
+                  onClick={() => {
+                    formLogicRef.current?.setValue("devEUI", randomDevEUI());
+                  }}
+                />
+              ),
             }),
             textField({
               name: "latitude",
@@ -194,7 +144,7 @@ const NewDevicePage = () => {
               },
               validations: [
                 {
-                  rule: /^-?(?:90(?:\.0+)?|(?:[0-8]?\d)(?:\.\d+)?)$/,
+                  rule: latValidation,
                   error: "Invalid latitude",
                 },
               ],
@@ -203,11 +153,11 @@ const NewDevicePage = () => {
                 if (
                   logic.fieldsState.latitude.value &&
                   (logic.fieldsState.latitude.value as string).match(
-                    /^-?(?:90(?:\.0+)?|(?:[0-8]?\d)(?:\.\d+)?)$/,
+                    latValidation,
                   ) &&
                   logic.fieldsState.longitude.value &&
                   (logic.fieldsState.longitude.value as string).match(
-                    /^-?(?:180(?:\.0+)?|1[0-7]\d(?:\.\d+)?|[0-9]?\d(?:\.\d+)?)$/,
+                    lngValidation,
                   )
                 ) {
                   mapLogic.updatePos(
@@ -232,7 +182,7 @@ const NewDevicePage = () => {
               },
               validations: [
                 {
-                  rule: /^-?(?:180(?:\.0+)?|1[0-7]\d(?:\.\d+)?|[0-9]?\d(?:\.\d+)?)$/,
+                  rule: lngValidation,
                   error: "Invalid longitude",
                 },
               ],
@@ -241,11 +191,11 @@ const NewDevicePage = () => {
                 if (
                   logic.fieldsState.latitude.value &&
                   (logic.fieldsState.latitude.value as string).match(
-                    /^-?(?:90(?:\.0+)?|(?:[0-8]?\d)(?:\.\d+)?)$/,
+                    latValidation,
                   ) &&
                   logic.fieldsState.longitude.value &&
                   (logic.fieldsState.longitude.value as string).match(
-                    /^-?(?:180(?:\.0+)?|1[0-7]\d(?:\.\d+)?|[0-9]?\d(?:\.\d+)?)$/,
+                    lngValidation,
                   )
                 ) {
                   mapLogic.updatePos(
@@ -275,6 +225,39 @@ const NewDevicePage = () => {
                 },
               ],
               required: true,
+              toolbar: (
+                <Button
+                  value={
+                    <span className="material-symbols-outlined">cached</span>
+                  }
+                  layout={ButtonLayout.Icon}
+                  type={ButtonType.Outlined}
+                  onClick={async () => {
+                    if (
+                      !formLogicRef.current ||
+                      !(
+                        formLogicRef.current.fieldsState.longitude
+                          .value as string
+                      ).match(lngValidation) ||
+                      !(
+                        formLogicRef.current.fieldsState.latitude
+                          .value as string
+                      ).match(latValidation)
+                    ) {
+                      NotificationHandler.instance.error(
+                        "Select valid latitude and longitude",
+                      );
+                      return;
+                    }
+                    const res = await getAltitude(
+                      Number(formLogicRef.current.fieldsState.latitude.value),
+                      Number(formLogicRef.current.fieldsState.longitude.value),
+                    );
+
+                    formLogicRef.current.setValue("altitude", res.toString());
+                  }}
+                />
+              ),
             }),
             selectField({
               value: null,

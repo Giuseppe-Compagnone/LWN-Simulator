@@ -73,6 +73,13 @@ export const IconButton: Story = {
     type: ButtonType.Outlined,
     font: ButtonFont.Secondary,
     layout: ButtonLayout.Icon,
+    onClick: async () => {
+      await new Promise<void>((resolve) => {
+        setTimeout(() => {
+          resolve();
+        }, 2000);
+      });
+    },
   },
 };
 

@@ -8,7 +8,6 @@ import {
   SensorMapPos,
 } from "./SensorMap.types";
 import { useEffect, useState } from "react";
-import { NotificationHandler } from "@lwn-simulator/ui-components";
 
 export const useSensorMap = (props: useSensorMapProps): SensorMapLogic => {
   const mode = props.mode || SensorMapMode.Sensor;
@@ -18,33 +17,12 @@ export const useSensorMap = (props: useSensorMapProps): SensorMapLogic => {
   const [selectedPos, setSelectedPos] = useState<SensorMapPos | null>(null);
 
   // Functions
-  const getAltitude = async (lat: number, lng: number): Promise<number> => {
-    let alt = 0;
-
-    try {
-      const response = await fetch(
-        `https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lng}`,
-      );
-
-      const data = await response.json();
-
-      alt = data.results[0].elevation as number;
-    } catch {
-      NotificationHandler.instance.error("Failed to retrieve altitude");
-    }
-
-    return alt;
-  };
-
-  const handleClick = async (e: MapLayerMouseEvent) => {
+  const handleClick = (e: MapLayerMouseEvent) => {
     const { lat, lng } = e.lngLat;
-
-    const alt = await getAltitude(lat, lng);
 
     setSelectedPos({
       lat,
       lng,
-      alt,
     });
   };
 
@@ -54,7 +32,6 @@ export const useSensorMap = (props: useSensorMapProps): SensorMapLogic => {
     setMarkerPos({
       lat,
       lng,
-      alt: markerPos?.alt || 0,
     });
   };
 

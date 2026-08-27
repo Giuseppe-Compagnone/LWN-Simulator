@@ -21,7 +21,7 @@ export const useForm = (props: UseFormProps): FormLogic => {
 
     const updatedField: FormField = {
       ...field,
-      value,
+      value: field.format ? field.format(value as string) : value,
       error: null,
     };
 

@@ -53,6 +53,10 @@
   &.loading {
     color: transparent;
     pointer-events: none;
+
+    span {
+      color: transparent;
+    }
   }
 
   &.disabled {
