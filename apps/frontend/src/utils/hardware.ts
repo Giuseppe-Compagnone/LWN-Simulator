@@ -14,6 +14,19 @@ export const rx1DataRateOffsetRange: Record<DeviceRegion, [number, number]> = {
   RU864: [0, 7],
 };
 
+export const rx2DataRateOptions: Record<DeviceRegion, number[]> = {
+  EU868: [0, 1, 2, 3, 4, 5, 6, 7],
+  US915: [8, 9, 10, 11, 12, 13],
+  CN779: [0, 1, 2, 3, 4, 5],
+  EU433: [0, 1, 2, 3, 4, 5],
+  AU915: [8, 9, 10, 11, 12, 13],
+  CN470: [0, 1, 2, 3, 4, 5],
+  AS923: [2, 3, 4, 5],
+  KR920: [0, 1, 2, 3, 4, 5],
+  IN865: [0, 1, 2, 3, 4, 5],
+  RU864: [0, 1, 2, 3, 4, 5],
+};
+
 export const rx2Frequency: Record<DeviceRegion, number> = {
   EU868: 869525000,
   US915: 923300000,

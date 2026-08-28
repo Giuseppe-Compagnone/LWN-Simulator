@@ -8,15 +8,18 @@ import {
   lngValidation,
   randomDevEUI,
   rx1DataRateOffsetRange,
+  rx2DataRateOptions,
   rx2Frequency,
 } from "@/utils";
 import {
+  CreateDeviceRequest,
   DeviceActivation,
   DeviceClass,
   DeviceMType,
   DeviceRegion,
   OversizedPayloadBehavior,
 } from "@lwn-simulator/contracts";
+import { useDeviceService } from "@lwn-simulator/sdk";
 import {
   booleanCheckboxField,
   Button,
@@ -39,6 +42,81 @@ const NewDevicePage = () => {
   // Hooks
   const formLogicRef = useRef<FormLogic | null>(null);
   const mapLogic = useSensorMap({ mode: SensorMapMode.Coords });
+  const deviceService = useDeviceService();
+
+  // Functions
+  const handleSubmit = async (values: Record<string, FormValue>) => {
+    console.table(values);
+
+    const req: CreateDeviceRequest = {
+      devEUI: values.devEUI as string,
+      name: values.name as string,
+      activation: values.activation as DeviceActivation,
+      class: values.class as DeviceClass,
+      locationConfig: {
+        latitude: Number(values.latitude),
+        longitude: Number(values.longitude),
+        altitude: Number(values.altitude),
+        region: values.region as DeviceRegion,
+      },
+      RX1Config: {
+        delay: Number(values.rx1Delay),
+        duration: Number(values.rx1Duration),
+        dataRateOffset: values.rx1DRO as number,
+      },
+      RX2Config: {
+        delay: Number(values.rx2Delay),
+        duration: Number(values.rx2Duration),
+        channelFrequency: Number(values.rx2CF),
+        dataRate: values.rx2DR as number,
+        ACKTimeout: Number(values.rx2ACKT),
+      },
+      advancedConfig: {
+        antennaRange: Number(values.antennaRange),
+        ADREnabled: values.ADREnabled as boolean,
+      },
+      frameConfig: {
+        fPort: Number(values.fPort),
+        retransmission: Number(values.retransmission),
+        disableFrameCounterValidation:
+          values.disableFrameCounterValidation as boolean,
+        FCntUp: values.fCntUp ? Number(values.fCntUp) : undefined,
+        FCntDown: values.fCntDown ? Number(values.fCntDown) : undefined,
+      },
+      payloadConfig: {
+        uplinkInterval: Number(values.uplinkInterval),
+        oversizedPayloadBehavior:
+          values.oversizedPayloadBehavior as OversizedPayloadBehavior,
+        MType: values.MType as DeviceMType,
+        payload: values.payload as string,
+        base64Encoded: values.base64Encoded as boolean,
+      },
+      ...((values.activation as DeviceActivation) == DeviceActivation.Oota
+        ? {
+            OOTAConfig: {
+              joinEUI: values.joinEUI as string,
+              appKey: values.appKey as string,
+            },
+          }
+        : {}),
+      ...((values.activation as DeviceActivation) == DeviceActivation.Abp
+        ? {
+            ABPConfig: {
+              devAddr: values.devAddr as string,
+              nwkSKey: values.nwkSKey as string,
+              appSKey: values.appSKey as string,
+            },
+          }
+        : {}),
+    };
+
+    try {
+      const res = await deviceService.createDevice(req);
+      console.log("[CREATE DEVICE]", res);
+    } catch {
+      NotificationHandler.instance.error("Failed to create device");
+    }
+  };
 
   // Effects
   useEffect(() => {
@@ -79,7 +157,7 @@ const NewDevicePage = () => {
         <div className="form-wrapper">
           <Form
             onSubmit={(values: Record<string, FormValue>) => {
-              console.table(values);
+              handleSubmit(values);
             }}
             submitButton={{
               value: "Create",
@@ -295,6 +373,15 @@ const NewDevicePage = () => {
                     }
 
                     logic.setProp("rx1DRO", "options", values);
+                    logic.setProp(
+                      "rx2DR",
+                      "options",
+                      rx2DataRateOptions[
+                        logic.fieldsState.region.value as DeviceRegion
+                      ].map((opt) => {
+                        return { value: opt };
+                      }),
+                    );
 
                     const freq =
                       rx2Frequency[
@@ -306,6 +393,11 @@ const NewDevicePage = () => {
                   } else {
                     logic.setProp(
                       "rx1DRO",
+                      "options",
+                      [] as Array<SelectOption>,
+                    );
+                    logic.setProp(
+                      "rx2DR",
                       "options",
                       [] as Array<SelectOption>,
                     );
@@ -617,6 +709,36 @@ const NewDevicePage = () => {
                 required: true,
                 display: (fieldsState: Record<string, FormField>) =>
                   !!fieldsState.region.value,
+              }),
+              selectField({
+                name: "rx2DR",
+                label: "RX2 Data Rate",
+                value: "",
+                placeholder: "0",
+                options: [],
+                info: {
+                  default:
+                    "Data rate used for receiving downlink messages during RX2",
+                },
+                error: null,
+                required: true,
+                display: (fieldsState: Record<string, FormField>) =>
+                  !!fieldsState.region.value,
+              }),
+              textField({
+                name: "rx2ACKT",
+                label: "RX2 ACK Timeout",
+                value: "",
+                placeholder: "2",
+                format: (raw: string) => {
+                  return raw.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
+                },
+                info: {
+                  default:
+                    "Time the device waits for an acknowledgement after a confirmed uplink",
+                },
+                error: null,
+                required: true,
               }),
               textField({
                 name: "fPort",
