@@ -40,7 +40,8 @@ const Table = (props: TableProps) => {
                   }
                   style={{
                     justifyContent:
-                      label.value.length > 1 && i == label.value.length - 1
+                      props.rowLabels.length > 1 &&
+                      i == props.rowLabels.length - 1
                         ? "flex-end"
                         : "flex-start",
                     cursor:

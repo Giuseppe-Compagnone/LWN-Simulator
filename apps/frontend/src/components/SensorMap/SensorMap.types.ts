@@ -24,6 +24,8 @@ export interface SensorMapLogic {
   selectedPos: SensorMapPos | null;
   markerPos: SensorMapPos | null;
   updatePos: (lat: number, lng: number) => void;
+  antennaRange: number | null;
+  setAntennaRange: (val: number | null) => void;
 }
 export interface SensorMapProps {
   logic: SensorMapLogic;

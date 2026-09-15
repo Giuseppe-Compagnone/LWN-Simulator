@@ -15,6 +15,7 @@ export const useSensorMap = (props: useSensorMapProps): SensorMapLogic => {
   // States
   const [markerPos, setMarkerPos] = useState<SensorMapPos | null>(null);
   const [selectedPos, setSelectedPos] = useState<SensorMapPos | null>(null);
+  const [antennaRange, setAntennaRange] = useState<number | null>(null);
 
   // Functions
   const handleClick = (e: MapLayerMouseEvent) => {
@@ -45,5 +46,7 @@ export const useSensorMap = (props: useSensorMapProps): SensorMapLogic => {
     selectedPos,
     markerPos,
     updatePos,
+    antennaRange,
+    setAntennaRange,
   };
 };

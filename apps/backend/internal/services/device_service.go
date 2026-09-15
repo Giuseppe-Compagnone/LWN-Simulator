@@ -49,7 +49,6 @@ func (s *DeviceService) CreateDevice(
 		DevEUI:         req.DevEUI,
 		Name:           req.Name,
 		Activation:     req.Activation,
-		Active:         req.Active,
 		Class:          req.Class,
 		LocationConfig: req.LocationConfig,
 		ABPConfig:      req.ABPConfig,

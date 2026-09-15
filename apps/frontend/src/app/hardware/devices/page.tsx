@@ -2,11 +2,12 @@
 
 import { useDeviceService } from "@lwn-simulator/sdk";
 import { Button, PageHeader, Table } from "@lwn-simulator/ui-components";
-import { redirect } from "next/navigation";
+import { redirect, useRouter } from "next/navigation";
 
 const DevicesPage = () => {
   // Hooks
   const deviceService = useDeviceService();
+  const router = useRouter();
 
   return (
     <div className="page devices-page">
@@ -19,7 +20,7 @@ const DevicesPage = () => {
         />
       </PageHeader>
       <Table
-        rowLabels={[{ value: "name" }]}
+        rowLabels={[{ value: "name" }, { value: "devEUI" }]}
         records={
           Array.isArray(deviceService.devices)
             ? deviceService.devices.map((device) => {
@@ -29,12 +30,21 @@ const DevicesPage = () => {
                       label: "name",
                       value: device.name,
                     },
+                    {
+                      label: "devEUI",
+                      value: device.devEUI,
+                    },
                   ],
                 };
               })
             : []
         }
-        pageSize={8}
+        pageSize={6}
+        onRowClick={(row) => {
+          const id = row.items.find((i) => i.label == "devEUI");
+
+          if (id) router.push(`/hardware/devices/${id.value}`);
+        }}
         isLoading={!Array.isArray(deviceService.devices)}
       />
     </div>

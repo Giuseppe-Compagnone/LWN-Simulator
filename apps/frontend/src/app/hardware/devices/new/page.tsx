@@ -62,7 +62,7 @@ const NewDevicePage = () => {
       RX1Config: {
         delay: Number(values.rx1Delay),
         duration: Number(values.rx1Duration),
-        dataRateOffset: values.rx1DRO as number,
+        dataRateOffset: Number(values.rx1DRO),
       },
       RX2Config: {
         delay: Number(values.rx2Delay),
@@ -729,10 +729,16 @@ const NewDevicePage = () => {
                 name: "rx2ACKT",
                 label: "RX2 ACK Timeout",
                 value: "",
-                placeholder: "2",
+                placeholder: "2000",
                 format: (raw: string) => {
-                  return raw.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
+                  return raw.replace(/[^0-9]/g, "");
                 },
+                validations: [
+                  {
+                    rule: /^(?:1000|[12][0-9]{3}|3000)$/,
+                    error: "Value must be between 1000 and 3000",
+                  },
+                ],
                 info: {
                   default:
                     "Time the device waits for an acknowledgement after a confirmed uplink",
@@ -944,6 +950,13 @@ const NewDevicePage = () => {
                     error: "Antenna Range must be greater than 0",
                   },
                 ],
+                onChange: (logic: FormLogic) => {
+                  mapLogic.setAntennaRange(
+                    logic.fieldsState["antennaRange"].value
+                      ? Number(logic.fieldsState["antennaRange"].value)
+                      : null,
+                  );
+                },
                 error: null,
                 required: true,
               }),
