@@ -43,7 +43,8 @@ const DevicesPage = () => {
         onRowClick={(row) => {
           const id = row.items.find((i) => i.label == "devEUI");
 
-          if (id) router.push(`/hardware/devices/${id.value}`);
+          if (id)
+            router.push(`/hardware/devices/device-info?deviceId=${id.value}`);
         }}
         isLoading={!Array.isArray(deviceService.devices)}
       />

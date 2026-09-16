@@ -1,24 +1,12 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
     "noEmit": false,
-
+    "isolatedModules": false,
     "outDir": "./dist",
-    "rootDir": "./src",
-
-    "module": "ESNext",
-    "target": "ES2022",
-    "moduleResolution": "Bundler",
-
-    "declaration": true,
-    "declarationMap": true,
-    "emitDeclarationOnly": false,
-
-    "sourceMap": true,
-
-    "jsx": "react-jsx",
-
-    "isolatedModules": true
+    "rootDir": "/"
   },
-  "include": ["src", "types/**/*.d.ts"]
+  "exclude": ["node_modules", "dist", "**/*.stories.tsx"]
 }

@@ -29,7 +29,7 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts",
     "tsconfig.build.json",
-    "src/types/**/*.d.ts"
+    "src/types/*.d.ts"
   ],
   "exclude": ["node_modules"]
 }

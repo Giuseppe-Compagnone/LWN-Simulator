@@ -15,6 +15,13 @@ const Sidebar = (props: SidebarProps) => {
   // Hooks
   const pathname = usePathname();
 
+  // Estraiamo la sezione principale del path in modo sicuro
+  const mainSection = pathname?.split("/")[1] || "";
+  const subSection = pathname?.split("/")[2] || "";
+
+  // Recuperiamo le rotte corrispondenti o un array vuoto di fallback
+  const currentRoutes = routes[mainSection] || [];
+
   return (
     <div className="sidebar">
       <aside>
@@ -26,29 +33,32 @@ const Sidebar = (props: SidebarProps) => {
             <div className="inactive">Simulation inactive</div>
           )}
         </div>
-        {pathname.split("/")[1] &&
-          routes[pathname.split("/")[1]].map((route, i) => {
-            return (
-              <Link
-                className={cn(
-                  "sub-section",
-                  (pathname.split("/")[2] || "") === route.route && "active",
-                )}
-                key={i}
-                href={`/${pathname.split("/")[1]}/${route.route}`}
-              >
-                <span className="material-symbols-outlined icon">
-                  {route.icon}
-                </span>
-                <span>{route.route}</span>
-              </Link>
-            );
-          })}
+
+        {/* ✅ Ora .map() viene chiamato in sicurezza solo se le rotte esistono */}
+        {currentRoutes.map((route, i) => {
+          return (
+            <Link
+              className={cn(
+                "sub-section",
+                subSection === route.route && "active",
+              )}
+              key={i}
+              href={`/${mainSection}/${route.route}`}
+            >
+              <span className="material-symbols-outlined icon">
+                {route.icon}
+              </span>
+              <span>{route.route}</span>
+            </Link>
+          );
+        })}
+
         <hr />
         <a
           href="https://giuseppe-compagnone.github.io/LWN-Simulator/docs/"
           target="_blank"
           className="sub-section"
+          rel="noreferrer"
         >
           <span className="material-symbols-outlined icon">menu_book</span>
           <span>Documentation</span>

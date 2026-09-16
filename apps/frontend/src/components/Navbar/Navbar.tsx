@@ -35,7 +35,7 @@ const Navbar = (props: NavbarProps) => {
             <nav
               key={i}
               className={cn(
-                (pathname.split("/")[1] || "") === page.path && "current",
+                (pathname?.split("/")[1] || "") === page.path && "current",
               )}
             >
               <Link href={`/${page.path}`}>{page.name}</Link>

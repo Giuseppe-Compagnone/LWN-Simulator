@@ -1497,10 +1497,6 @@ __metadata:
     typescript: "npm:^5"
     typescript-eslint: "npm:^8.66.0"
   peerDependencies:
-    "@lwn-simulator/contracts": "workspace:*"
-    "@lwn-simulator/ui-components": "workspace:*"
-    react: ^19.2.8
-    react-dom: ^19.2.8
     typescript: ^5
   languageName: unknown
   linkType: soft
@@ -1541,7 +1537,6 @@ __metadata:
     "@lwn-simulator/contracts": "workspace:*"
     "@lwn-simulator/sdk": "workspace:*"
     material-symbols: ^0.45.9
-    react-toastify: ^11.1.0
   languageName: unknown
   linkType: soft
 
