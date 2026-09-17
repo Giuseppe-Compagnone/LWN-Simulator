@@ -28,16 +28,18 @@
     "build-storybook": "npx storybook build"
   },
   "dependencies": {
-    "classnames": "^2.5.1",
+    "classnames": "^2.5.1"
+  },
+  "peerDependencies": {
+    "@lwn-simulator/contracts": "workspace:*",
+    "@lwn-simulator/sdk": "workspace:*",
+    "material-symbols": "^0.45.9",
     "next": "16.2.12",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "react-toastify": "^11.1.0",
-    "sass": "^1.102.0"
+    "react-toastify": "^11.1.0"
   },
   "devDependencies": {
-    "@lwn-simulator/contracts": "workspace:*",
-    "@lwn-simulator/sdk": "workspace:*",
     "@storybook/addon-docs": "10.5.5",
     "@storybook/nextjs-vite": "^10.5.4",
     "@types/node": "^20",
@@ -46,8 +48,9 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
     "eslint-plugin-storybook": "^10.5.4",
-    "material-symbols": "^0.45.9",
     "react-docgen-typescript": "^2.4.0",
+    "react-toastify": "^11.1.0",
+    "sass": "^1.102.0",
     "shx": "^0.4.0",
     "storybook": "^10.5.4",
     "stylelint": "^17.14.1",
@@ -55,13 +58,7 @@
     "stylelint-order": "^8.1.1",
     "stylelint-scss": "^7.2.0",
     "tsc-alias": "^1.9.1",
-    "tsup": "^8.5.1",
     "typescript": "^5",
     "vite": "^8.1.5"
-  },
-  "peerDependencies": {
-    "@lwn-simulator/contracts": "workspace:*",
-    "@lwn-simulator/sdk": "workspace:*",
-    "material-symbols": "^0.45.9"
   }
 }

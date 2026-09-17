@@ -1,7 +1,12 @@
 "use client";
 
 import { useDeviceService } from "@lwn-simulator/sdk";
-import { Button, PageHeader, Table } from "@lwn-simulator/ui-components";
+import {
+  Button,
+  NotificationHandler,
+  PageHeader,
+  Table,
+} from "@lwn-simulator/ui-components";
 import { redirect, useRouter } from "next/navigation";
 
 const DevicesPage = () => {
@@ -15,7 +20,9 @@ const DevicesPage = () => {
         <Button
           value={"Add Device"}
           onClick={() => {
-            redirect("/hardware/devices/new");
+            console.log("A");
+            NotificationHandler.instance.success("AAA");
+            // redirect("/hardware/devices/new");
           }}
         />
       </PageHeader>

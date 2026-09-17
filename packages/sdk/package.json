@@ -22,6 +22,10 @@
     "build:cjs": "tsc -p tsconfig.cjs.json",
     "lint": "eslint"
   },
+  "dependencies": {
+    "@lwn-simulator/contracts": "workspace:*",
+    "axios": "^1.19.0"
+  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "eslint": "^10.8.1",
@@ -32,15 +36,5 @@
     "globals": "^17.9.0",
     "typescript": "^5",
     "typescript-eslint": "^8.66.0"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  },
-  "dependencies": {
-    "@lwn-simulator/contracts": "workspace:*",
-    "@lwn-simulator/ui-components": "workspace:*",
-    "axios": "^1.19.0",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8"
   }
 }

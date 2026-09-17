@@ -21,7 +21,14 @@ const DeviceServiceProvider = (props: DeviceServiceProviderProps) => {
   // Callbacks
   const createDevice = useCallback(
     async (req: CreateDeviceRequest): Promise<Device> => {
-      return DeviceService.instance.createDevice(req);
+      const res = await DeviceService.instance.createDevice(req);
+
+      setDevices((prev) => {
+        if (!prev) return [res];
+        return [...prev, res];
+      });
+
+      return res;
     },
     [],
   );

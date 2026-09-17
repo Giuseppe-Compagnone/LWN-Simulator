@@ -36,6 +36,7 @@ import {
   SelectOption,
   textField,
 } from "@lwn-simulator/ui-components";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
 const NewDevicePage = () => {
@@ -43,6 +44,7 @@ const NewDevicePage = () => {
   const formLogicRef = useRef<FormLogic | null>(null);
   const mapLogic = useSensorMap({ mode: SensorMapMode.Coords });
   const deviceService = useDeviceService();
+  const router = useRouter();
 
   // Functions
   const handleSubmit = async (values: Record<string, FormValue>) => {
@@ -111,8 +113,10 @@ const NewDevicePage = () => {
     };
 
     try {
-      const res = await deviceService.createDevice(req);
-      console.log("[CREATE DEVICE]", res);
+      await deviceService.createDevice(req);
+
+      NotificationHandler.instance.success("Device created");
+      router.push("/hardware/devices");
     } catch {
       NotificationHandler.instance.error("Failed to create device");
     }

@@ -12,12 +12,20 @@
   "dependencies": {
     "@lwn-simulator/contracts": "workspace:*",
     "@lwn-simulator/sdk": "workspace:*",
-    "electron-store": "^11.0.2"
+    "@lwn-simulator/ui-components": "workspace:*",
+    "electron-store": "^11.0.2",
+    "material-symbols": "^0.47.3",
+    "next": "^16.3.5",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-toastify": "^11.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/electron": "^1.6.12",
     "@types/node": "^26.1.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
     "electron": "38.0.0",
     "electron-builder": "^26.0.12",
     "eslint": "^9",
