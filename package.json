@@ -21,7 +21,7 @@
     "check": "yarn generate && yarn typecheck && yarn lint && yarn test",
     "build:desktop": "./scripts/build-desktop.sh",
     "build:server": "./scripts/build-server.sh",
-    "build": "yarn build:desktop && yarn build:server"
+    "build": "./scripts/build-all.sh"
   },
   "devDependencies": {
     "concurrently": "^10.0.3"

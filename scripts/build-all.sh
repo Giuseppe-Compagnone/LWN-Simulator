@@ -9,14 +9,22 @@ source "$ROOT_DIR/scripts/lib/cli.sh"
 source "$ROOT_DIR/scripts/lib/build.sh"
 
 DESKTOP_ASSETS="$ROOT_DIR/apps/desktop/assets"
-RELEASE_DIR="$ROOT_DIR/releases/desktop"
-BUILDER_OUTPUT="$RELEASE_DIR/build"
+DESKTOP_RELEASE_DIR="$ROOT_DIR/releases/desktop"
+BUILDER_OUTPUT="$DESKTOP_RELEASE_DIR/build"
+SERVER_RELEASE_DIR="$ROOT_DIR/releases/server"
 
-prepare_release() {
-  mkdir -p "$RELEASE_DIR"
+prepare_releases() {
+  rm -rf -- "$SERVER_RELEASE_DIR"
+  mkdir -p "$SERVER_RELEASE_DIR"
+
+  mkdir -p "$DESKTOP_RELEASE_DIR"
   rm -rf -- "$BUILDER_OUTPUT"
-  rm -f -- "$RELEASE_DIR"/*.AppImage
+  rm -f -- "$DESKTOP_RELEASE_DIR"/*.AppImage
   mkdir -p "$DESKTOP_ASSETS"
+}
+
+publish_server() {
+  cp -- "$DESKTOP_ASSETS/lwn-server" "$SERVER_RELEASE_DIR/lwn-server"
 }
 
 build_launcher() {
@@ -27,7 +35,7 @@ build_electron() {
   run_step "Package Electron AppImage" run_in_dir "$ROOT_DIR/apps/desktop" env VERSION="$VERSION" yarn build
 }
 
-copy_release() {
+publish_desktop() {
   local -a artifacts=("$BUILDER_OUTPUT"/*.AppImage)
 
   if [[ ! -f "${artifacts[0]}" ]]; then
@@ -35,11 +43,16 @@ copy_release() {
     return 1
   fi
 
-  cp -- "${artifacts[0]}" "$RELEASE_DIR/"
+  cp -- "${artifacts[0]}" "$DESKTOP_RELEASE_DIR/"
   rm -rf -- "$BUILDER_OUTPUT"
 }
 
-cli_init "LWN-Simulator desktop release" "$VERSION" 10
+verify_releases() {
+  test -x "$SERVER_RELEASE_DIR/lwn-server"
+  test -f "$DESKTOP_RELEASE_DIR/LWN-Simulator-$VERSION.AppImage"
+}
+
+cli_init "LWN-Simulator complete release" "$VERSION" 12
 cli_header
 cli_roadmap \
   "Prepare release directories" \
@@ -49,21 +62,26 @@ cli_roadmap \
   "Build SDK" \
   "Build frontend" \
   "Build backend" \
+  "Publish server binary" \
   "Build desktop launcher" \
   "Package Electron AppImage" \
-  "Publish release artifact"
+  "Publish AppImage" \
+  "Verify release artifacts"
 
-run_step "Prepare release directories" prepare_release
+run_step "Prepare release directories" prepare_releases
 ensure_dependencies
 build_contracts
 build_components
 build_sdk
 build_frontend
 build_backend "$DESKTOP_ASSETS/lwn-server"
+run_step "Publish server binary" publish_server
 build_launcher
 build_electron
-run_step "Publish release artifact" copy_release
+run_step "Publish AppImage" publish_desktop
+run_step "Verify release artifacts" verify_releases
 
 printf '\n%sRelease artifacts%s\n' "$CLI_BOLD$CLI_CYAN" "$CLI_RESET"
-cli_artifact "$RELEASE_DIR/LWN-Simulator-$VERSION.AppImage"
+cli_artifact "$SERVER_RELEASE_DIR/lwn-server"
+cli_artifact "$DESKTOP_RELEASE_DIR/LWN-Simulator-$VERSION.AppImage"
 cli_footer
