@@ -20,9 +20,7 @@ const DevicesPage = () => {
         <Button
           value={"Add Device"}
           onClick={() => {
-            console.log("A");
-            NotificationHandler.instance.success("AAA");
-            // redirect("/hardware/devices/new");
+            redirect("/hardware/devices/new");
           }}
         />
       </PageHeader>
