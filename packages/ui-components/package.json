@@ -17,11 +17,12 @@
     "dist"
   ],
   "scripts": {
+    "clean": "shx rm -rf dist",
     "build:ts": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json",
     "build:css": "sass src/styles/main.scss dist/styles.css --no-source-map",
     "build:scss": "shx mkdir -p dist/scss && shx cp src/styles/breakpoints.scss src/styles/fonts.scss dist/scss",
     "build:types": "shx mkdir -p dist/types && shx cp -r src/types/* dist/types",
-    "build": "yarn build:ts && yarn build:css && yarn build:scss && yarn build:types",
+    "build": "yarn clean && yarn build:ts && yarn build:css && yarn build:scss && yarn build:types",
     "lint:ts": "eslint",
     "lint:css": "stylelint \"src/**/*.scss\"",
     "storybook": "npx storybook dev -p 6006",

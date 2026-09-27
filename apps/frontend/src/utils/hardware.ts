@@ -114,6 +114,10 @@ export const getAltitude = async (
       `https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lng}`,
     );
 
+    if (!response.ok) {
+      throw new Error("Altitude service returned an error");
+    }
+
     const data = await response.json();
 
     alt = data.results[0].elevation as number;

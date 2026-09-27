@@ -17,20 +17,11 @@ import { BaseService } from "../../models";
  * Provides operations for creating, retrieving, updating, and deleting
  * devices through the configured API.
  *
- * The service uses a singleton pattern and extends {@link BaseService}.
+ * The service extends {@link BaseService} and is scoped to a configured API.
  */
 export class DeviceService extends BaseService {
-  private static _instance: DeviceService | null = null;
-
-  /**
-   * Returns the singleton instance of the device service.
-   */
-  public static get instance() {
-    if (!this._instance) {
-      this._instance = new DeviceService("device");
-    }
-
-    return this._instance;
+  constructor(baseUrl: string) {
+    super("device", baseUrl);
   }
 
   /**
@@ -56,7 +47,7 @@ export class DeviceService extends BaseService {
    */
   public getDevice = async (req: GetDeviceRequest): Promise<Device> => {
     const res: GetDeviceResponse = await this.apiCaller.get(
-      `/get-device/${req.id}`,
+      `/get-device/${encodeURIComponent(req.id)}`,
     );
 
     return res.device;
@@ -81,7 +72,7 @@ export class DeviceService extends BaseService {
    */
   public updateDevice = async (req: UpdateDeviceRequest): Promise<Device> => {
     const res: UpdateDeviceResponse = await this.apiCaller.put(
-      `/update-device/${req.id}`,
+      `/update-device/${encodeURIComponent(req.id)}`,
       req,
     );
 
@@ -94,6 +85,8 @@ export class DeviceService extends BaseService {
    * @param req Request containing the device identifier.
    */
   public deleteDevice = async (req: DeleteDeviceRequest): Promise<void> => {
-    await this.apiCaller.delete(`/delete-device/${req.id}`);
+    await this.apiCaller.delete(
+      `/delete-device/${encodeURIComponent(req.id)}`,
+    );
   };
 }

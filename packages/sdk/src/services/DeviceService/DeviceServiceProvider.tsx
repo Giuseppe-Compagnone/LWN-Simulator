@@ -11,17 +11,25 @@ import {
   GetDeviceRequest,
   UpdateDeviceRequest,
 } from "@lwn-simulator/contracts";
-import { NotificationHandler } from "@lwn-simulator/ui-components";
 import { DeviceService } from "./DeviceService";
 
 const DeviceServiceProvider = (props: DeviceServiceProviderProps) => {
   // States
   const [devices, setDevices] = useState<Array<Device> | null>(null);
+  const [error, setError] = useState<Error | null>(null);
+
+  // Memos
+  const service = useMemo(
+    () => new DeviceService(props.baseUrl),
+    [props.baseUrl],
+  );
 
   // Callbacks
   const createDevice = useCallback(
     async (req: CreateDeviceRequest): Promise<Device> => {
-      const res = await DeviceService.instance.createDevice(req);
+      const res = await service.createDevice(req);
+
+      setError(null);
 
       setDevices((prev) => {
         if (!prev) return [res];
@@ -30,32 +38,49 @@ const DeviceServiceProvider = (props: DeviceServiceProviderProps) => {
 
       return res;
     },
-    [],
+    [service],
   );
 
   const getDevice = useCallback(
     async (req: GetDeviceRequest): Promise<Device> => {
-      return DeviceService.instance.getDevice(req);
+      return service.getDevice(req);
     },
-    [],
+    [service],
   );
 
   const getDevices = useCallback(async (): Promise<Array<Device>> => {
-    return DeviceService.instance.getDevices();
-  }, []);
+    const res = await service.getDevices();
+
+    setDevices(res);
+    setError(null);
+
+    return res;
+  }, [service]);
 
   const updateDevice = useCallback(
     async (req: UpdateDeviceRequest): Promise<Device> => {
-      return DeviceService.instance.updateDevice(req);
+      const res = await service.updateDevice(req);
+
+      setDevices((prev) =>
+        prev?.map((device) => (device.id === res.id ? res : device)) ?? null,
+      );
+      setError(null);
+
+      return res;
     },
-    [],
+    [service],
   );
 
   const deleteDevice = useCallback(
     async (req: DeleteDeviceRequest): Promise<void> => {
-      return DeviceService.instance.deleteDevice(req);
+      await service.deleteDevice(req);
+
+      setDevices((prev) =>
+        prev?.filter((device) => device.id !== req.id) ?? null,
+      );
+      setError(null);
     },
-    [],
+    [service],
   );
 
   // Effects
@@ -65,8 +90,11 @@ const DeviceServiceProvider = (props: DeviceServiceProviderProps) => {
         const res = await getDevices();
 
         setDevices(res);
-      } catch {
-        NotificationHandler.instance.error("Failed to load devices");
+      } catch (err) {
+        setDevices([]);
+        setError(
+          err instanceof Error ? err : new Error("Failed to load devices"),
+        );
       }
     })();
   }, [getDevices]);
@@ -80,8 +108,17 @@ const DeviceServiceProvider = (props: DeviceServiceProviderProps) => {
       updateDevice,
       deleteDevice,
       devices,
+      error,
     }),
-    [createDevice, getDevice, getDevices, updateDevice, deleteDevice, devices],
+    [
+      createDevice,
+      getDevice,
+      getDevices,
+      updateDevice,
+      deleteDevice,
+      devices,
+      error,
+    ],
   );
 
   return (

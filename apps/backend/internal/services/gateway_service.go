@@ -2,18 +2,25 @@ package services
 
 import (
 	"fmt"
-	"lwn-simulator-backend/internal/repositories"
+	"sync"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/google/uuid"
+	"lwn-simulator-backend/internal/apperrors"
 )
 
+type GatewayRepository interface {
+	GetAll() ([]contracts.Gateway, error)
+	Save(gateways []contracts.Gateway) error
+}
+
 type GatewayService struct {
-	repository *repositories.GatewayRepository
+	repository GatewayRepository
+	mu         sync.Mutex
 }
 
 func NewGatewayService(
-	repository *repositories.GatewayRepository,
+	repository GatewayRepository,
 ) *GatewayService {
 	return &GatewayService{
 		repository: repository,
@@ -23,6 +30,8 @@ func NewGatewayService(
 func (s *GatewayService) CreateGateway(
 	req contracts.CreateGatewayRequest,
 ) (contracts.Gateway, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	gateways, err := s.repository.GetAll()
 	if err != nil {
@@ -31,7 +40,7 @@ func (s *GatewayService) CreateGateway(
 
 	for _, gateway := range gateways {
 		if gateway.GatewayEUI == req.GatewayEUI {
-			return contracts.Gateway{}, fmt.Errorf(
+			return contracts.Gateway{}, apperrors.Conflict(
 				"gateway with GatewayEUI %q already exists",
 				req.GatewayEUI,
 			)

@@ -1,11 +1,13 @@
 import axios, { AxiosRequestConfig } from "axios";
 
 export class ApiCaller {
-  constructor(private readonly serviceName: string) {
+  constructor(
+    private readonly serviceName: string,
+    private readonly baseUrl: string,
+  ) {
     this.serviceName = serviceName;
+    this.baseUrl = baseUrl;
   }
-
-  public static baseUrl: string | null = null;
 
   public static joinUrl(base: string, path: string) {
     return new URL(
@@ -15,11 +17,10 @@ export class ApiCaller {
   }
 
   private async request<T>(config: AxiosRequestConfig): Promise<T> {
-    if (!ApiCaller.baseUrl) throw new Error("BaseUrl is undefined");
-
     const response = await axios<T>({
       ...config,
-      baseURL: ApiCaller.joinUrl(ApiCaller.baseUrl, this.serviceName),
+      baseURL: ApiCaller.joinUrl(this.baseUrl, this.serviceName),
+      timeout: 10000,
     });
 
     return response.data;

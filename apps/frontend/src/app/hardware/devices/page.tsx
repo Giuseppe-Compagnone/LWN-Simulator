@@ -7,12 +7,20 @@ import {
   PageHeader,
   Table,
 } from "@lwn-simulator/ui-components";
-import { redirect, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 const DevicesPage = () => {
   // Hooks
   const deviceService = useDeviceService();
   const router = useRouter();
+
+  // Effects
+  useEffect(() => {
+    if (deviceService.error) {
+      NotificationHandler.instance.error("Failed to load devices");
+    }
+  }, [deviceService.error]);
 
   return (
     <div className="page devices-page">
@@ -20,7 +28,7 @@ const DevicesPage = () => {
         <Button
           value={"Add Device"}
           onClick={() => {
-            redirect("/hardware/devices/new");
+            router.push("/hardware/devices/new");
           }}
         />
       </PageHeader>
@@ -30,6 +38,7 @@ const DevicesPage = () => {
           Array.isArray(deviceService.devices)
             ? deviceService.devices.map((device) => {
                 return {
+                  id: device.id,
                   items: [
                     {
                       label: "name",
@@ -46,10 +55,9 @@ const DevicesPage = () => {
         }
         pageSize={6}
         onRowClick={(row) => {
-          const id = row.items.find((i) => i.label == "devEUI");
-
-          if (id)
-            router.push(`/hardware/devices/device-info?deviceId=${id.value}`);
+          if (row.id) {
+            router.push(`/hardware/devices/device-info?deviceId=${row.id}`);
+          }
         }}
         isLoading={!Array.isArray(deviceService.devices)}
       />

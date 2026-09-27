@@ -207,6 +207,10 @@ func TestDeviceService_CreateDevice(t *testing.T) {
 				t.Error("CreateDevice() generated an empty ID")
 			}
 
+			if !got.Device.Active {
+				t.Error("CreateDevice() should create active devices by default")
+			}
+
 			if got.Device.DevEUI != tt.wantDevEUI {
 				t.Errorf(
 					"DevEUI = %q, want %q",

@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"lwn-simulator-backend/internal/apperrors"
 )
 
 func bindJSONAndValidate[T any](
@@ -38,7 +40,7 @@ func bindUriAndValidate[T any](
 
 	if err := c.ShouldBindUri(req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "invalid request body",
+			"error": "invalid request path",
 		})
 		return false
 	}
@@ -51,4 +53,20 @@ func bindUriAndValidate[T any](
 	}
 
 	return true
+}
+
+func writeServiceError(c *gin.Context, err error) {
+	status := http.StatusInternalServerError
+	message := "internal server error"
+
+	switch {
+	case errors.Is(err, apperrors.ErrNotFound):
+		status = http.StatusNotFound
+		message = err.Error()
+	case errors.Is(err, apperrors.ErrConflict):
+		status = http.StatusConflict
+		message = err.Error()
+	}
+
+	c.JSON(status, gin.H{"error": message})
 }

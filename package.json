@@ -9,9 +9,16 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently \"yarn dev:frontend\" \"yarn dev:backend\"",
-    "dev:frontend": "yarn workspace @lwn-simulator/frontend dev",
-    "dev:backend": "cd apps/backend && LWN_ENV=development go run cmd/server/main.go",
+    "generate": "yarn workspace @lwn-simulator/contracts build",
+    "build:packages": "yarn generate && yarn workspace @lwn-simulator/sdk build && yarn workspace @lwn-simulator/ui-components build",
+    "dev": "yarn build:packages && concurrently \"yarn workspace @lwn-simulator/frontend dev\" \"cd apps/backend && LWN_ENV=development go run cmd/server/main.go\"",
+    "dev:frontend": "yarn build:packages && yarn workspace @lwn-simulator/frontend dev",
+    "dev:backend": "yarn generate && cd apps/backend && LWN_ENV=development go run cmd/server/main.go",
+    "typecheck": "yarn build:packages && yarn workspace @lwn-simulator/frontend exec tsc --noEmit -p tsconfig.json && yarn workspace @lwn-simulator/ui-components exec tsc --noEmit -p tsconfig.json && yarn workspace @lwn-simulator/sdk exec tsc --noEmit -p tsconfig.json && yarn workspace @lwn-simulator/desktop compile",
+    "lint": "yarn workspace @lwn-simulator/frontend lint:ts && yarn workspace @lwn-simulator/frontend lint:css && yarn workspace @lwn-simulator/ui-components lint:ts && yarn workspace @lwn-simulator/ui-components lint:css && yarn workspace @lwn-simulator/sdk lint && yarn workspace @lwn-simulator/desktop lint && yarn workspace @lwn-simulator/desktop-launcher lint",
+    "test": "cd apps/backend && go test ./...",
+    "test:race": "cd apps/backend && go test -race ./...",
+    "check": "yarn generate && yarn typecheck && yarn lint && yarn test",
     "build:desktop": "./scripts/build-desktop.sh",
     "build:server": "./scripts/build-server.sh",
     "build": "yarn build:desktop && yarn build:server"

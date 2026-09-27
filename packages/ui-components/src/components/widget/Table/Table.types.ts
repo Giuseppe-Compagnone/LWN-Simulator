@@ -52,6 +52,9 @@ export interface TableRecordItem {
  * Represents a single row of data displayed in the table.
  */
 export interface TableRecord {
+  /** Stable identifier used as the React key and by row actions. */
+  id?: string;
+
   /**
    * Collection of cells composing the row.
    */

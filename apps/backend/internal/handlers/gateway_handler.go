@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"lwn-simulator-backend/internal/services"
 	"net/http"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
@@ -10,12 +9,16 @@ import (
 )
 
 type GatewayHandler struct {
-	service   *services.GatewayService
+	service   GatewayService
 	validator *validator.Validate
 }
 
+type GatewayService interface {
+	CreateGateway(req contracts.CreateGatewayRequest) (contracts.Gateway, error)
+}
+
 func NewGatewayHandler(
-	service *services.GatewayService,
+	service GatewayService,
 	validator *validator.Validate,
 ) *GatewayHandler {
 	return &GatewayHandler{
@@ -43,9 +46,7 @@ func (h *GatewayHandler) CreateGateway(c *gin.Context) {
 
 	gateway, err := h.service.CreateGateway(req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+		writeServiceError(c, err)
 		return
 	}
 

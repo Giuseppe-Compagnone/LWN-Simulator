@@ -1,31 +1,29 @@
 "use client";
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import {
   AppInfoServiceContent,
   AppInfoServiceProviderProps,
 } from "./AppInfoService.types";
 import AppInfoServiceContext from "./AppInfoServiceContext";
-import { ApiCaller } from "../../models";
 import { AppInfoService } from "./AppInfoService";
 import { AppInfoResponse, StatusResponse } from "@lwn-simulator/contracts";
 
 const AppInfoServiceProvider = (props: AppInfoServiceProviderProps) => {
-  ApiCaller.baseUrl = props.baseUrl;
+  // Memos
+  const service = useMemo(
+    () => new AppInfoService(props.baseUrl),
+    [props.baseUrl],
+  );
 
   // Callbacks
   const status = useCallback(async (): Promise<StatusResponse> => {
-    return AppInfoService.instance.status();
-  }, []);
+    return service.status();
+  }, [service]);
 
   const appInfo = useCallback(async (): Promise<AppInfoResponse> => {
-    return AppInfoService.instance.appInfo();
-  }, []);
-
-  // Effects
-  useEffect(() => {
-    ApiCaller.baseUrl = props.baseUrl;
-  }, [props.baseUrl]);
+    return service.appInfo();
+  }, [service]);
 
   // Memos
   const value = useMemo(

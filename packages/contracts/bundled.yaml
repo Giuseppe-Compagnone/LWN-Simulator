@@ -296,7 +296,6 @@ components:
       required:
         - devEUI
         - name
-        - active
         - activation
         - class
         - locationConfig

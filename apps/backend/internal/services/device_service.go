@@ -1,10 +1,14 @@
 package services
 
 import (
+	"errors"
 	"fmt"
+	"sync"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/google/uuid"
+	"lwn-simulator-backend/internal/apperrors"
+	"lwn-simulator-backend/internal/database"
 )
 
 type DeviceRepository interface {
@@ -16,6 +20,7 @@ type DeviceRepository interface {
 }
 type DeviceService struct {
 	repository DeviceRepository
+	mu         sync.Mutex
 }
 
 func NewDeviceService(
@@ -29,6 +34,8 @@ func NewDeviceService(
 func (s *DeviceService) CreateDevice(
 	req contracts.CreateDeviceRequest,
 ) (contracts.CreateDeviceResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	devices, err := s.repository.GetAll()
 	if err != nil {
@@ -37,7 +44,7 @@ func (s *DeviceService) CreateDevice(
 
 	for _, device := range devices {
 		if device.DevEUI == req.DevEUI {
-			return contracts.CreateDeviceResponse{}, fmt.Errorf(
+			return contracts.CreateDeviceResponse{}, apperrors.Conflict(
 				"device with DevEUI %q already exists",
 				req.DevEUI,
 			)
@@ -46,6 +53,7 @@ func (s *DeviceService) CreateDevice(
 
 	device := contracts.Device{
 		ID:             uuid.NewString(),
+		Active:         true,
 		DevEUI:         req.DevEUI,
 		Name:           req.Name,
 		Activation:     req.Activation,
@@ -78,7 +86,10 @@ func (s *DeviceService) GetDevice(
 	device, err := s.repository.GetByID(req.ID)
 
 	if err != nil {
-		return contracts.GetDeviceResponse{}, fmt.Errorf("get device by id: %w", err)
+		return contracts.GetDeviceResponse{}, wrapDeviceRepositoryError(
+			"get device by id",
+			err,
+		)
 	}
 
 	return contracts.GetDeviceResponse{
@@ -103,20 +114,40 @@ func (s *DeviceService) GetDevices(
 func (s *DeviceService) UpdateDevice(
 	req contracts.UpdateDeviceRequest,
 ) (contracts.UpdateDeviceResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	_, err := s.repository.GetByID(req.ID)
 	if err != nil {
-		return contracts.UpdateDeviceResponse{}, fmt.Errorf(
-			"get device by id: %w",
+		return contracts.UpdateDeviceResponse{}, wrapDeviceRepositoryError(
+			"get device by id",
 			err,
 		)
+	}
+
+	devices, err := s.repository.GetAll()
+	if err != nil {
+		return contracts.UpdateDeviceResponse{}, fmt.Errorf(
+			"get devices for update: %w",
+			err,
+		)
+	}
+
+	for _, existing := range devices {
+		if existing.ID != req.ID && existing.DevEUI == req.Device.DevEUI {
+			return contracts.UpdateDeviceResponse{}, apperrors.Conflict(
+				"device with DevEUI %q already exists",
+				req.Device.DevEUI,
+			)
+		}
 	}
 
 	device := req.Device
 	device.ID = req.ID
 
 	if err := s.repository.Update(device); err != nil {
-		return contracts.UpdateDeviceResponse{}, fmt.Errorf(
-			"update device: %w",
+		return contracts.UpdateDeviceResponse{}, wrapDeviceRepositoryError(
+			"update device",
 			err,
 		)
 	}
@@ -129,18 +160,31 @@ func (s *DeviceService) UpdateDevice(
 func (s *DeviceService) DeleteDevice(
 	req contracts.DeleteDeviceRequest,
 ) (contracts.DeleteDeviceResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	device, err := s.repository.GetByID(req.ID)
 
 	if err != nil {
-		return contracts.DeleteDeviceResponse{}, fmt.Errorf("get device by id: %w", err)
+		return contracts.DeleteDeviceResponse{}, wrapDeviceRepositoryError(
+			"get device by id",
+			err,
+		)
 	}
 
 	if err := s.repository.Delete(device); err != nil {
-		return contracts.DeleteDeviceResponse{}, fmt.Errorf(
-			"delete device: %w",
+		return contracts.DeleteDeviceResponse{}, wrapDeviceRepositoryError(
+			"delete device",
 			err,
 		)
 	}
 
 	return contracts.DeleteDeviceResponse{}, nil
+}
+
+func wrapDeviceRepositoryError(operation string, err error) error {
+	if errors.Is(err, database.ErrNotFound) {
+		return fmt.Errorf("%w: %s: %v", apperrors.ErrNotFound, operation, err)
+	}
+
+	return fmt.Errorf("%s: %w", operation, err)
 }

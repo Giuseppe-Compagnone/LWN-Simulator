@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FormField, FormLogic, FormValue, UseFormProps } from "./Form.types";
 
 export const useForm = (props: UseFormProps): FormLogic => {
@@ -13,9 +13,10 @@ export const useForm = (props: UseFormProps): FormLogic => {
   const fieldsStateRef = useRef<Record<string, FormField>>(
     Object.fromEntries(props.fields.map((field) => [field.name, field])),
   );
+  const formLogicRef = useRef<FormLogic | null>(null);
 
   // Functions
-  const setValue = (name: string, value: FormValue) => {
+  const setValue = useCallback((name: string, value: FormValue) => {
     const prev = fieldsStateRef.current;
     const field = prev[name];
 
@@ -47,16 +48,16 @@ export const useForm = (props: UseFormProps): FormLogic => {
     setFieldsState(nextState);
 
     if (updatedField.onChange) {
-      const updatedLogic: FormLogic = {
-        ...formLogic,
-        fieldsState: nextState,
-      };
-
-      updatedField.onChange(updatedLogic);
+      if (formLogicRef.current) {
+        updatedField.onChange({
+          ...formLogicRef.current,
+          fieldsState: nextState,
+        });
+      }
     }
-  };
+  }, []);
 
-  const setProp = (name: string, prop: string, value: unknown) => {
+  const setProp = useCallback((name: string, prop: string, value: unknown) => {
     const prev = fieldsStateRef.current;
     const field = prev[name];
 
@@ -74,18 +75,18 @@ export const useForm = (props: UseFormProps): FormLogic => {
 
     fieldsStateRef.current = nextState;
     setFieldsState(nextState);
-  };
+  }, []);
 
-  const isFieldDisabled = (
+  const isFieldDisabled = useCallback((
     field: FormField,
     fieldsState: Record<string, FormField>,
   ) => {
     return typeof field.disabled === "function"
       ? field.disabled(fieldsState)
       : !!field.disabled;
-  };
+  }, []);
 
-  const isFieldDisplayed = (
+  const isFieldDisplayed = useCallback((
     field: FormField,
     fieldsState: Record<string, FormField>,
   ) => {
@@ -94,10 +95,15 @@ export const useForm = (props: UseFormProps): FormLogic => {
     }
 
     return field.display ?? true;
-  };
+  }, []);
 
-  const validate = () => {
-    const tmp = { ...fieldsState };
+  const validate = useCallback(() => {
+    const tmp: Record<string, FormField> = Object.fromEntries(
+      Object.entries(fieldsState).map(([name, field]) => [
+        name,
+        { ...field, error: null },
+      ]),
+    );
     let isValid = true;
 
     Object.values(tmp).forEach((field) => {
@@ -105,30 +111,36 @@ export const useForm = (props: UseFormProps): FormLogic => {
         !isFieldDisabled(field, fieldsState) &&
         isFieldDisplayed(field, fieldsState)
       ) {
+        let fieldIsValid = true;
+
         if (field.required && !field.value) {
-          isValid = false;
+          fieldIsValid = false;
           field.error = "This field is required";
-          console.log(field.name, field.error);
         }
 
-        if (field.validations && field.value && isValid) {
+        if (field.validations && field.value && fieldIsValid) {
           for (let i = 0; i < field.validations.length; i++) {
             const validation = field.validations[i];
 
-            isValid = validation.rule.test((field.value as string) || "");
-            if (!isValid) {
+            fieldIsValid = validation.rule.test((field.value as string) || "");
+            if (!fieldIsValid) {
               field.error = validation.error;
               break;
             }
           }
         }
+
+        if (!fieldIsValid) isValid = false;
       }
     });
 
-    if (!isValid) setFieldsState(tmp);
+    if (!isValid) {
+      fieldsStateRef.current = tmp;
+      setFieldsState(tmp);
+    }
 
     return isValid;
-  };
+  }, [fieldsState, isFieldDisabled, isFieldDisplayed]);
 
   const formLogic = useMemo<FormLogic>(() => {
     return {
@@ -147,6 +159,10 @@ export const useForm = (props: UseFormProps): FormLogic => {
     isFieldDisplayed,
     validate,
   ]);
+
+  useEffect(() => {
+    formLogicRef.current = formLogic;
+  }, [formLogic]);
 
   return formLogic;
 };

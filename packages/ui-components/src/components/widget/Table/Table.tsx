@@ -81,13 +81,20 @@ const Table = (props: TableProps) => {
             tableLogic.records.map((row, i) => {
               return (
                 <tr
-                  key={i}
+                  key={row.id ?? i}
                   className={cn("table-row", props.onRowClick && "clickable")}
-                  onClick={async () => {
-                    setIsLoading(true);
-                    await props.onRowClick?.(row);
-                    setIsLoading(false);
-                  }}
+                  onClick={
+                    props.onRowClick
+                      ? async () => {
+                          setIsLoading(true);
+                          try {
+                            await props.onRowClick?.(row);
+                          } finally {
+                            setIsLoading(false);
+                          }
+                        }
+                      : undefined
+                  }
                 >
                   {props.rowLabels.map((label, j) => {
                     const item = row.items.find(

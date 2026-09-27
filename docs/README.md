@@ -1,40 +1,19 @@
-# Nextra 4
+# LWN Simulator documentation
 
-[Nextra 4](https://nextra.site) is a demo documentation website created using [Next.js](https://nextjs.org), [MDX](https://mdxjs.com), and [Tailwind CSS](https://tailwindcss.com).
+This directory contains the documentation website for LWN Simulator, built
+with Next.js, MDX and Nextra.
 
-## Getting Started
+## Development
 
-The first step is to clone the Nextra 4 project with a git command.
-
-```bash
-git clone https://github.com/officialrajdeepsingh/nextra-4.git
-```
-The next step is to install the Node Package Using the Node package manager.
+From the repository root:
 
 ```bash
-pnpm install
-# or
+cd docs
 yarn install
-# or
-npm install
-```
-
-Lastly, run the development server:
-
-```bash
-npm run dev
-# or
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open <http://localhost:3000> to browse the documentation.
 
-## Additional Packages:
-
-* Tailwind CSS
-* Lucide React
-* reshaped
+The production documentation and the UI component Storybook are deployed by
+the `deploy-docs` GitHub Actions workflow.

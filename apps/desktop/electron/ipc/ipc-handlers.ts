@@ -14,10 +14,18 @@ import Store from "electron-store";
 
 import { validateRemote } from "../remote/remote-validator";
 
+function isLauncherSender(event: Electron.IpcMainInvokeEvent) {
+  return event.sender.getURL().startsWith("file://");
+}
+
 export function registerIpcHandlers() {
   const store = new Store();
 
-  ipcMain.handle("connect-local", async () => {
+  ipcMain.handle("connect-local", async (event) => {
+    if (!isLauncherSender(event)) {
+      throw new Error("Only the launcher can start a connection");
+    }
+
     const window = getMainWindow();
 
     if (!window) {
@@ -26,14 +34,18 @@ export function registerIpcHandlers() {
 
     const port = await startBackend();
 
-    await waitForServer();
+    await waitForServer(port);
 
     await window.loadURL(`http://localhost:${port}`);
 
     setConnected(true);
   });
 
-  ipcMain.handle("connect-remote", async (_, url: string) => {
+  ipcMain.handle("connect-remote", async (event, url: string) => {
+    if (!isLauncherSender(event)) {
+      throw new Error("Only the launcher can start a connection");
+    }
+
     const window = getMainWindow();
 
     if (!window) {

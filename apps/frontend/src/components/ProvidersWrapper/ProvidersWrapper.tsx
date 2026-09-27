@@ -25,7 +25,7 @@ const ProvidersWrapper = (props: ProvidersWrapperProps) => {
   return (
     <ThemeServiceProvider>
       <AppInfoServiceProvider baseUrl={origin}>
-        <DeviceServiceProvider>
+        <DeviceServiceProvider baseUrl={origin}>
           <Navbar />
           <Sidebar>
             {props.children}

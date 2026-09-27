@@ -3,7 +3,7 @@
 set -e
 
 
-ROOT_DIR=$(pwd)
+ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
 VERSION=$(node -p "require('$ROOT_DIR/package.json').version")
 
@@ -11,21 +11,22 @@ echo "Building version: $VERSION"
 
 DESKTOP_ASSETS="$ROOT_DIR/apps/desktop/assets"
 RELEASE_DIR="$ROOT_DIR/releases/desktop"
+BUILDER_OUTPUT="$RELEASE_DIR/build"
 SERVER_DIR="$ROOT_DIR/apps/backend/cmd/server"
 
 
-echo "Cleaning desktop release"
-
-rm -rf "$RELEASE_DIR"
-rm -rf "$DESKTOP_ASSETS"
+echo "Preparing desktop release"
 
 mkdir -p "$RELEASE_DIR"
+rm -rf "$BUILDER_OUTPUT"
+rm -f "$RELEASE_DIR"/*.AppImage
 mkdir -p "$DESKTOP_ASSETS"
 
-
-echo "Installing dependencies"
-
-yarn install
+if [[ ! -d "$ROOT_DIR/node_modules" ]]; then
+  echo "Installing dependencies"
+  cd "$ROOT_DIR"
+  yarn install --immutable
+fi
 
 echo "Building contracts"
 
@@ -81,7 +82,8 @@ VERSION=$VERSION yarn build
 
 echo "Copying release"
 
-cp dist/*.AppImage "$RELEASE_DIR/"
+cp "$BUILDER_OUTPUT"/*.AppImage "$RELEASE_DIR/"
+rm -rf "$BUILDER_OUTPUT"
 
 
 echo "Desktop release created"

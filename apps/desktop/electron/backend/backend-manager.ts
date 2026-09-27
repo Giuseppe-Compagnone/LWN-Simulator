@@ -23,10 +23,30 @@ export async function startBackend() {
 
 export function stopBackend() {
   backendProcess?.kill();
+  backendProcess = undefined;
 }
 
-export function waitForServer() {
-  return new Promise<void>((resolve) => {
-    setTimeout(resolve, 1500);
-  });
+export async function waitForServer(
+  port: number,
+  timeoutMs = 10000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:${port}/api/app-info/status`,
+      );
+
+      if (response.ok) {
+        return;
+      }
+    } catch {
+      // The backend may still be starting.
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+
+  throw new Error("Local backend did not become ready in time");
 }

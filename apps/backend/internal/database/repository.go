@@ -2,11 +2,14 @@ package database
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
 )
+
+var ErrNotFound = errors.New("item not found")
 
 type JSONRepository[T any] struct {
 	path string
@@ -47,7 +50,7 @@ func (r *JSONRepository[T]) GetByID(
 
 	var zero T
 
-	return zero, fmt.Errorf("item with id %q not found", id)
+	return zero, fmt.Errorf("%w: item with id %q not found", ErrNotFound, id)
 }
 
 func (r *JSONRepository[T]) Update(
@@ -77,7 +80,7 @@ func (r *JSONRepository[T]) Update(
 		return nil
 	}
 
-	return fmt.Errorf("item with id %q not found", id)
+	return fmt.Errorf("%w: item with id %q not found", ErrNotFound, id)
 }
 
 func (r *JSONRepository[T]) Delete(
@@ -106,7 +109,7 @@ func (r *JSONRepository[T]) Delete(
 		return nil
 	}
 
-	return fmt.Errorf("item with id %q not found", id)
+	return fmt.Errorf("%w: item with id %q not found", ErrNotFound, id)
 }
 
 func (r *JSONRepository[T]) Save(items []T) error {
@@ -143,7 +146,7 @@ func (r *JSONRepository[T]) save(items []T) error {
 
 	data = append(data, '\n')
 
-	if err := os.MkdirAll(filepath.Dir(r.path), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(r.path), 0700); err != nil {
 		return fmt.Errorf("create directory for %s: %w", r.path, err)
 	}
 
@@ -158,7 +161,7 @@ func (r *JSONRepository[T]) save(items []T) error {
 		_ = os.Remove(tempPath)
 	}()
 
-	if err := temp.Chmod(0644); err != nil {
+	if err := temp.Chmod(0600); err != nil {
 		_ = temp.Close()
 		return fmt.Errorf("set permissions for %s: %w", tempPath, err)
 	}

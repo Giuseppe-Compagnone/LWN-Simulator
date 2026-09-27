@@ -9,6 +9,7 @@ import { AnimatedField } from "./components";
 
 const Form = (props: FormProps) => {
   const formLogic = useForm({ ...props });
+  const onLogicReady = props.onLogicReady;
 
   // Memos
   const visibleFields = useMemo(
@@ -28,8 +29,8 @@ const Form = (props: FormProps) => {
 
   // Effects
   useEffect(() => {
-    props.onLogicReady?.(formLogic);
-  }, [formLogic, props.onLogicReady]);
+    onLogicReady?.(formLogic);
+  }, [formLogic, onLogicReady]);
 
   useEffect(() => {
     mounted.current = true;

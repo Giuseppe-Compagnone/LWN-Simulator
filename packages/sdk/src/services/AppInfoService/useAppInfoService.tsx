@@ -6,7 +6,7 @@ export const useAppInfoService = () => {
 
   if (!context) {
     throw new Error(
-      "useThemeService must be used inside `ThemeServiceProvider`",
+      "useAppInfoService must be used inside `AppInfoServiceProvider`",
     );
   }
 

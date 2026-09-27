@@ -54,9 +54,7 @@ func (h *DeviceHandler) CreateDevice(c *gin.Context) {
 
 	res, err := h.service.CreateDevice(req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+		writeServiceError(c, err)
 		return
 	}
 
@@ -72,9 +70,7 @@ func (h *DeviceHandler) GetDevice(c *gin.Context) {
 
 	res, err := h.service.GetDevice(req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+		writeServiceError(c, err)
 		return
 	}
 
@@ -86,9 +82,7 @@ func (h *DeviceHandler) GetDevices(c *gin.Context) {
 
 	res, err := h.service.GetDevices(req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+		writeServiceError(c, err)
 		return
 	}
 
@@ -128,9 +122,7 @@ func (h *DeviceHandler) UpdateDevice(c *gin.Context) {
 
 	res, err := h.service.UpdateDevice(req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+		writeServiceError(c, err)
 		return
 	}
 
@@ -146,9 +138,7 @@ func (h *DeviceHandler) DeleteDevice(c *gin.Context) {
 
 	_, err := h.service.DeleteDevice(req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+		writeServiceError(c, err)
 		return
 	}
 

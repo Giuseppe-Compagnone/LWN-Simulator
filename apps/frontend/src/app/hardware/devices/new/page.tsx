@@ -48,8 +48,6 @@ const NewDevicePage = () => {
 
   // Functions
   const handleSubmit = async (values: Record<string, FormValue>) => {
-    console.table(values);
-
     const req: CreateDeviceRequest = {
       devEUI: values.devEUI as string,
       name: values.name as string,

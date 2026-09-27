@@ -57,6 +57,9 @@ export interface DeviceServiceContent {
    * yet.
    */
   devices: Array<Device> | null;
+
+  /** Last loading error, if the device collection could not be loaded. */
+  error: Error | null;
 }
 
 /**
@@ -65,4 +68,7 @@ export interface DeviceServiceContent {
  * The provider makes device service operations available to its descendant
  * components.
  */
-export interface DeviceServiceProviderProps extends PropsWithChildren {}
+export interface DeviceServiceProviderProps extends PropsWithChildren {
+  /** Base URL used to communicate with the device API. */
+  baseUrl: string;
+}

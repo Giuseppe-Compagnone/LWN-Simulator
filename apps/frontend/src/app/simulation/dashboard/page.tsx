@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button, ButtonType, PageHeader } from "@lwn-simulator/ui-components";
+import {
+  Button,
+  ButtonType,
+  NotificationHandler,
+  PageHeader,
+} from "@lwn-simulator/ui-components";
 import { SensorMap, useSensorMap } from "@/components";
 import { useAppInfoService } from "@lwn-simulator/sdk";
 
@@ -19,11 +24,14 @@ const DashboardPage = () => {
     const getData = async (): Promise<void> => {
       setIsLoading(true);
 
-      const data = await appInfoService.status();
-      console.log("Data", data);
-      setPort(data.port);
-
-      setIsLoading(false);
+      try {
+        const data = await appInfoService.status();
+        setPort(data.port);
+      } catch {
+        NotificationHandler.instance.error("Failed to load application status");
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     getData();

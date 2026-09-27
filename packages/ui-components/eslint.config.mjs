@@ -8,17 +8,27 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    languageOptions: {
+      parserOptions: {
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",
     "build/**",
+    "dist/**",
+    "storybook-static/**",
     "next-env.d.ts",
   ]),
   ...storybook.configs["flat/recommended"],
   {
     rules: {
+      "@next/next/no-html-link-for-pages": "off",
       "@typescript-eslint/no-unused-vars": [
         "error",
         {
@@ -32,8 +42,8 @@ const eslintConfig = defineConfig([
           allowWithName: ".*Props$",
         },
       ],
+      "react-hooks/set-state-in-effect": "off",
     },
-    "react-hooks/set-state-in-effect": "off",
   },
 ]);
 

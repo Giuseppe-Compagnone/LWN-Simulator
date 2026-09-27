@@ -22,9 +22,13 @@ const Button = (props: ButtonProps) => {
     <button
       onClick={async (e) => {
         setIsLoading(true);
-        await props.onClick?.(e);
-        setIsLoading(false);
+        try {
+          await props.onClick?.(e);
+        } finally {
+          setIsLoading(false);
+        }
       }}
+      disabled={props.disabled || isLoading}
       className={cn(
         "button",
         props.className,
