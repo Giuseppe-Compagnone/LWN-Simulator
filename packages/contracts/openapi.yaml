@@ -59,7 +59,25 @@ components:
       $ref: "./schemas/Device/DeleteDeviceResponse.yaml"
     Gateway:
       $ref: "./schemas/Gateway/Gateway.yaml"
+    GatewayType:
+      $ref: "./schemas/Gateway/GatewayType.yaml"
     CreateGatewayRequest:
       $ref: "./schemas/Gateway/CreateGatewayRequest.yaml"
     CreateGatewayResponse:
       $ref: "./schemas/Gateway/CreateGatewayResponse.yaml"
+    GetGatewayRequest:
+      $ref: "./schemas/Gateway/GetGatewayRequest.yaml"
+    GetGatewayResponse:
+      $ref: "./schemas/Gateway/GetGatewayResponse.yaml"
+    GetGatewaysRequest:
+      $ref: "./schemas/Gateway/GetGatewaysRequest.yaml"
+    GetGatewaysResponse:
+      $ref: "./schemas/Gateway/GetGatewaysResponse.yaml"
+    UpdateGatewayRequest:
+      $ref: "./schemas/Gateway/UpdateGatewayRequest.yaml"
+    UpdateGatewayResponse:
+      $ref: "./schemas/Gateway/UpdateGatewayResponse.yaml"
+    DeleteGatewayRequest:
+      $ref: "./schemas/Gateway/DeleteGatewayRequest.yaml"
+    DeleteGatewayResponse:
+      $ref: "./schemas/Gateway/DeleteGatewayResponse.yaml"

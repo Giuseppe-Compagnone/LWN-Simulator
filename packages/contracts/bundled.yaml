@@ -399,25 +399,36 @@ components:
         id:
           type: string
           x-go-name: ID
-        gatewayEUI:
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36
+        active:
+          type: boolean
+        name:
           type: string
-        latitude:
-          type: number
-        longitude:
-          type: number
-      required:
-        - id
-        - gatewayEUI
-        - latitude
-        - longitude
-    CreateGatewayRequest:
-      title: CreateGatewayRequest
-      type: object
-      properties:
+          x-oapi-codegen-extra-tags:
+            validate: required
+        type:
+          $ref: '#/components/schemas/GatewayType'
+        macAddress:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required
         gatewayEUI:
           type: string
           x-oapi-codegen-extra-tags:
             validate: required,len=16
+        keepAlive:
+          type: integer
+          format: int32
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,gt=0
+        gatewayIPv4:
+          type: string
+        gatewayPort:
+          type: integer
+          format: int32
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=1,max=65535
         latitude:
           type: number
           x-go-type: '*float32'
@@ -428,10 +439,83 @@ components:
           x-go-type: '*float32'
           x-oapi-codegen-extra-tags:
             validate: required,min=-180,max=180
+        altitude:
+          type: number
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required
       required:
+        - id
+        - active
+        - name
+        - type
+        - macAddress
         - gatewayEUI
         - latitude
         - longitude
+        - altitude
+    GatewayType:
+      title: GatewayType
+      type: string
+      enum:
+        - virtual
+        - real
+      x-enum-varnames:
+        - Virtual
+        - Real
+    CreateGatewayRequest:
+      title: CreateGatewayRequest
+      type: object
+      properties:
+        name:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required
+        type:
+          $ref: '#/components/schemas/GatewayType'
+        macAddress:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required
+        gatewayEUI:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required,len=16
+        keepAlive:
+          type: integer
+          format: int32
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,gt=0
+        gatewayIPv4:
+          type: string
+        gatewayPort:
+          type: integer
+          format: int32
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=1,max=65535
+        latitude:
+          type: number
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=-90,max=90
+        longitude:
+          type: number
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required,min=-180,max=180
+        altitude:
+          type: number
+          x-go-type: '*float32'
+          x-oapi-codegen-extra-tags:
+            validate: required
+      required:
+        - name
+        - type
+        - macAddress
+        - gatewayEUI
+        - latitude
+        - longitude
+        - altitude
     CreateGatewayResponse:
       title: CreateGatewayResponse
       type: object
@@ -440,6 +524,86 @@ components:
           $ref: '#/components/schemas/Gateway'
       required:
         - gateway
+    GetGatewayRequest:
+      title: GetGatewayRequest
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+          x-go-json-ignore: true
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36
+            uri: id
+      required:
+        - id
+    GetGatewayResponse:
+      title: GetGatewayResponse
+      type: object
+      properties:
+        gateway:
+          $ref: '#/components/schemas/Gateway'
+      required:
+        - gateway
+    GetGatewaysRequest:
+      title: GetGatewaysRequest
+      type: object
+      x-go-type: struct{}
+      additionalProperties: false
+      properties: {}
+    GetGatewaysResponse:
+      title: GetGatewaysResponse
+      type: object
+      properties:
+        gateways:
+          type: array
+          items:
+            $ref: '#/components/schemas/Gateway'
+      required:
+        - gateways
+    UpdateGatewayRequest:
+      title: UpdateGatewayRequest
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+          x-go-json-ignore: true
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36
+            uri: id
+        gateway:
+          $ref: '#/components/schemas/Gateway'
+      required:
+        - id
+        - gateway
+    UpdateGatewayResponse:
+      title: UpdateGatewayResponse
+      type: object
+      properties:
+        gateway:
+          $ref: '#/components/schemas/Gateway'
+      required:
+        - gateway
+    DeleteGatewayRequest:
+      title: DeleteGatewayRequest
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+          x-go-json-ignore: true
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36
+            uri: id
+      required:
+        - id
+    DeleteGatewayResponse:
+      title: DeleteGatewayResponse
+      type: object
+      x-go-type: struct{}
+      additionalProperties: false
+      properties: {}
     RX1Config:
       title: RX1Config
       type: object

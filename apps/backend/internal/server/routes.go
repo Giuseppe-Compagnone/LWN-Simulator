@@ -41,4 +41,8 @@ func registerRoutes(r *gin.Engine, port string, services Services) {
 	gatewayHandler := handlers.NewGatewayHandler(services.Gateway, validator)
 
 	gateway.POST("/create-gateway", gatewayHandler.CreateGateway)
+	gateway.GET("/get-gateway/:id", gatewayHandler.GetGateway)
+	gateway.GET("/get-gateways", gatewayHandler.GetGateways)
+	gateway.PUT("/update-gateway/:id", gatewayHandler.UpdateGateway)
+	gateway.DELETE("/delete-gateway/:id", gatewayHandler.DeleteGateway)
 }

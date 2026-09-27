@@ -8,7 +8,10 @@ import Link from "next/link";
 const Sidebar = (props: SidebarProps) => {
   const routes: Record<string, Array<{ route: string; icon: string }>> = {
     simulation: [{ route: "dashboard", icon: "dashboard" }],
-    hardware: [{ route: "devices", icon: "sensors" }],
+    hardware: [
+      { route: "devices", icon: "sensors" },
+      { route: "gateways", icon: "router" },
+    ],
     logs: [],
   };
 
