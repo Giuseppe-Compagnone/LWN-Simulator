@@ -13,6 +13,7 @@ import {
 } from "@/utils";
 import {
   CreateDeviceRequest,
+  Device,
   DeviceActivation,
   DeviceClass,
   DeviceMType,
@@ -36,15 +37,59 @@ import {
   SelectOption,
   textField,
 } from "@lwn-simulator/ui-components";
-import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { Spinner } from "@lwn-simulator/ui-components";
 
 const NewDevicePage = () => {
   // Hooks
   const formLogicRef = useRef<FormLogic | null>(null);
+  const hydratedDeviceIdRef = useRef<string | null>(null);
   const mapLogic = useSensorMap({ mode: SensorMapMode.Coords });
   const deviceService = useDeviceService();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const deviceId = searchParams.get("deviceId");
+  const [editingDevice, setEditingDevice] = useState<Device | null>(null);
+  const [isLoadingEdit, setIsLoadingEdit] = useState(!!deviceId);
+
+  // Effects
+  useEffect(() => {
+    if (!deviceId) {
+      setEditingDevice(null);
+      setIsLoadingEdit(false);
+      return;
+    }
+
+    let isCurrent = true;
+    setIsLoadingEdit(true);
+    deviceService.getDevice({ id: deviceId }).then((device) => {
+      if (isCurrent) setEditingDevice(device);
+    }).catch(() => {
+      if (isCurrent) NotificationHandler.instance.error("Failed to load device");
+    }).finally(() => {
+      if (isCurrent) setIsLoadingEdit(false);
+    });
+
+    return () => { isCurrent = false; };
+  }, [deviceId, deviceService]);
+
+  const hydrateForm = (logic: FormLogic, device: Device) => {
+    const values: Record<string, FormValue> = {
+      active: device.active, name: device.name, devEUI: device.devEUI,
+      latitude: device.locationConfig.latitude.toString(), longitude: device.locationConfig.longitude.toString(),
+      altitude: device.locationConfig.altitude.toString(), region: device.locationConfig.region,
+      class: device.class, activation: device.activation,
+      joinEUI: device.OOTAConfig?.joinEUI ?? "", appKey: device.OOTAConfig?.appKey ?? "",
+      devAddr: device.ABPConfig?.devAddr ?? "", nwkSKey: device.ABPConfig?.nwkSKey ?? "", appSKey: device.ABPConfig?.appSKey ?? "",
+      rx1Delay: device.RX1Config.delay.toString(), rx1Duration: device.RX1Config.duration.toString(), rx1DRO: device.RX1Config.dataRateOffset.toString(),
+      rx2Delay: device.RX2Config.delay.toString(), rx2Duration: device.RX2Config.duration.toString(), rx2CF: device.RX2Config.channelFrequency.toString(), rx2DR: device.RX2Config.dataRate, rx2ACKT: device.RX2Config.ACKTimeout.toString(),
+      fPort: device.frameConfig.fPort.toString(), retransmission: device.frameConfig.retransmission.toString(), fCntUp: device.frameConfig.FCntUp?.toString() ?? "", fCntDown: device.frameConfig.FCntDown?.toString() ?? "", disableFrameCounterValidation: device.frameConfig.disableFrameCounterValidation,
+      uplinkInterval: device.payloadConfig.uplinkInterval.toString(), oversizedPayloadBehavior: device.payloadConfig.oversizedPayloadBehavior, MType: device.payloadConfig.MType, payload: device.payloadConfig.payload, base64Encoded: device.payloadConfig.base64Encoded,
+      antennaRange: device.advancedConfig.antennaRange.toString(), ADREnabled: device.advancedConfig.ADREnabled,
+    };
+    Object.entries(values).forEach(([name, value]) => logic.setValue(name, value));
+  };
 
   // Functions
   const handleSubmit = async (values: Record<string, FormValue>) => {
@@ -111,16 +156,29 @@ const NewDevicePage = () => {
     };
 
     try {
-      await deviceService.createDevice(req);
-
-      NotificationHandler.instance.success("Device created");
+      if (editingDevice) {
+        await deviceService.updateDevice({
+          id: editingDevice.id,
+          device: { ...editingDevice, ...req, devEUI: editingDevice.devEUI, class: editingDevice.class, activation: editingDevice.activation, active: values.active as boolean },
+        });
+        NotificationHandler.instance.success("Device updated");
+      } else {
+        await deviceService.createDevice(req);
+        NotificationHandler.instance.success("Device created");
+      }
       router.push("/hardware/devices");
     } catch {
-      NotificationHandler.instance.error("Failed to create device");
+      NotificationHandler.instance.error(editingDevice ? "Failed to update device" : "Failed to create device");
     }
   };
 
-  // Effects
+  useEffect(() => {
+    if (editingDevice && formLogicRef.current && hydratedDeviceIdRef.current !== editingDevice.id) {
+      hydrateForm(formLogicRef.current, editingDevice);
+      hydratedDeviceIdRef.current = editingDevice.id;
+    }
+  }, [editingDevice]);
+
   useEffect(() => {
     if (formLogicRef.current && mapLogic.selectedPos) {
       if (
@@ -152,9 +210,11 @@ const NewDevicePage = () => {
     }
   }, [mapLogic.selectedPos]);
 
+  if (isLoadingEdit) return <div className="page entity-details-loading"><Spinner /></div>;
+
   return (
     <div className="page new-device-page">
-      <PageHeader title={"Create new Device"} />
+      <PageHeader title={editingDevice ? "Edit Device" : "Create new Device"} />
       <div className="page-content">
         <div className="form-wrapper">
           <Form
@@ -162,13 +222,25 @@ const NewDevicePage = () => {
               handleSubmit(values);
             }}
             submitButton={{
-              value: "Create",
+              value: editingDevice ? "Save" : "Create",
               className: "submit-button",
             }}
             onLogicReady={(logic) => {
               formLogicRef.current = logic;
+              if (editingDevice && hydratedDeviceIdRef.current !== editingDevice.id) {
+                hydrateForm(logic, editingDevice);
+                hydratedDeviceIdRef.current = editingDevice.id;
+              }
             }}
             fields={[
+              booleanCheckboxField({
+                value: editingDevice?.active ?? false,
+                name: "active",
+                label: "Active",
+                error: null,
+                text: "Enable",
+                display: !!editingDevice,
+              }),
               textField({
                 name: "name",
                 label: "Name",
@@ -200,7 +272,8 @@ const NewDevicePage = () => {
                 ],
                 error: null,
                 required: true,
-                toolbar: (
+                disabled: !!editingDevice,
+                toolbar: editingDevice ? undefined : (
                   <Button
                     value={
                       <span className="material-symbols-outlined">cached</span>
@@ -469,6 +542,7 @@ const NewDevicePage = () => {
                     "Nearly continuous downlink availability, with highest power consumption",
                 },
                 required: true,
+                disabled: !!editingDevice,
               }),
               radioField({
                 value: null,
@@ -490,6 +564,7 @@ const NewDevicePage = () => {
                     "Direct activation using preconfigured device and session credentials",
                 },
                 required: true,
+                disabled: !!editingDevice,
               }),
               textField({
                 name: "joinEUI",
@@ -982,4 +1057,10 @@ const NewDevicePage = () => {
   );
 };
 
-export default NewDevicePage;
+const NewDevicePageWithSuspense = () => (
+  <Suspense fallback={<div className="page entity-details-loading"><Spinner /></div>}>
+    <NewDevicePage />
+  </Suspense>
+);
+
+export default NewDevicePageWithSuspense;

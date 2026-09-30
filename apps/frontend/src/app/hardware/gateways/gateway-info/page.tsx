@@ -192,6 +192,12 @@ const GatewayInfoContent = () => {
           value="Back"
           onClick={() => router.push("/hardware/gateways")}
         />
+        {gateway && (
+          <Button
+            value="Edit"
+            onClick={() => router.push("/hardware/gateways/new?gatewayId=" + encodeURIComponent(gateway.id))}
+          />
+        )}
       </PageHeader>
       {error || !gateway ? (
         <p>Unable to load this gateway.</p>

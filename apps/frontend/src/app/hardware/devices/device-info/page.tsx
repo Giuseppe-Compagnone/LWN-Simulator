@@ -259,6 +259,7 @@ const DeviceInfoContent = () => {
         subTitle="View device configuration and status"
       >
         <Button value="Back" onClick={() => router.push("/hardware/devices")} />
+        {device && <Button value="Edit" onClick={() => router.push("/hardware/devices/new?deviceId=" + encodeURIComponent(device.id))} />}
       </PageHeader>
       {error || !device ? (
         <p>Unable to load this device.</p>

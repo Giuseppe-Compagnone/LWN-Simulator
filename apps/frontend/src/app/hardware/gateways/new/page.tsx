@@ -10,10 +10,12 @@ import {
 } from "@/utils";
 import {
   CreateGatewayRequest,
+  Gateway,
   GatewayType,
 } from "@lwn-simulator/contracts";
 import { useGatewayService } from "@lwn-simulator/sdk";
 import {
+  booleanCheckboxField,
   Button,
   ButtonLayout,
   ButtonType,
@@ -22,19 +24,53 @@ import {
   FormLogic,
   FormValue,
   NotificationHandler,
+  Spinner,
   PageHeader,
   radioField,
   textField,
 } from "@lwn-simulator/ui-components";
-import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
 
 const NewGatewayPage = () => {
   // Hooks
   const formLogicRef = useRef<FormLogic | null>(null);
+  const hydratedGatewayIdRef = useRef<string | null>(null);
   const mapLogic = useSensorMap({ mode: SensorMapMode.Coords });
   const gatewayService = useGatewayService();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const gatewayId = searchParams.get("gatewayId");
+  const [editingGateway, setEditingGateway] = useState<Gateway | null>(null);
+  const [isLoadingEdit, setIsLoadingEdit] = useState(!!gatewayId);
+
+  // Effects
+  useEffect(() => {
+    if (!gatewayId) {
+      setEditingGateway(null);
+      setIsLoadingEdit(false);
+      return;
+    }
+    let isCurrent = true;
+    setIsLoadingEdit(true);
+    gatewayService.getGateway({ id: gatewayId }).then((gateway) => {
+      if (isCurrent) setEditingGateway(gateway);
+    }).catch(() => {
+      if (isCurrent) NotificationHandler.instance.error("Failed to load gateway");
+    }).finally(() => {
+      if (isCurrent) setIsLoadingEdit(false);
+    });
+    return () => { isCurrent = false; };
+  }, [gatewayId, gatewayService]);
+
+  const hydrateForm = (logic: FormLogic, gateway: Gateway) => {
+    const values: Record<string, FormValue> = {
+      active: gateway.active, name: gateway.name, type: gateway.type, macAddress: gateway.macAddress, gatewayEUI: gateway.gatewayEUI,
+      keepAlive: gateway.keepAlive?.toString() ?? "", gatewayIPv4: gateway.gatewayIPv4 ?? "", gatewayPort: gateway.gatewayPort?.toString() ?? "",
+      latitude: gateway.latitude.toString(), longitude: gateway.longitude.toString(), altitude: gateway.altitude.toString(),
+    };
+    Object.entries(values).forEach(([name, value]) => logic.setValue(name, value));
+  };
 
   // Functions
   const coordinateFormat = (raw: string) => {
@@ -77,16 +113,29 @@ const NewGatewayPage = () => {
     };
 
     try {
-      await gatewayService.createGateway(req);
-
-      NotificationHandler.instance.success("Gateway created");
+      if (editingGateway) {
+        await gatewayService.updateGateway({
+          id: editingGateway.id,
+          gateway: { ...editingGateway, ...req, type: editingGateway.type, macAddress: editingGateway.macAddress, gatewayEUI: editingGateway.gatewayEUI, active: values.active as boolean },
+        });
+        NotificationHandler.instance.success("Gateway updated");
+      } else {
+        await gatewayService.createGateway(req);
+        NotificationHandler.instance.success("Gateway created");
+      }
       router.push("/hardware/gateways");
     } catch {
-      NotificationHandler.instance.error("Failed to create gateway");
+      NotificationHandler.instance.error(editingGateway ? "Failed to update gateway" : "Failed to create gateway");
     }
   };
 
-  // Effects
+  useEffect(() => {
+    if (editingGateway && formLogicRef.current && hydratedGatewayIdRef.current !== editingGateway.id) {
+      hydrateForm(formLogicRef.current, editingGateway);
+      hydratedGatewayIdRef.current = editingGateway.id;
+    }
+  }, [editingGateway]);
+
   useEffect(() => {
     if (formLogicRef.current && mapLogic.selectedPos) {
       if (
@@ -111,9 +160,11 @@ const NewGatewayPage = () => {
     }
   }, [mapLogic.selectedPos]);
 
+  if (isLoadingEdit) return <div className="page entity-details-loading"><Spinner /></div>;
+
   return (
     <div className="page new-device-page new-gateway-page">
-      <PageHeader title="Create new Gateway" />
+      <PageHeader title={editingGateway ? "Edit Gateway" : "Create new Gateway"} />
       <div className="page-content">
         <div className="form-wrapper">
           <Form
@@ -121,13 +172,18 @@ const NewGatewayPage = () => {
               handleSubmit(values);
             }}
             submitButton={{
-              value: "Create",
+              value: editingGateway ? "Save" : "Create",
               className: "submit-button",
             }}
             onLogicReady={(logic) => {
               formLogicRef.current = logic;
+              if (editingGateway && hydratedGatewayIdRef.current !== editingGateway.id) {
+                hydrateForm(logic, editingGateway);
+                hydratedGatewayIdRef.current = editingGateway.id;
+              }
             }}
             fields={[
+              booleanCheckboxField({ value: editingGateway?.active ?? false, name: "active", label: "Active", error: null, text: "Enable", display: !!editingGateway }),
               textField({
                 name: "name",
                 label: "Name",
@@ -153,6 +209,7 @@ const NewGatewayPage = () => {
                     "Physical gateway reachable through an IPv4 address and port",
                 },
                 required: true,
+                disabled: !!editingGateway,
               }),
               textField({
                 name: "macAddress",
@@ -176,7 +233,8 @@ const NewGatewayPage = () => {
                 ],
                 error: null,
                 required: true,
-                toolbar: (
+                disabled: !!editingGateway,
+                toolbar: editingGateway ? undefined : (
                   <Button
                     value={
                       <span className="material-symbols-outlined">cached</span>
@@ -214,7 +272,8 @@ const NewGatewayPage = () => {
                 ],
                 error: null,
                 required: true,
-                toolbar: (
+                disabled: !!editingGateway,
+                toolbar: editingGateway ? undefined : (
                   <Button
                     value={
                       <span className="material-symbols-outlined">cached</span>
@@ -384,4 +443,10 @@ const NewGatewayPage = () => {
   );
 };
 
-export default NewGatewayPage;
+const NewGatewayPageWithSuspense = () => (
+  <Suspense fallback={<div className="page entity-details-loading"><Spinner /></div>}>
+    <NewGatewayPage />
+  </Suspense>
+);
+
+export default NewGatewayPageWithSuspense;
