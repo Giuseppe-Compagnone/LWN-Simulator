@@ -23,7 +23,9 @@ const Sidebar = (props: SidebarProps) => {
   const subSection = pathname?.split("/")[2] || "";
 
   // Recuperiamo le rotte corrispondenti o un array vuoto di fallback
-  const currentRoutes = routes[mainSection] || [];
+  const isHome = mainSection === "";
+  const currentRoutes = isHome ? routes.simulation : routes[mainSection] || [];
+  const currentSubSection = isHome ? "dashboard" : subSection;
 
   return (
     <div className="sidebar">
@@ -43,7 +45,7 @@ const Sidebar = (props: SidebarProps) => {
             <Link
               className={cn(
                 "sub-section",
-                subSection === route.route && "active",
+                currentSubSection === route.route && "active",
               )}
               key={i}
               href={`/${mainSection}/${route.route}`}

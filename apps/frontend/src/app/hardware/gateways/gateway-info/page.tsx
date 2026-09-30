@@ -7,6 +7,7 @@ import {
   EntityDetailTone,
   EntityDetailSection,
   EntityDetails,
+  EntityDetailsSectionLayout,
   EntityDetailValueFormat,
   PageHeader,
   Spinner,
@@ -20,39 +21,47 @@ const displayValue = (value: unknown) =>
     : String(value);
 
 const getGatewaySections = (gateway: Gateway): Array<EntityDetailSection> => {
-  const connectionItems =
-    gateway.type === GatewayType.Virtual
-      ? [
-          {
-            label: "Keep alive",
-            value: `${displayValue(gateway.keepAlive)} seconds`,
-          },
-        ]
-      : [
-          { label: "Gateway IPv4", value: displayValue(gateway.gatewayIPv4) },
-          { label: "Gateway port", value: displayValue(gateway.gatewayPort) },
-        ];
-
   return [
     {
-      title: "Overview",
+      title: "Gateway overview",
       icon: "router",
-      description: "Identity and current runtime state",
-      items: [
-        { label: "ID", value: gateway.id, mono: true },
+      description: "Identity, state and network operating profile",
+      layout: EntityDetailsSectionLayout.Full,
+      metrics: [
         {
           label: "Status",
           value: gateway.active ? "Active" : "Inactive",
           tone: gateway.active
             ? EntityDetailTone.Positive
             : EntityDetailTone.Muted,
+          icon: gateway.active ? "check_circle" : "pause_circle",
         },
-        { label: "Name", value: gateway.name },
         {
           label: "Type",
           value: gateway.type,
           format: EntityDetailValueFormat.Enum,
         },
+        gateway.type === GatewayType.Virtual
+          ? {
+              label: "Keep alive",
+              value: `${displayValue(gateway.keepAlive)} s`,
+              icon: "schedule",
+            }
+          : {
+              label: "Gateway port",
+              value: displayValue(gateway.gatewayPort),
+              icon: "lan",
+            },
+        {
+          label: "Location",
+          value: `${gateway.latitude}, ${gateway.longitude}`,
+          mono: true,
+          icon: "location_on",
+        },
+      ],
+      items: [
+        { label: "Name", value: gateway.name },
+        { label: "Gateway ID", value: gateway.id, mono: true },
         { label: "MAC address", value: gateway.macAddress, mono: true },
         { label: "Gateway EUI", value: gateway.gatewayEUI, mono: true },
       ],
@@ -64,16 +73,57 @@ const getGatewaySections = (gateway: Gateway): Array<EntityDetailSection> => {
         gateway.type === GatewayType.Virtual
           ? "Virtual gateway heartbeat configuration"
           : "Network endpoint of the physical gateway",
-      items: connectionItems,
+      metrics:
+        gateway.type === GatewayType.Virtual
+          ? [
+              {
+                label: "Keep alive",
+                value: `${displayValue(gateway.keepAlive)} seconds`,
+                icon: "schedule",
+              },
+            ]
+          : [
+              {
+                label: "IPv4 address",
+                value: displayValue(gateway.gatewayIPv4),
+                mono: true,
+              },
+              {
+                label: "Port",
+                value: displayValue(gateway.gatewayPort),
+                icon: "lan",
+              },
+            ],
+      items:
+        gateway.type === GatewayType.Real
+          ? [{ label: "Protocol", value: "IPv4 endpoint" }]
+          : [{ label: "Protocol", value: "Virtual simulation link" }],
     },
     {
       title: "Location",
       icon: "location_on",
-      items: [
+      description: "Physical position used by the simulation",
+      metrics: [
         { label: "Latitude", value: gateway.latitude },
         { label: "Longitude", value: gateway.longitude },
-        { label: "Altitude", value: gateway.altitude },
+        { label: "Altitude", value: `${gateway.altitude} m` },
       ],
+      items: [
+        { label: "Coordinates", value: `${gateway.latitude}, ${gateway.longitude}`, mono: true },
+      ],
+    },
+    {
+      title: "Simulation behavior",
+      icon: "monitoring",
+      description: "Traffic, forwarding and routing data will appear here",
+      layout: EntityDetailsSectionLayout.Full,
+      emptyState: {
+        icon: "query_stats",
+        title: "Simulation data not available yet",
+        description:
+          "This panel is reserved for gateway traffic, packet forwarding, channel performance and routed nodes.",
+      },
+      items: [],
     },
   ];
 };
@@ -126,7 +176,7 @@ const GatewayInfoContent = () => {
 
   if (isLoading) {
     return (
-      <div className="page gateway-page">
+      <div className="page entity-details-loading">
         <Spinner />
       </div>
     );
@@ -153,7 +203,13 @@ const GatewayInfoContent = () => {
 };
 
 const GatewayInfoPage = () => (
-  <Suspense fallback={<Spinner />}>
+  <Suspense
+    fallback={
+      <div className="page entity-details-loading">
+        <Spinner />
+      </div>
+    }
+  >
     <GatewayInfoContent />
   </Suspense>
 );

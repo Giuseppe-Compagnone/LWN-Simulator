@@ -4,11 +4,11 @@ import { Device } from "@lwn-simulator/contracts";
 import { useDeviceService } from "@lwn-simulator/sdk";
 import {
   Button,
-  EntityDetailTone,
   EntityDetailSection,
+  EntityDetailTone,
   EntityDetails,
-  EntityDetailValueFormat,
   EntityDetailsSectionLayout,
+  EntityDetailValueFormat,
   PageHeader,
   Spinner,
 } from "@lwn-simulator/ui-components";
@@ -23,22 +23,34 @@ const displayValue = (value: unknown) =>
 const displayBoolean = (value: boolean) => (value ? "Enabled" : "Disabled");
 
 const getDeviceSections = (device: Device): Array<EntityDetailSection> => {
-  const sections: Array<EntityDetailSection> = [
+  const provisioningItems = device.OOTAConfig
+    ? [
+        { label: "JoinEUI", value: device.OOTAConfig.joinEUI, mono: true },
+        { label: "AppKey", value: device.OOTAConfig.appKey, mono: true },
+      ]
+    : device.ABPConfig
+      ? [
+          { label: "DevAddr", value: device.ABPConfig.devAddr, mono: true },
+          { label: "NwkSKey", value: device.ABPConfig.nwkSKey, mono: true },
+          { label: "AppSKey", value: device.ABPConfig.appSKey, mono: true },
+        ]
+      : [{ label: "Credentials", value: "Not configured" }];
+
+  return [
     {
-      title: "Overview",
+      title: "Device overview",
       icon: "memory",
-      description: "Identity and current runtime state",
-      items: [
-        { label: "ID", value: device.id, mono: true },
+      description: "Identity, state and LoRaWAN operating profile",
+      layout: EntityDetailsSectionLayout.Full,
+      metrics: [
         {
           label: "Status",
           value: device.active ? "Active" : "Inactive",
           tone: device.active
             ? EntityDetailTone.Positive
             : EntityDetailTone.Muted,
+          icon: device.active ? "check_circle" : "pause_circle",
         },
-        { label: "Name", value: device.name },
-        { label: "DevEUI", value: device.devEUI, mono: true },
         {
           label: "Class",
           value: device.class,
@@ -49,15 +61,28 @@ const getDeviceSections = (device: Device): Array<EntityDetailSection> => {
           value: device.activation,
           format: EntityDetailValueFormat.Enum,
         },
+        {
+          label: "Region",
+          value: device.locationConfig.region,
+          format: EntityDetailValueFormat.Enum,
+        },
+      ],
+      items: [
+        { label: "Name", value: device.name },
+        { label: "Device ID", value: device.id, mono: true },
+        { label: "DevEUI", value: device.devEUI, mono: true },
       ],
     },
     {
       title: "Location",
       icon: "location_on",
-      items: [
+      description: "Physical position used by the simulation",
+      metrics: [
         { label: "Latitude", value: device.locationConfig.latitude },
         { label: "Longitude", value: device.locationConfig.longitude },
-        { label: "Altitude", value: device.locationConfig.altitude },
+        { label: "Altitude", value: `${device.locationConfig.altitude} m` },
+      ],
+      items: [
         {
           label: "Region",
           value: device.locationConfig.region,
@@ -66,73 +91,76 @@ const getDeviceSections = (device: Device): Array<EntityDetailSection> => {
       ],
     },
     {
-      title: "RX1 Configuration",
-      icon: "settings_input_antenna",
-      items: [
-        { label: "Delay", value: device.RX1Config.delay },
-        { label: "Duration", value: device.RX1Config.duration },
-        {
-          label: "Data rate offset",
-          value: device.RX1Config.dataRateOffset,
-        },
-      ],
+      title: device.OOTAConfig ? "OTAA provisioning" : "ABP provisioning",
+      icon: "key",
+      description: device.OOTAConfig
+        ? "Credentials used to join the LoRaWAN network"
+        : "Preconfigured session credentials",
+      items: provisioningItems,
     },
     {
-      title: "RX2 Configuration",
-      icon: "settings_input_component",
-      items: [
-        { label: "Delay", value: device.RX2Config.delay },
-        { label: "Duration", value: device.RX2Config.duration },
+      title: "Radio configuration",
+      icon: "settings_input_antenna",
+      description: "Receive windows and downlink timing parameters",
+      layout: EntityDetailsSectionLayout.Full,
+      metrics: [
+        { label: "RX1 delay", value: device.RX1Config.delay },
+        { label: "RX2 delay", value: device.RX2Config.delay },
         {
           label: "Channel frequency",
           value: device.RX2Config.channelFrequency,
         },
-        { label: "Data rate", value: device.RX2Config.dataRate },
         { label: "ACK timeout", value: device.RX2Config.ACKTimeout },
       ],
-    },
-    {
-      title: "Frame Configuration",
-      icon: "data_usage",
       items: [
-        { label: "FPort", value: device.frameConfig.fPort },
+        { label: "RX1 duration", value: device.RX1Config.duration },
         {
-          label: "Retransmission",
-          value: device.frameConfig.retransmission,
+          label: "RX1 data rate offset",
+          value: device.RX1Config.dataRateOffset,
         },
-        { label: "FCnt up", value: displayValue(device.frameConfig.FCntUp) },
-        {
-          label: "FCnt down",
-          value: displayValue(device.frameConfig.FCntDown),
-        },
-        {
-          label: "Frame counter validation",
-          value: displayBoolean(
-            !device.frameConfig.disableFrameCounterValidation,
-          ),
-        },
+        { label: "RX2 duration", value: device.RX2Config.duration },
+        { label: "RX2 data rate", value: device.RX2Config.dataRate },
       ],
     },
     {
-      title: "Payload Configuration",
+      title: "Frame and payload",
       icon: "data_object",
+      description: "Uplink framing, counters and application payload",
       layout: EntityDetailsSectionLayout.Full,
-      items: [
+      metrics: [
+        { label: "FPort", value: device.frameConfig.fPort },
         {
           label: "Uplink interval",
           value: device.payloadConfig.uplinkInterval,
-        },
-        {
-          label: "Oversized payload",
-          value: device.payloadConfig.oversizedPayloadBehavior,
-          format: EntityDetailValueFormat.Enum,
         },
         {
           label: "Message type",
           value: device.payloadConfig.MType,
           format: EntityDetailValueFormat.Enum,
         },
-        { label: "Payload", value: device.payloadConfig.payload },
+        {
+          label: "Counter validation",
+          value: device.frameConfig.disableFrameCounterValidation
+            ? "Disabled"
+            : "Enabled",
+          tone: device.frameConfig.disableFrameCounterValidation
+            ? EntityDetailTone.Warning
+            : EntityDetailTone.Positive,
+        },
+      ],
+      items: [
+        { label: "Retransmission", value: device.frameConfig.retransmission },
+        { label: "FCnt up", value: displayValue(device.frameConfig.FCntUp) },
+        {
+          label: "FCnt down",
+          value: displayValue(device.frameConfig.FCntDown),
+        },
+        {
+          label: "Oversized payload",
+          value: device.payloadConfig.oversizedPayloadBehavior,
+          format: EntityDetailValueFormat.Enum,
+        },
+        { label: "Payload", value: device.payloadConfig.payload, mono: true },
         {
           label: "Base64 encoded",
           value: displayBoolean(device.payloadConfig.base64Encoded),
@@ -140,44 +168,34 @@ const getDeviceSections = (device: Device): Array<EntityDetailSection> => {
       ],
     },
     {
-      title: "Advanced Configuration",
+      title: "Advanced configuration",
       icon: "tune",
-      items: [
+      description: "Adaptive data rate and antenna simulation parameters",
+      metrics: [
         { label: "Antenna range", value: device.advancedConfig.antennaRange },
         {
           label: "Adaptive data rate",
           value: displayBoolean(device.advancedConfig.ADREnabled),
+          tone: device.advancedConfig.ADREnabled
+            ? EntityDetailTone.Positive
+            : EntityDetailTone.Muted,
         },
       ],
+      items: [],
+    },
+    {
+      title: "Simulation behavior",
+      icon: "monitoring",
+      description: "Runtime telemetry and packet activity will appear here",
+      emptyState: {
+        icon: "query_stats",
+        title: "Simulation data not available yet",
+        description:
+          "This panel is reserved for live telemetry, packet history and behavior metrics.",
+      },
+      items: [],
     },
   ];
-
-  if (device.OOTAConfig) {
-    sections.splice(2, 0, {
-      title: "OTAA Configuration",
-      icon: "key",
-      description: "Credentials used to join the LoRaWAN network",
-      items: [
-        { label: "JoinEUI", value: device.OOTAConfig.joinEUI, mono: true },
-        { label: "AppKey", value: device.OOTAConfig.appKey, mono: true },
-      ],
-    });
-  }
-
-  if (device.ABPConfig) {
-    sections.splice(2, 0, {
-      title: "ABP Configuration",
-      icon: "key",
-      description: "Preconfigured session credentials",
-      items: [
-        { label: "DevAddr", value: device.ABPConfig.devAddr, mono: true },
-        { label: "NwkSKey", value: device.ABPConfig.nwkSKey, mono: true },
-        { label: "AppSKey", value: device.ABPConfig.appSKey, mono: true },
-      ],
-    });
-  }
-
-  return sections;
 };
 
 const DeviceInfoContent = () => {
@@ -228,7 +246,7 @@ const DeviceInfoContent = () => {
 
   if (isLoading) {
     return (
-      <div className="page device-page">
+      <div className="page entity-details-loading">
         <Spinner />
       </div>
     );
@@ -253,7 +271,13 @@ const DeviceInfoContent = () => {
 
 const DevicePage = () => {
   return (
-    <Suspense fallback={<Spinner />}>
+    <Suspense
+      fallback={
+        <div className="page entity-details-loading">
+          <Spinner />
+        </div>
+      }
+    >
       <DeviceInfoContent />
     </Suspense>
   );

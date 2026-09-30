@@ -21,7 +21,8 @@
     "check": "yarn generate && yarn typecheck && yarn lint && yarn test",
     "build:desktop": "./scripts/build-desktop.sh",
     "build:server": "./scripts/build-server.sh",
-    "build": "./scripts/build-all.sh"
+    "build": "./scripts/build-all.sh",
+    "dev:electron": "yarn build:packages && yarn workspace @lwn-simulator/frontend build && cd apps/backend && go build -o ../desktop/assets/lwn-server cmd/server/main.go && cd ../.. && yarn workspace @lwn-simulator/desktop-launcher build && yarn workspace @lwn-simulator/desktop start"
   },
   "devDependencies": {
     "concurrently": "^10.0.3"

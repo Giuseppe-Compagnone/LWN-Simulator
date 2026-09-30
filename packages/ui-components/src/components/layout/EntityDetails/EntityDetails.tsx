@@ -3,6 +3,7 @@ import { type ReactNode } from "react";
 import {
   EntityDetailTone,
   EntityDetailValueFormat,
+  EntityDetailsMetric,
   EntityDetailsProps,
   EntityDetailsSectionLayout,
 } from "./EntityDetails.types";
@@ -23,6 +24,23 @@ const formatDetailValue = (
 
   return value;
 };
+
+const renderMetric = (metric: EntityDetailsMetric) => (
+  <div className="entity-details-metric" key={metric.label}>
+    <div className="entity-details-metric__topline">
+      <span>{metric.label}</span>
+      {metric.icon && (
+        <span className="material-symbols-outlined">{metric.icon}</span>
+      )}
+    </div>
+    <strong
+      className={`entity-details-metric__value entity-details-metric__value--${metric.tone || EntityDetailTone.Default}${metric.mono ? " entity-details-metric__value--mono" : ""}`}
+    >
+      {formatDetailValue(metric.value, metric.format)}
+    </strong>
+    {metric.detail && <small>{metric.detail}</small>}
+  </div>
+);
 
 const EntityDetails = (props: EntityDetailsProps) => {
   return (
@@ -49,6 +67,22 @@ const EntityDetails = (props: EntityDetailsProps) => {
               </div>
             </div>
           </div>
+          {section.metrics && (
+            <div className="entity-details-metrics">
+              {section.metrics.map(renderMetric)}
+            </div>
+          )}
+          {section.emptyState && (
+            <div className="entity-details-empty">
+              {section.emptyState.icon && (
+                <span className="material-symbols-outlined">
+                  {section.emptyState.icon}
+                </span>
+              )}
+              <strong>{section.emptyState.title}</strong>
+              <p>{section.emptyState.description}</p>
+            </div>
+          )}
           <dl>
             {section.items.map((item) => (
               <div className="entity-detail-row" key={item.label}>
