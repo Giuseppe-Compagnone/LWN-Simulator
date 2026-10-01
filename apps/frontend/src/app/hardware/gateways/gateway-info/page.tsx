@@ -4,12 +4,14 @@ import { Gateway, GatewayType } from "@lwn-simulator/contracts";
 import { useGatewayService } from "@lwn-simulator/sdk";
 import {
   Button,
+  ButtonType,
   EntityDetailTone,
   EntityDetailSection,
   EntityDetails,
   EntityDetailsSectionLayout,
   EntityDetailValueFormat,
   PageHeader,
+  NotificationHandler,
   Spinner,
 } from "@lwn-simulator/ui-components";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -174,6 +176,18 @@ const GatewayInfoContent = () => {
     };
   }, [gatewayService, searchParams]);
 
+  const handleDelete = async () => {
+    if (!gateway || !window.confirm("Delete this gateway?")) return;
+
+    try {
+      await gatewayService.deleteGateway({ id: gateway.id });
+      NotificationHandler.instance.success("Gateway deleted");
+      router.push("/hardware/gateways");
+    } catch {
+      NotificationHandler.instance.error("Failed to delete gateway");
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="page entity-details-loading">
@@ -198,6 +212,7 @@ const GatewayInfoContent = () => {
             onClick={() => router.push("/hardware/gateways/new?gatewayId=" + encodeURIComponent(gateway.id))}
           />
         )}
+        {gateway && <Button value="Delete" type={ButtonType.Outlined} onClick={handleDelete} />}
       </PageHeader>
       {error || !gateway ? (
         <p>Unable to load this gateway.</p>

@@ -1,4 +1,5 @@
 import { MapLayerMouseEvent } from "maplibre-gl";
+import { Device, Gateway } from "@lwn-simulator/contracts";
 
 export enum SensorMapMode {
   Sensor = "sensor",
@@ -29,4 +30,7 @@ export interface SensorMapLogic {
 }
 export interface SensorMapProps {
   logic: SensorMapLogic;
+  mode?: SensorMapMode;
+  devices?: Array<Device>;
+  gateways?: Array<Gateway>;
 }

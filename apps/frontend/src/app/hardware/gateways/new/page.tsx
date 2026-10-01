@@ -437,7 +437,7 @@ const NewGatewayPage = () => {
             ]}
           />
         </div>
-        <SensorMap logic={mapLogic} />
+        <SensorMap logic={mapLogic} mode={SensorMapMode.Coords} />
       </div>
     </div>
   );

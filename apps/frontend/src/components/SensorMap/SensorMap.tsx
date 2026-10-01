@@ -1,11 +1,11 @@
 "use client";
 
-import { SensorMapProps } from "./SensorMap.types";
-import Map, { Layer, Marker, Source } from "react-map-gl/maplibre";
+import { SensorMapMode, SensorMapProps } from "./SensorMap.types";
+import Map, { Layer, MapRef, Marker, Source } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { Spinner, Theme, useThemeService } from "@lwn-simulator/ui-components";
-import { useEffect, useState } from "react";
-import { DeviceMarker, GatewayMarker, LinkMarker } from "./components";
+import { Theme, useThemeService } from "@lwn-simulator/ui-components";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { DeviceMarker, GatewayMarker } from "./components";
 
 const DEFAULT_POSITION = {
   longitude: 12.4964,
@@ -19,7 +19,7 @@ const SensorMap = (props: SensorMapProps) => {
 
   // Hooks
   const themeService = useThemeService();
-  const [loading, setLoading] = useState(true);
+  const mapRef = useRef<MapRef | null>(null);
 
   // Functions
   const createCircle = (
@@ -69,8 +69,7 @@ const SensorMap = (props: SensorMapProps) => {
 
   // Effects
   useEffect(() => {
-    if (!navigator.geolocation) {
-      setLoading(false);
+    if (props.mode === SensorMapMode.Coords || !navigator.geolocation) {
       return;
     }
 
@@ -81,42 +80,40 @@ const SensorMap = (props: SensorMapProps) => {
           latitude: coords.latitude,
           zoom: 10,
         });
-
-        setLoading(false);
+        mapRef.current?.flyTo({
+          center: [coords.longitude, coords.latitude],
+          zoom: 10,
+        });
       },
-      () => {
-        setPosition(DEFAULT_POSITION);
-        setLoading(false);
-      },
+      () => {},
       {
         enableHighAccuracy: true,
         timeout: 15000,
         maximumAge: 0,
       },
     );
-  }, []);
+  }, [props.mode]);
 
-  const markerA = {
-    longitude: 9.19,
-    latitude: 45.4642,
-  };
+  const centerOnMarker = useCallback(() => {
+    const marker = props.logic.markerPos;
+    if (props.mode !== SensorMapMode.Coords || !marker || !mapRef.current) return;
 
-  const markerB = {
-    longitude: 9.19,
-    latitude: 45.4742,
-  };
+    mapRef.current.flyTo({
+      center: [marker.lng, marker.lat],
+      zoom: 15,
+      duration: 0,
+    });
+  }, [props.logic.markerPos, props.mode]);
 
-  if (loading) {
-    return (
-      <div className="sensor-map">
-        <Spinner />
-      </div>
-    );
-  }
+  useEffect(() => {
+    centerOnMarker();
+  }, [centerOnMarker]);
 
   return (
     <div className="sensor-map">
       <Map
+        ref={mapRef}
+        onLoad={centerOnMarker}
         onClick={props.logic.handleClick}
         initialViewState={position}
         style={{
@@ -132,9 +129,21 @@ const SensorMap = (props: SensorMapProps) => {
         dragRotate={false}
         touchZoomRotate={false}
       >
-        <DeviceMarker marker={markerA} />
-        <GatewayMarker marker={markerB} />
-        <LinkMarker from={markerA} to={markerB} />
+        {props.devices?.map((device) => (
+          <DeviceMarker
+            key={device.id}
+            marker={{
+              latitude: device.locationConfig.latitude,
+              longitude: device.locationConfig.longitude,
+            }}
+          />
+        ))}
+        {props.gateways?.map((gateway) => (
+          <GatewayMarker
+            key={gateway.id}
+            marker={{ latitude: gateway.latitude, longitude: gateway.longitude }}
+          />
+        ))}
         {props.logic.markerPos && (
           <>
             <Marker

@@ -1,20 +1,77 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { TableProps } from "./Table.types";
 import useTable from "./useTable";
 import cn from "classnames";
 import { TablePaginator } from "./components";
 import { Spinner } from "@/components/common";
+import { Form, FormLogic, FormValue, selectField, textField } from "@/components/form";
 
 const Table = (props: TableProps) => {
   const tableLogic = useTable({ ...props });
+  const tableFormLogicRef = useRef<FormLogic | null>(null);
 
   //States
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   return (
     <div className="table">
+      {props.filters && props.filters.length > 0 && (
+        <div className="table-filters">
+          <Form
+            fields={props.filters.map((filter) => {
+              const onChange = (logic: FormLogic) => {
+                const value = logic.fieldsState[filter.field].value;
+                tableLogic.setFilterValue(filter.field, String(value ?? ""));
+              };
+
+              if (filter.type === "select") {
+                return selectField({
+                  name: filter.field,
+                  label: filter.label,
+                  value: tableLogic.filterValues[filter.field] ?? "",
+                  placeholder: "All",
+                  options: (filter.options ?? []).map((option) => ({
+                    value: option.value,
+                    displayed: <>{option.label}</>,
+                  })),
+                  error: null,
+                  onChange,
+                });
+              }
+
+              return textField({
+                name: filter.field,
+                label: filter.label,
+                value: tableLogic.filterValues[filter.field] ?? "",
+                placeholder: filter.placeholder,
+                error: null,
+                onChange,
+              });
+            })}
+            onLogicReady={(logic) => {
+              tableFormLogicRef.current = logic;
+            }}
+            onSubmit={(_values: Record<string, FormValue>) => undefined}
+            submitButton={{ value: "Apply", className: "table-filter-submit" }}
+          />
+          {Object.values(tableLogic.filterValues).some(Boolean) && (
+            <button
+              type="button"
+              className="table-filter-clear"
+              onClick={() => {
+                tableLogic.clearFilters();
+                props.filters?.forEach((filter) =>
+                  tableFormLogicRef.current?.setValue(filter.field, ""),
+                );
+              }}
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+      )}
       <div
         className={cn(
           "loading-wrapper",
@@ -48,7 +105,7 @@ const Table = (props: TableProps) => {
                       props.orderBy == label.value ? "pointer" : "default",
                   }}
                 >
-                  {label.value}
+                  {label.label ?? label.value}
                   {props.orderBy == label.value && (
                     <span
                       className="material-symbols-outlined"
@@ -129,7 +186,7 @@ const Table = (props: TableProps) => {
           )}
         </tbody>
       </table>
-      {props.pageSize && props.records.length > 0 ? (
+      {props.pageSize && tableLogic.pagesAmount > 1 ? (
         <TablePaginator tableLogic={tableLogic} />
       ) : (
         <div className="table-footer" />

@@ -4,12 +4,14 @@ import { Device } from "@lwn-simulator/contracts";
 import { useDeviceService } from "@lwn-simulator/sdk";
 import {
   Button,
+  ButtonType,
   EntityDetailSection,
   EntityDetailTone,
   EntityDetails,
   EntityDetailsSectionLayout,
   EntityDetailValueFormat,
   PageHeader,
+  NotificationHandler,
   Spinner,
 } from "@lwn-simulator/ui-components";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -244,6 +246,18 @@ const DeviceInfoContent = () => {
     };
   }, [deviceService, searchParams]);
 
+  const handleDelete = async () => {
+    if (!device || !window.confirm("Delete this device?")) return;
+
+    try {
+      await deviceService.deleteDevice({ id: device.id });
+      NotificationHandler.instance.success("Device deleted");
+      router.push("/hardware/devices");
+    } catch {
+      NotificationHandler.instance.error("Failed to delete device");
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="page entity-details-loading">
@@ -260,6 +274,7 @@ const DeviceInfoContent = () => {
       >
         <Button value="Back" onClick={() => router.push("/hardware/devices")} />
         {device && <Button value="Edit" onClick={() => router.push("/hardware/devices/new?deviceId=" + encodeURIComponent(device.id))} />}
+        {device && <Button value="Delete" type={ButtonType.Outlined} onClick={handleDelete} />}
       </PageHeader>
       {error || !device ? (
         <p>Unable to load this device.</p>

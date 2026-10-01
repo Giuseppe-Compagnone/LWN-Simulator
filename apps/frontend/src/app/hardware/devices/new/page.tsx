@@ -1051,7 +1051,7 @@ const NewDevicePage = () => {
             ]}
           />
         </div>
-        <SensorMap logic={mapLogic} />
+        <SensorMap logic={mapLogic} mode={SensorMapMode.Coords} />
       </div>
     </div>
   );

@@ -12,6 +12,113 @@
   width: 100%;
   max-height: 100%;
 
+  .table-filters {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    width: 100%;
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+    border-bottom: 0;
+    background: var(--secondary-bg-color);
+  }
+
+  .table-filter-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    flex: 1;
+  }
+
+  .table-filter {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 12rem;
+    color: var(--secondary-text-color);
+    font-family: var(--secondary-font);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+  }
+
+  .table-filter input,
+  .table-filter select {
+    min-height: 2.4rem;
+    padding: 0.45rem 0.65rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--primary-bg-color);
+    color: var(--primary-text-color);
+    font: inherit;
+    text-transform: none;
+  }
+
+  .table-filter-clear {
+    min-height: 2.4rem;
+    padding: 0.45rem 0.7rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--primary-text-color);
+    cursor: pointer;
+  }
+
+  .table-filters {
+    align-items: flex-end;
+    flex-direction: row;
+  }
+
+  .table-filters > .form {
+    display: flex;
+    flex: 1;
+    flex-flow: row wrap;
+    align-items: flex-end;
+    justify-content: flex-start;
+    gap: 0.75rem;
+    width: auto;
+  }
+
+  .table-filters .form-field-wrapper {
+    display: flex;
+    flex: 1 1 12rem;
+    align-self: stretch;
+    justify-content: flex-end;
+    min-width: 12rem;
+    margin: 0;
+  }
+
+  .table-filters .form-field-header {
+    min-height: 1.1rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .table-filters .field-wrapper {
+    align-items: flex-end;
+  }
+
+  .table-filters .form-field-wrapper .form-field,
+  .table-filters .form-field-wrapper .selected-box {
+    min-height: 2.4rem;
+    height: 2.4rem;
+    box-sizing: border-box;
+  }
+
+  .table-filters .form-field-wrapper:focus-within,
+  .table-filters .form-field-wrapper:has(.select-form-field.open) {
+    padding-left: 0;
+  }
+
+  .table-filters .form-button,
+  .table-filters .table-filter-submit {
+    display: none;
+  }
+
+  .table-filters .table-filter-clear {
+    flex: 0 0 auto;
+    margin-bottom: 0;
+  }
+
   .loading-wrapper {
     position: absolute;
     inset: 0;
