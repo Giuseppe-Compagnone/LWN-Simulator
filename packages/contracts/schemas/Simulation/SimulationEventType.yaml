@@ -1,0 +1,26 @@
+title: SimulationEventType
+type: string
+
+enum:
+  - simulation-started
+  - simulation-paused
+  - simulation-resumed
+  - simulation-stopped
+  - simulation-recovered
+  - simulation-failed
+  - device-registered
+  - gateway-registered
+  - scheduler-event-scheduled
+  - scheduler-event-cancelled
+
+x-enum-varnames:
+  - SimulationStarted
+  - SimulationPaused
+  - SimulationResumed
+  - SimulationStopped
+  - SimulationRecovered
+  - SimulationFailed
+  - DeviceRegistered
+  - GatewayRegistered
+  - SchedulerEventScheduled
+  - SchedulerEventCancelled

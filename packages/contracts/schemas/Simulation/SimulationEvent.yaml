@@ -1,0 +1,47 @@
+title: SimulationEvent
+type: object
+
+properties:
+  id:
+    type: string
+    x-go-name: ID
+    x-oapi-codegen-extra-tags:
+      validate: "required,len=36"
+  sequence:
+    type: integer
+    format: int64
+    x-oapi-codegen-extra-tags:
+      validate: "required,min=1"
+  type:
+    $ref: "./SimulationEventType.yaml"
+  timestampMilliseconds:
+    type: integer
+    format: int64
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  message:
+    type: string
+    x-oapi-codegen-extra-tags:
+      validate: "required"
+  deviceID:
+    type: string
+    x-go-name: DeviceID
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,len=36"
+  gatewayID:
+    type: string
+    x-go-name: GatewayID
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,len=36"
+  scheduledEventID:
+    type: string
+    x-go-name: ScheduledEventID
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty"
+
+required:
+  - id
+  - sequence
+  - type
+  - timestampMilliseconds
+  - message

@@ -1,0 +1,23 @@
+title: RuntimeDevice
+type: object
+
+properties:
+  id:
+    type: string
+    x-go-name: ID
+    x-oapi-codegen-extra-tags:
+      validate: "required,len=36"
+  name:
+    type: string
+    x-oapi-codegen-extra-tags:
+      validate: "required"
+  active:
+    type: boolean
+  status:
+    $ref: "./RuntimeStatus.yaml"
+
+required:
+  - id
+  - name
+  - active
+  - status

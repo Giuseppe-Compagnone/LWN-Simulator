@@ -604,6 +604,234 @@ components:
       x-go-type: struct{}
       additionalProperties: false
       properties: {}
+    SimulationConfig:
+      title: SimulationConfig
+      type: object
+      properties:
+        speed:
+          type: number
+          x-go-type: float64
+          x-oapi-codegen-extra-tags:
+            validate: required,gt=0
+        seed:
+          type: integer
+          format: int64
+          x-oapi-codegen-extra-tags:
+            validate: omitempty
+      required:
+        - speed
+    SimulationStatus:
+      title: SimulationStatus
+      type: string
+      enum:
+        - idle
+        - starting
+        - running
+        - pausing
+        - paused
+        - resuming
+        - stopping
+        - stopped
+        - recovering
+        - failed
+      x-enum-varnames:
+        - Idle
+        - Starting
+        - Running
+        - Pausing
+        - Paused
+        - Resuming
+        - Stopping
+        - Stopped
+        - Recovering
+        - Failed
+    SimulationEventType:
+      title: SimulationEventType
+      type: string
+      enum:
+        - simulation-started
+        - simulation-paused
+        - simulation-resumed
+        - simulation-stopped
+        - simulation-recovered
+        - simulation-failed
+        - device-registered
+        - gateway-registered
+        - scheduler-event-scheduled
+        - scheduler-event-cancelled
+      x-enum-varnames:
+        - SimulationStarted
+        - SimulationPaused
+        - SimulationResumed
+        - SimulationStopped
+        - SimulationRecovered
+        - SimulationFailed
+        - DeviceRegistered
+        - GatewayRegistered
+        - SchedulerEventScheduled
+        - SchedulerEventCancelled
+    RuntimeStatus:
+      title: RuntimeStatus
+      type: string
+      enum:
+        - registered
+        - active
+        - paused
+        - stopped
+      x-enum-varnames:
+        - Registered
+        - Active
+        - Paused
+        - Stopped
+    RuntimeDevice:
+      title: RuntimeDevice
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36
+        name:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required
+        active:
+          type: boolean
+        status:
+          $ref: '#/components/schemas/RuntimeStatus'
+      required:
+        - id
+        - name
+        - active
+        - status
+    RuntimeGateway:
+      title: RuntimeGateway
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36
+        name:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required
+        active:
+          type: boolean
+        status:
+          $ref: '#/components/schemas/RuntimeStatus'
+      required:
+        - id
+        - name
+        - active
+        - status
+    SimulationState:
+      title: SimulationState
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/SimulationStatus'
+        speed:
+          type: number
+          x-go-type: float64
+          x-oapi-codegen-extra-tags:
+            validate: required,gt=0
+        seed:
+          type: integer
+          format: int64
+          x-oapi-codegen-extra-tags:
+            validate: omitempty
+        elapsedMilliseconds:
+          type: integer
+          format: int64
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        eventSequence:
+          type: integer
+          format: int64
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        deviceCount:
+          type: integer
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        gatewayCount:
+          type: integer
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+      required:
+        - status
+        - speed
+        - elapsedMilliseconds
+        - eventSequence
+        - deviceCount
+        - gatewayCount
+    SimulationEvent:
+      title: SimulationEvent
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36
+        sequence:
+          type: integer
+          format: int64
+          x-oapi-codegen-extra-tags:
+            validate: required,min=1
+        type:
+          $ref: '#/components/schemas/SimulationEventType'
+        timestampMilliseconds:
+          type: integer
+          format: int64
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        message:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required
+        deviceID:
+          type: string
+          x-go-name: DeviceID
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,len=36
+        gatewayID:
+          type: string
+          x-go-name: GatewayID
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,len=36
+        scheduledEventID:
+          type: string
+          x-go-name: ScheduledEventID
+          x-oapi-codegen-extra-tags:
+            validate: omitempty
+      required:
+        - id
+        - sequence
+        - type
+        - timestampMilliseconds
+        - message
+    SimulationSnapshot:
+      title: SimulationSnapshot
+      type: object
+      properties:
+        state:
+          $ref: '#/components/schemas/SimulationState'
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuntimeDevice'
+        gateways:
+          type: array
+          items:
+            $ref: '#/components/schemas/RuntimeGateway'
+      required:
+        - state
+        - devices
+        - gateways
     RX1Config:
       title: RX1Config
       type: object
