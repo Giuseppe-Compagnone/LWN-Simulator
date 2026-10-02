@@ -63,32 +63,65 @@ const NewDevicePage = () => {
 
     let isCurrent = true;
     setIsLoadingEdit(true);
-    deviceService.getDevice({ id: deviceId }).then((device) => {
-      if (isCurrent) setEditingDevice(device);
-    }).catch(() => {
-      if (isCurrent) NotificationHandler.instance.error("Failed to load device");
-    }).finally(() => {
-      if (isCurrent) setIsLoadingEdit(false);
-    });
+    deviceService
+      .getDevice({ id: deviceId })
+      .then((device) => {
+        if (isCurrent) setEditingDevice(device);
+      })
+      .catch(() => {
+        if (isCurrent)
+          NotificationHandler.instance.error("Failed to load device");
+      })
+      .finally(() => {
+        if (isCurrent) setIsLoadingEdit(false);
+      });
 
-    return () => { isCurrent = false; };
+    return () => {
+      isCurrent = false;
+    };
   }, [deviceId, deviceService]);
 
   const hydrateForm = (logic: FormLogic, device: Device) => {
     const values: Record<string, FormValue> = {
-      active: device.active, name: device.name, devEUI: device.devEUI,
-      latitude: device.locationConfig.latitude.toString(), longitude: device.locationConfig.longitude.toString(),
-      altitude: device.locationConfig.altitude.toString(), region: device.locationConfig.region,
-      class: device.class, activation: device.activation,
-      joinEUI: device.OOTAConfig?.joinEUI ?? "", appKey: device.OOTAConfig?.appKey ?? "",
-      devAddr: device.ABPConfig?.devAddr ?? "", nwkSKey: device.ABPConfig?.nwkSKey ?? "", appSKey: device.ABPConfig?.appSKey ?? "",
-      rx1Delay: device.RX1Config.delay.toString(), rx1Duration: device.RX1Config.duration.toString(), rx1DRO: device.RX1Config.dataRateOffset.toString(),
-      rx2Delay: device.RX2Config.delay.toString(), rx2Duration: device.RX2Config.duration.toString(), rx2CF: device.RX2Config.channelFrequency.toString(), rx2DR: device.RX2Config.dataRate, rx2ACKT: device.RX2Config.ACKTimeout.toString(),
-      fPort: device.frameConfig.fPort.toString(), retransmission: device.frameConfig.retransmission.toString(), fCntUp: device.frameConfig.FCntUp?.toString() ?? "", fCntDown: device.frameConfig.FCntDown?.toString() ?? "", disableFrameCounterValidation: device.frameConfig.disableFrameCounterValidation,
-      uplinkInterval: device.payloadConfig.uplinkInterval.toString(), oversizedPayloadBehavior: device.payloadConfig.oversizedPayloadBehavior, MType: device.payloadConfig.MType, payload: device.payloadConfig.payload, base64Encoded: device.payloadConfig.base64Encoded,
-      antennaRange: device.advancedConfig.antennaRange.toString(), ADREnabled: device.advancedConfig.ADREnabled,
+      active: device.active,
+      name: device.name,
+      devEUI: device.devEUI,
+      latitude: device.locationConfig.latitude.toString(),
+      longitude: device.locationConfig.longitude.toString(),
+      altitude: device.locationConfig.altitude.toString(),
+      region: device.locationConfig.region,
+      class: device.class,
+      activation: device.activation,
+      joinEUI: device.OOTAConfig?.joinEUI ?? "",
+      appKey: device.OOTAConfig?.appKey ?? "",
+      devAddr: device.ABPConfig?.devAddr ?? "",
+      nwkSKey: device.ABPConfig?.nwkSKey ?? "",
+      appSKey: device.ABPConfig?.appSKey ?? "",
+      rx1Delay: device.RX1Config.delay.toString(),
+      rx1Duration: device.RX1Config.duration.toString(),
+      rx1DRO: device.RX1Config.dataRateOffset.toString(),
+      rx2Delay: device.RX2Config.delay.toString(),
+      rx2Duration: device.RX2Config.duration.toString(),
+      rx2CF: device.RX2Config.channelFrequency.toString(),
+      rx2DR: device.RX2Config.dataRate,
+      rx2ACKT: device.RX2Config.ACKTimeout.toString(),
+      fPort: device.frameConfig.fPort.toString(),
+      retransmission: device.frameConfig.retransmission.toString(),
+      fCntUp: device.frameConfig.FCntUp?.toString() ?? "",
+      fCntDown: device.frameConfig.FCntDown?.toString() ?? "",
+      disableFrameCounterValidation:
+        device.frameConfig.disableFrameCounterValidation,
+      uplinkInterval: device.payloadConfig.uplinkInterval.toString(),
+      oversizedPayloadBehavior: device.payloadConfig.oversizedPayloadBehavior,
+      MType: device.payloadConfig.MType,
+      payload: device.payloadConfig.payload,
+      base64Encoded: device.payloadConfig.base64Encoded,
+      antennaRange: device.advancedConfig.antennaRange.toString(),
+      ADREnabled: device.advancedConfig.ADREnabled,
     };
-    Object.entries(values).forEach(([name, value]) => logic.setValue(name, value));
+    Object.entries(values).forEach(([name, value]) =>
+      logic.setValue(name, value),
+    );
   };
 
   // Functions
@@ -159,7 +192,14 @@ const NewDevicePage = () => {
       if (editingDevice) {
         await deviceService.updateDevice({
           id: editingDevice.id,
-          device: { ...editingDevice, ...req, devEUI: editingDevice.devEUI, class: editingDevice.class, activation: editingDevice.activation, active: values.active as boolean },
+          device: {
+            ...editingDevice,
+            ...req,
+            devEUI: editingDevice.devEUI,
+            class: editingDevice.class,
+            activation: editingDevice.activation,
+            active: values.active as boolean,
+          },
         });
         NotificationHandler.instance.success("Device updated");
       } else {
@@ -168,12 +208,18 @@ const NewDevicePage = () => {
       }
       router.push("/hardware/devices");
     } catch {
-      NotificationHandler.instance.error(editingDevice ? "Failed to update device" : "Failed to create device");
+      NotificationHandler.instance.error(
+        editingDevice ? "Failed to update device" : "Failed to create device",
+      );
     }
   };
 
   useEffect(() => {
-    if (editingDevice && formLogicRef.current && hydratedDeviceIdRef.current !== editingDevice.id) {
+    if (
+      editingDevice &&
+      formLogicRef.current &&
+      hydratedDeviceIdRef.current !== editingDevice.id
+    ) {
       hydrateForm(formLogicRef.current, editingDevice);
       hydratedDeviceIdRef.current = editingDevice.id;
     }
@@ -210,7 +256,12 @@ const NewDevicePage = () => {
     }
   }, [mapLogic.selectedPos]);
 
-  if (isLoadingEdit) return <div className="page entity-details-loading"><Spinner /></div>;
+  if (isLoadingEdit)
+    return (
+      <div className="page entity-details-loading">
+        <Spinner />
+      </div>
+    );
 
   return (
     <div className="page new-device-page">
@@ -227,7 +278,10 @@ const NewDevicePage = () => {
             }}
             onLogicReady={(logic) => {
               formLogicRef.current = logic;
-              if (editingDevice && hydratedDeviceIdRef.current !== editingDevice.id) {
+              if (
+                editingDevice &&
+                hydratedDeviceIdRef.current !== editingDevice.id
+              ) {
                 hydrateForm(logic, editingDevice);
                 hydratedDeviceIdRef.current = editingDevice.id;
               }
@@ -1058,7 +1112,13 @@ const NewDevicePage = () => {
 };
 
 const NewDevicePageWithSuspense = () => (
-  <Suspense fallback={<div className="page entity-details-loading"><Spinner /></div>}>
+  <Suspense
+    fallback={
+      <div className="page entity-details-loading">
+        <Spinner />
+      </div>
+    }
+  >
     <NewDevicePage />
   </Suspense>
 );

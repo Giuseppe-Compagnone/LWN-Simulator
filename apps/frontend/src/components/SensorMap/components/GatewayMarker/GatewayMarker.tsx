@@ -10,7 +10,7 @@ const GatewayMarker = (props: GatewayMarkerProps) => {
       latitude={props.marker.latitude}
       anchor="center"
     >
-      <span className="material-symbols-outlined marker gateway-marker">
+      <span role="button" tabIndex={0} onClick={props.onClick} onKeyDown={(event) => event.key === "Enter" && props.onClick?.()} className="material-symbols-outlined marker gateway-marker">
         router
       </span>
     </Marker>

@@ -28,6 +28,10 @@ export interface SensorMapLogic {
   antennaRange: number | null;
   setAntennaRange: (val: number | null) => void;
 }
+export type SensorMapEntity =
+  | { kind: "device"; entity: Device }
+  | { kind: "gateway"; entity: Gateway };
+
 export interface SensorMapProps {
   logic: SensorMapLogic;
   mode?: SensorMapMode;

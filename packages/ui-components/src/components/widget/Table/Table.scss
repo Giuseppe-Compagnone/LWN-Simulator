@@ -109,6 +109,11 @@
     padding-left: 0;
   }
 
+  .table-filters .select-form-field .selected-box {
+    align-items: center;
+    line-height: 1.2;
+  }
+
   .table-filters .form-button,
   .table-filters .table-filter-submit {
     display: none;

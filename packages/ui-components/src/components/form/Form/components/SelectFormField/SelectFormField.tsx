@@ -1,12 +1,19 @@
 "use client";
 
-import { CSSProperties, useEffect, useMemo, useState } from "react";
+import { CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import { SelectFormFieldProps } from "./SelectFormField.types";
 import cn from "classnames";
+import { useOutsideAlerter } from "../../../../../hooks";
 
 const SelectFormField = (props: SelectFormFieldProps) => {
   // States
   const [isOpen, setIsOpen] = useState<boolean>(false);
+  const selectRef = useRef<HTMLDivElement | null>(null);
+
+  useOutsideAlerter({
+    ref: selectRef,
+    onClickOutside: () => setIsOpen(false),
+  });
 
   // Effects
   useEffect(() => {
@@ -21,6 +28,7 @@ const SelectFormField = (props: SelectFormFieldProps) => {
 
   return (
     <div
+      ref={selectRef}
       className={cn(
         "form-field select-form-field",
         isOpen && "open",

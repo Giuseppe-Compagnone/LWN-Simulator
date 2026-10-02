@@ -10,7 +10,7 @@ const DeviceMarker = (props: DeviceMarkerProps) => {
       latitude={props.marker.latitude}
       anchor="center"
     >
-      <span className="material-symbols-outlined marker device-marker">
+      <span role="button" tabIndex={0} onClick={props.onClick} onKeyDown={(event) => event.key === "Enter" && props.onClick?.()} className="material-symbols-outlined marker device-marker">
         sensors
       </span>
     </Marker>
