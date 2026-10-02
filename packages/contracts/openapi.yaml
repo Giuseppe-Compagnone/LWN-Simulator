@@ -101,3 +101,5 @@ components:
       $ref: "./schemas/Simulation/SimulationSnapshot.yaml"
     SimulationMetrics:
       $ref: "./schemas/Simulation/SimulationMetrics.yaml"
+    SimulationRxWindow:
+      $ref: "./schemas/Simulation/SimulationRxWindow.yaml"

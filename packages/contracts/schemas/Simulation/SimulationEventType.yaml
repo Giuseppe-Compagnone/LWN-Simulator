@@ -17,6 +17,15 @@ enum:
   - gateway-packet-received
   - packet-dropped
   - metrics-updated
+  - device-join-request-scheduled
+  - device-join-request-transmitted
+  - join-request-received
+  - join-accept-received
+  - rx1-window-opened
+  - rx2-window-opened
+  - uplink-ack-received
+  - uplink-retry-scheduled
+  - frame-counter-rejected
 
 x-enum-varnames:
   - SimulationStarted
@@ -34,3 +43,12 @@ x-enum-varnames:
   - GatewayPacketReceived
   - PacketDropped
   - MetricsUpdated
+  - DeviceJoinRequestScheduled
+  - DeviceJoinRequestTransmitted
+  - JoinRequestReceived
+  - JoinAcceptReceived
+  - RX1WindowOpened
+  - RX2WindowOpened
+  - UplinkACKReceived
+  - UplinkRetryScheduled
+  - FrameCounterRejected

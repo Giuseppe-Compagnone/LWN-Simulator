@@ -12,6 +12,7 @@ engine runtime and test clocks.
 ## Package layout
 
 - `engine.go`: public lifecycle and traffic orchestration;
+- `protocol.go`: OTAA/ABP sessions, receive windows, ACKs and retries;
 - `types/`: runtime abstractions such as clocks, scheduler events and sinks;
 - `scheduler/`: thread-safe priority queue for simulation events;
 - `registry/`: validated device and gateway runtime registry;
@@ -34,6 +35,9 @@ The foundation currently provides:
 - periodic uplinks generated from active devices;
 - deterministic geometric coverage for active virtual gateways;
 - packet delivery/drop events and base traffic metrics;
+- OTAA join sessions and immediate ABP sessions;
+- RX1/RX2 receive windows for confirmed traffic;
+- ACK handling, frame counters and bounded retransmissions;
 - deterministic tests, including race detection.
 
 At the beginning of a run, every active device gets an uplink scheduled at
@@ -46,8 +50,15 @@ connected by this phase and are intentionally excluded from virtual coverage.
 The event log is authoritative and retains every generated event. The live
 channel is a non-blocking view for consumers, so a slow consumer cannot stop
 the simulation. Each packet event carries a `packetID`; snapshots expose
-`SimulationMetrics` with uplink totals, delivery rate, and active runtime
-counts.
+`SimulationMetrics` with uplink totals, delivery rate, join/ACK counters,
+retransmissions, frame-counter errors and active runtime counts.
+
+ABP devices are ready to transmit when the simulation starts. OTAA devices
+first send a join request and become ready after a join accept in RX1 or RX2.
+Confirmed uplinks keep the same frame counter and packet identity across
+retransmissions, and stop after the device's configured retransmission limit.
+RX1/RX2 delays use seconds, while RX2 duration uses milliseconds, matching the
+device configuration model.
 
 LoRaWAN protocol behavior, radio propagation, real gateway transports, and
 frontend streaming build on top of this foundation in the following roadmap

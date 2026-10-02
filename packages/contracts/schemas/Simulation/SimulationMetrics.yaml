@@ -45,6 +45,36 @@ properties:
     x-go-name: ActiveGateways
     x-oapi-codegen-extra-tags:
       validate: "min=0"
+  joinRequests:
+    type: integer
+    format: int64
+    x-go-name: JoinRequests
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  joinAccepts:
+    type: integer
+    format: int64
+    x-go-name: JoinAccepts
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  acknowledgedUplinks:
+    type: integer
+    format: int64
+    x-go-name: AcknowledgedUplinks
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  retransmissions:
+    type: integer
+    format: int64
+    x-go-name: Retransmissions
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  frameCounterErrors:
+    type: integer
+    format: int64
+    x-go-name: FrameCounterErrors
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
 
 required:
   - totalUplinks
@@ -54,3 +84,8 @@ required:
   - packetSuccessRate
   - activeDevices
   - activeGateways
+  - joinRequests
+  - joinAccepts
+  - acknowledgedUplinks
+  - retransmissions
+  - frameCounterErrors

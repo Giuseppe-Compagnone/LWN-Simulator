@@ -664,6 +664,15 @@ components:
         - gateway-packet-received
         - packet-dropped
         - metrics-updated
+        - device-join-request-scheduled
+        - device-join-request-transmitted
+        - join-request-received
+        - join-accept-received
+        - rx1-window-opened
+        - rx2-window-opened
+        - uplink-ack-received
+        - uplink-retry-scheduled
+        - frame-counter-rejected
       x-enum-varnames:
         - SimulationStarted
         - SimulationPaused
@@ -680,6 +689,15 @@ components:
         - GatewayPacketReceived
         - PacketDropped
         - MetricsUpdated
+        - DeviceJoinRequestScheduled
+        - DeviceJoinRequestTransmitted
+        - JoinRequestReceived
+        - JoinAcceptReceived
+        - RX1WindowOpened
+        - RX2WindowOpened
+        - UplinkACKReceived
+        - UplinkRetryScheduled
+        - FrameCounterRejected
     RuntimeStatus:
       title: RuntimeStatus
       type: string
@@ -710,11 +728,32 @@ components:
           type: boolean
         status:
           $ref: '#/components/schemas/RuntimeStatus'
+        joined:
+          type: boolean
+        frameCounterUp:
+          type: integer
+          format: int64
+          x-go-name: FrameCounterUp
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        frameCounterDown:
+          type: integer
+          format: int64
+          x-go-name: FrameCounterDown
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        pendingConfirmedUplink:
+          type: boolean
+          x-go-name: PendingConfirmedUplink
       required:
         - id
         - name
         - active
         - status
+        - joined
+        - frameCounterUp
+        - frameCounterDown
+        - pendingConfirmedUplink
     RuntimeGateway:
       title: RuntimeGateway
       type: object
@@ -823,6 +862,23 @@ components:
           x-go-name: PacketID
           x-oapi-codegen-extra-tags:
             validate: omitempty,len=36
+        frameCounter:
+          type: integer
+          format: int64
+          x-go-name: FrameCounter
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=0
+        retryAttempt:
+          type: integer
+          format: int32
+          x-go-name: RetryAttempt
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=1
+        confirmed:
+          type: boolean
+          x-go-name: Confirmed
+        rxWindow:
+          $ref: '#/components/schemas/SimulationRxWindow'
       required:
         - id
         - sequence
@@ -897,6 +953,36 @@ components:
           x-go-name: ActiveGateways
           x-oapi-codegen-extra-tags:
             validate: min=0
+        joinRequests:
+          type: integer
+          format: int64
+          x-go-name: JoinRequests
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        joinAccepts:
+          type: integer
+          format: int64
+          x-go-name: JoinAccepts
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        acknowledgedUplinks:
+          type: integer
+          format: int64
+          x-go-name: AcknowledgedUplinks
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        retransmissions:
+          type: integer
+          format: int64
+          x-go-name: Retransmissions
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        frameCounterErrors:
+          type: integer
+          format: int64
+          x-go-name: FrameCounterErrors
+          x-oapi-codegen-extra-tags:
+            validate: min=0
       required:
         - totalUplinks
         - successfulUplinks
@@ -905,6 +991,20 @@ components:
         - packetSuccessRate
         - activeDevices
         - activeGateways
+        - joinRequests
+        - joinAccepts
+        - acknowledgedUplinks
+        - retransmissions
+        - frameCounterErrors
+    SimulationRxWindow:
+      title: SimulationRxWindow
+      type: string
+      enum:
+        - rx1
+        - rx2
+      x-enum-varnames:
+        - RX1
+        - RX2
     RX1Config:
       title: RX1Config
       type: object

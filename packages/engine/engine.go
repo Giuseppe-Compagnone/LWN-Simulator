@@ -4,10 +4,8 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
-	"github.com/Giuseppe-Compagnone/lwn-engine/geometry"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 	"github.com/google/uuid"
 )
@@ -18,6 +16,7 @@ type Engine struct {
 	config   contracts.SimulationConfig
 	registry *Registry
 	clock    types.Clock
+	sessions map[string]*types.DeviceSession
 
 	scheduler *Scheduler
 	events    chan contracts.SimulationEvent
@@ -58,10 +57,15 @@ func New(
 	}
 
 	snapshot := registry.Snapshot()
+	sessions := make(map[string]*types.DeviceSession, len(devices))
+	for _, device := range registry.Devices() {
+		sessions[device.ID] = newDeviceSession(device)
+	}
 	return &Engine{
 		config:    config,
 		registry:  registry,
 		clock:     clock,
+		sessions:  sessions,
 		scheduler: NewScheduler(),
 		events:    make(chan contracts.SimulationEvent, bufferSize),
 		eventLog:  make([]contracts.SimulationEvent, 0, bufferSize),
@@ -127,13 +131,25 @@ func (e *Engine) Start(ctx context.Context) error {
 		))
 	}
 	for _, device := range e.registry.ActiveDevices() {
+		session := e.sessions[device.ID]
+		kind := types.ScheduledEventDeviceUplink
+		scheduledType := contracts.DeviceUplinkTransmitted
+		scheduledMessage := "device uplink scheduled"
+		scheduledLogType := contracts.DeviceUplinkScheduled
+		if !session.Joined {
+			kind = types.ScheduledEventJoinRequest
+			scheduledType = contracts.DeviceJoinRequestTransmitted
+			scheduledMessage = "device join request scheduled"
+			scheduledLogType = contracts.DeviceJoinRequestScheduled
+		}
 		scheduled := types.ScheduledEvent{
 			ID:       uuid.NewString(),
 			At:       0,
-			Type:     contracts.DeviceUplinkTransmitted,
-			Message:  "device uplink scheduled",
+			Type:     scheduledType,
+			Message:  scheduledMessage,
 			DeviceID: device.ID,
-			Kind:     types.ScheduledEventDeviceUplink,
+			Kind:     kind,
+			Attempt:  1,
 		}
 		if err := e.scheduler.Schedule(scheduled); err != nil {
 			e.state.Status = contracts.SimulationStatusFailed
@@ -142,8 +158,8 @@ func (e *Engine) Start(ctx context.Context) error {
 			return fmt.Errorf("schedule initial uplink for device %s: %w", device.ID, err)
 		}
 		events = append(events, e.newEventLocked(
-			contracts.DeviceUplinkScheduled,
-			"device uplink scheduled",
+			scheduledLogType,
+			scheduledMessage,
 			device.ID,
 			"",
 			scheduled.ID,
@@ -292,6 +308,14 @@ func (e *Engine) Snapshot() contracts.SimulationSnapshot {
 	snapshot := e.registry.Snapshot()
 	snapshot.State = e.state
 	snapshot.Metrics = e.metrics
+	for index, device := range e.registry.Devices() {
+		if session := e.sessions[device.ID]; session != nil {
+			snapshot.Devices[index].Joined = session.Joined
+			snapshot.Devices[index].FrameCounterUp = session.FrameCounterUp
+			snapshot.Devices[index].FrameCounterDown = session.FrameCounterDown
+			snapshot.Devices[index].PendingConfirmedUplink = session.PendingUplink != nil
+		}
+	}
 	if elapsed := e.clock.Now().Milliseconds(); elapsed > snapshot.State.ElapsedMilliseconds {
 		snapshot.State.ElapsedMilliseconds = elapsed
 	}
@@ -381,112 +405,6 @@ func (e *Engine) run(ctx context.Context) {
 	}
 }
 
-func (e *Engine) processScheduledEventLocked(scheduled types.ScheduledEvent) []contracts.SimulationEvent {
-	if scheduled.Kind != types.ScheduledEventDeviceUplink {
-		return []contracts.SimulationEvent{
-			e.newEventLocked(scheduled.Type, scheduled.Message, scheduled.DeviceID, scheduled.GatewayID, scheduled.ID),
-		}
-	}
-
-	device, ok := e.registry.Device(scheduled.DeviceID)
-	if !ok || !device.Active {
-		return []contracts.SimulationEvent{
-			e.newEventLocked(
-				contracts.PacketDropped,
-				"uplink dropped because the device is not active",
-				scheduled.DeviceID,
-				"",
-				scheduled.ID,
-			),
-		}
-	}
-
-	packetID := uuid.NewString()
-	e.metrics.TotalUplinks++
-	reachableGateways := make([]contracts.Gateway, 0)
-	deviceLatitude, deviceLongitude := locationCoordinates(device)
-	for _, gateway := range e.registry.ActiveVirtualGateways() {
-		gatewayLatitude, gatewayLongitude := gatewayCoordinates(gateway)
-		if geometry.DistanceMeters(deviceLatitude, deviceLongitude, gatewayLatitude, gatewayLongitude) <= float64(device.AdvancedConfig.AntennaRange) {
-			reachableGateways = append(reachableGateways, gateway)
-		}
-	}
-
-	events := []contracts.SimulationEvent{
-		e.newPacketEventLocked(
-			contracts.DeviceUplinkTransmitted,
-			"device uplink transmitted",
-			scheduled.DeviceID,
-			"",
-			scheduled.ID,
-			packetID,
-		),
-	}
-	if len(reachableGateways) == 0 {
-		e.metrics.DroppedUplinks++
-		events = append(events, e.newPacketEventLocked(
-			contracts.PacketDropped,
-			"uplink dropped because no active virtual gateway covers the device",
-			scheduled.DeviceID,
-			"",
-			scheduled.ID,
-			packetID,
-		))
-	} else {
-		e.metrics.SuccessfulUplinks++
-		e.metrics.TotalPacketsReceived += int64(len(reachableGateways))
-		for _, gateway := range reachableGateways {
-			events = append(events, e.newPacketEventLocked(
-				contracts.GatewayPacketReceived,
-				"virtual gateway received uplink",
-				scheduled.DeviceID,
-				gateway.ID,
-				scheduled.ID,
-				packetID,
-			))
-		}
-	}
-	e.metrics.PacketSuccessRate = float64(e.metrics.SuccessfulUplinks) / float64(e.metrics.TotalUplinks)
-	events = append(events, e.newPacketEventLocked(
-		contracts.MetricsUpdated,
-		"simulation metrics updated",
-		scheduled.DeviceID,
-		"",
-		scheduled.ID,
-		packetID,
-	))
-
-	interval := time.Duration(float64(device.PayloadConfig.UplinkInterval) * float64(time.Second))
-	next := types.ScheduledEvent{
-		ID:       uuid.NewString(),
-		At:       scheduled.At + interval,
-		Type:     contracts.DeviceUplinkTransmitted,
-		Message:  "device uplink scheduled",
-		DeviceID: scheduled.DeviceID,
-		Kind:     types.ScheduledEventDeviceUplink,
-	}
-	if err := e.scheduler.Schedule(next); err == nil {
-		events = append(events, e.newEventLocked(
-			contracts.DeviceUplinkScheduled,
-			"device uplink scheduled",
-			scheduled.DeviceID,
-			"",
-			next.ID,
-		))
-	} else {
-		events = append(events, e.newPacketEventLocked(
-			contracts.PacketDropped,
-			fmt.Sprintf("uplink reschedule failed: %v", err),
-			scheduled.DeviceID,
-			"",
-			scheduled.ID,
-			packetID,
-		))
-	}
-
-	return events
-}
-
 func locationCoordinates(device contracts.Device) (float64, float64) {
 	return float64(pointerValue(device.LocationConfig.Latitude)), float64(pointerValue(device.LocationConfig.Longitude))
 }
@@ -501,6 +419,21 @@ func pointerValue[T any](value *T) T {
 		return zero
 	}
 	return *value
+}
+
+func newDeviceSession(device contracts.Device) *types.DeviceSession {
+	return &types.DeviceSession{
+		Joined:           device.Activation == contracts.ABP,
+		FrameCounterUp:   initialFrameCounter(device.FrameConfig.FCntUp),
+		FrameCounterDown: initialFrameCounter(device.FrameConfig.FCntDown),
+	}
+}
+
+func initialFrameCounter(value **int) int64 {
+	if value == nil || *value == nil {
+		return 0
+	}
+	return int64(**value)
 }
 
 func (e *Engine) newEventLocked(

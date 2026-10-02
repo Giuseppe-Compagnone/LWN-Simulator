@@ -43,6 +43,23 @@ properties:
     x-go-name: PacketID
     x-oapi-codegen-extra-tags:
       validate: "omitempty,len=36"
+  frameCounter:
+    type: integer
+    format: int64
+    x-go-name: FrameCounter
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,min=0"
+  retryAttempt:
+    type: integer
+    format: int32
+    x-go-name: RetryAttempt
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,min=1"
+  confirmed:
+    type: boolean
+    x-go-name: Confirmed
+  rxWindow:
+    $ref: "./SimulationRxWindow.yaml"
 
 required:
   - id

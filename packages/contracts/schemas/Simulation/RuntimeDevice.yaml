@@ -15,9 +15,30 @@ properties:
     type: boolean
   status:
     $ref: "./RuntimeStatus.yaml"
+  joined:
+    type: boolean
+  frameCounterUp:
+    type: integer
+    format: int64
+    x-go-name: FrameCounterUp
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  frameCounterDown:
+    type: integer
+    format: int64
+    x-go-name: FrameCounterDown
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  pendingConfirmedUplink:
+    type: boolean
+    x-go-name: PendingConfirmedUplink
 
 required:
   - id
   - name
   - active
   - status
+  - joined
+  - frameCounterUp
+  - frameCounterDown
+  - pendingConfirmedUplink

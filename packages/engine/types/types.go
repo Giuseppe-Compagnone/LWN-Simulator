@@ -144,13 +144,18 @@ type Options struct {
 }
 
 type ScheduledEvent struct {
-	ID        string
-	At        time.Duration
-	Type      contracts.SimulationEventType
-	Message   string
-	DeviceID  string
-	GatewayID string
-	Kind      ScheduledEventKind
+	ID           string
+	At           time.Duration
+	Type         contracts.SimulationEventType
+	Message      string
+	DeviceID     string
+	GatewayID    string
+	Kind         ScheduledEventKind
+	Attempt      int
+	PacketID     string
+	FrameCounter int64
+	Confirmed    bool
+	Window       contracts.SimulationRxWindow
 }
 
 type ScheduledEventKind string
@@ -158,7 +163,33 @@ type ScheduledEventKind string
 const (
 	ScheduledEventGeneric      ScheduledEventKind = "generic"
 	ScheduledEventDeviceUplink ScheduledEventKind = "device-uplink"
+	ScheduledEventJoinRequest  ScheduledEventKind = "join-request"
+	ScheduledEventRX1Window    ScheduledEventKind = "rx1-window"
+	ScheduledEventRX2Window    ScheduledEventKind = "rx2-window"
 )
+
+type DeviceSession struct {
+	Joined             bool
+	FrameCounterUp     int64
+	FrameCounterDown   int64
+	PendingUplink      *PendingUplink
+	PendingJoinRequest *PendingJoinRequest
+}
+
+type PendingUplink struct {
+	PacketID       string
+	FrameCounter   int64
+	Attempt        int
+	Confirmed      bool
+	GatewayIDs     []string
+	TransmissionAt time.Duration
+}
+
+type PendingJoinRequest struct {
+	PacketID       string
+	GatewayIDs     []string
+	TransmissionAt time.Duration
+}
 
 type ValidationIssue struct {
 	Field   string `json:"field"`

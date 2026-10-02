@@ -12,6 +12,7 @@ import (
 func TestPhaseTwoTransmitsPeriodicUplinksToCoveredVirtualGateways(t *testing.T) {
 	clock := types.NewManualClock(0)
 	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000001")
+	configureABP(&device)
 	device.PayloadConfig.UplinkInterval = 10
 	device.AdvancedConfig.AntennaRange = 1_000
 	gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c01")
@@ -59,6 +60,7 @@ func TestPhaseTwoTransmitsPeriodicUplinksToCoveredVirtualGateways(t *testing.T) 
 func TestPhaseTwoDropsUplinkOutsideCoverageAndIgnoresRealGateway(t *testing.T) {
 	clock := types.NewManualClock(0)
 	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000001")
+	configureABP(&device)
 	device.AdvancedConfig.AntennaRange = 100
 
 	outsideGateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c01")
@@ -100,7 +102,9 @@ func TestPhaseTwoDropsUplinkOutsideCoverageAndIgnoresRealGateway(t *testing.T) {
 func TestPhaseTwoSchedulesOnlyActiveDevices(t *testing.T) {
 	clock := types.NewManualClock(0)
 	active := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000001")
+	configureABP(&active)
 	inactive := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000002")
+	configureABP(&inactive)
 	inactive.Active = false
 	inactive.DevEUI = "70B3D57ED0000002"
 
@@ -161,3 +165,13 @@ func waitForEventType(t *testing.T, events <-chan contracts.SimulationEvent, exp
 }
 
 func stringPtr(value string) *string { return &value }
+
+func configureABP(device *contracts.Device) {
+	device.Activation = contracts.ABP
+	device.OOTAConfig = nil
+	device.ABPConfig = &contracts.ABPConfig{
+		DevAddr: "26011BDA",
+		NwkSKey: "00112233445566778899AABBCCDDEEFF",
+		AppSKey: "FFEEDDCCBBAA99887766554433221100",
+	}
+}
