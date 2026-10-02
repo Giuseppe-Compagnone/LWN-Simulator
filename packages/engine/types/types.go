@@ -150,7 +150,15 @@ type ScheduledEvent struct {
 	Message   string
 	DeviceID  string
 	GatewayID string
+	Kind      ScheduledEventKind
 }
+
+type ScheduledEventKind string
+
+const (
+	ScheduledEventGeneric      ScheduledEventKind = "generic"
+	ScheduledEventDeviceUplink ScheduledEventKind = "device-uplink"
+)
 
 type ValidationIssue struct {
 	Field   string `json:"field"`

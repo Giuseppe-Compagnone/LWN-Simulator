@@ -12,8 +12,11 @@ properties:
     type: array
     items:
       $ref: "./RuntimeGateway.yaml"
+  metrics:
+    $ref: "./SimulationMetrics.yaml"
 
 required:
   - state
   - devices
   - gateways
+  - metrics

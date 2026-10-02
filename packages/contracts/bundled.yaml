@@ -659,6 +659,11 @@ components:
         - gateway-registered
         - scheduler-event-scheduled
         - scheduler-event-cancelled
+        - device-uplink-scheduled
+        - device-uplink-transmitted
+        - gateway-packet-received
+        - packet-dropped
+        - metrics-updated
       x-enum-varnames:
         - SimulationStarted
         - SimulationPaused
@@ -670,6 +675,11 @@ components:
         - GatewayRegistered
         - SchedulerEventScheduled
         - SchedulerEventCancelled
+        - DeviceUplinkScheduled
+        - DeviceUplinkTransmitted
+        - GatewayPacketReceived
+        - PacketDropped
+        - MetricsUpdated
     RuntimeStatus:
       title: RuntimeStatus
       type: string
@@ -808,6 +818,11 @@ components:
           x-go-name: ScheduledEventID
           x-oapi-codegen-extra-tags:
             validate: omitempty
+        packetID:
+          type: string
+          x-go-name: PacketID
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,len=36
       required:
         - id
         - sequence
@@ -828,10 +843,68 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RuntimeGateway'
+        metrics:
+          $ref: '#/components/schemas/SimulationMetrics'
       required:
         - state
         - devices
         - gateways
+        - metrics
+    SimulationMetrics:
+      title: SimulationMetrics
+      type: object
+      properties:
+        totalUplinks:
+          type: integer
+          format: int64
+          x-go-name: TotalUplinks
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        successfulUplinks:
+          type: integer
+          format: int64
+          x-go-name: SuccessfulUplinks
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        droppedUplinks:
+          type: integer
+          format: int64
+          x-go-name: DroppedUplinks
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        totalPacketsReceived:
+          type: integer
+          format: int64
+          x-go-name: TotalPacketsReceived
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        packetSuccessRate:
+          type: number
+          format: double
+          x-go-type: float64
+          x-go-name: PacketSuccessRate
+          x-oapi-codegen-extra-tags:
+            validate: min=0,max=1
+        activeDevices:
+          type: integer
+          format: int64
+          x-go-name: ActiveDevices
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        activeGateways:
+          type: integer
+          format: int64
+          x-go-name: ActiveGateways
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+      required:
+        - totalUplinks
+        - successfulUplinks
+        - droppedUplinks
+        - totalPacketsReceived
+        - packetSuccessRate
+        - activeDevices
+        - activeGateways
     RX1Config:
       title: RX1Config
       type: object

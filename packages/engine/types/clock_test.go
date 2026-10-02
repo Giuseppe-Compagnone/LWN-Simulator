@@ -1,15 +1,13 @@
-package engine
+package types
 
 import (
 	"context"
 	"testing"
 	"time"
-
-	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 )
 
 func TestManualClockDoesNotMoveBackwards(t *testing.T) {
-	clock := types.NewManualClock(10 * time.Millisecond)
+	clock := NewManualClock(10 * time.Millisecond)
 
 	if err := clock.Advance(5 * time.Millisecond); err != nil {
 		t.Fatalf("advance clock: %v", err)
@@ -24,7 +22,7 @@ func TestManualClockDoesNotMoveBackwards(t *testing.T) {
 }
 
 func TestManualClockWaitsUntilTarget(t *testing.T) {
-	clock := types.NewManualClock(0)
+	clock := NewManualClock(0)
 	done := make(chan error, 1)
 
 	go func() {

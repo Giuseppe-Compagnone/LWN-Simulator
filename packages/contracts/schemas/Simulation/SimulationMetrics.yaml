@@ -1,0 +1,56 @@
+title: SimulationMetrics
+type: object
+
+properties:
+  totalUplinks:
+    type: integer
+    format: int64
+    x-go-name: TotalUplinks
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  successfulUplinks:
+    type: integer
+    format: int64
+    x-go-name: SuccessfulUplinks
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  droppedUplinks:
+    type: integer
+    format: int64
+    x-go-name: DroppedUplinks
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  totalPacketsReceived:
+    type: integer
+    format: int64
+    x-go-name: TotalPacketsReceived
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  packetSuccessRate:
+    type: number
+    format: double
+    x-go-type: float64
+    x-go-name: PacketSuccessRate
+    x-oapi-codegen-extra-tags:
+      validate: "min=0,max=1"
+  activeDevices:
+    type: integer
+    format: int64
+    x-go-name: ActiveDevices
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  activeGateways:
+    type: integer
+    format: int64
+    x-go-name: ActiveGateways
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+
+required:
+  - totalUplinks
+  - successfulUplinks
+  - droppedUplinks
+  - totalPacketsReceived
+  - packetSuccessRate
+  - activeDevices
+  - activeGateways

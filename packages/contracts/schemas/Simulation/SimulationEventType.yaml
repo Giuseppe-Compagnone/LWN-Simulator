@@ -12,6 +12,11 @@ enum:
   - gateway-registered
   - scheduler-event-scheduled
   - scheduler-event-cancelled
+  - device-uplink-scheduled
+  - device-uplink-transmitted
+  - gateway-packet-received
+  - packet-dropped
+  - metrics-updated
 
 x-enum-varnames:
   - SimulationStarted
@@ -24,3 +29,8 @@ x-enum-varnames:
   - GatewayRegistered
   - SchedulerEventScheduled
   - SchedulerEventCancelled
+  - DeviceUplinkScheduled
+  - DeviceUplinkTransmitted
+  - GatewayPacketReceived
+  - PacketDropped
+  - MetricsUpdated

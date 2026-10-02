@@ -99,3 +99,5 @@ components:
       $ref: "./schemas/Simulation/SimulationEvent.yaml"
     SimulationSnapshot:
       $ref: "./schemas/Simulation/SimulationSnapshot.yaml"
+    SimulationMetrics:
+      $ref: "./schemas/Simulation/SimulationMetrics.yaml"

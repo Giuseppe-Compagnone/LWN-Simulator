@@ -1,4 +1,4 @@
-package engine
+package scheduler
 
 import (
 	"testing"
@@ -9,7 +9,7 @@ import (
 )
 
 func TestSchedulerReturnsEventsByTimeAndID(t *testing.T) {
-	scheduler := NewScheduler()
+	scheduler := New()
 	base := types.ScheduledEvent{
 		Type:    contracts.DeviceRegistered,
 		Message: "scheduled",
@@ -42,7 +42,7 @@ func TestSchedulerReturnsEventsByTimeAndID(t *testing.T) {
 }
 
 func TestSchedulerCanCancelEvent(t *testing.T) {
-	scheduler := NewScheduler()
+	scheduler := New()
 	event := types.ScheduledEvent{
 		ID:      "cancel-me",
 		At:      time.Second,

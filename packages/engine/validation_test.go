@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"math"
 	"strings"
 	"testing"
 
@@ -11,6 +12,16 @@ func TestValidateSimulationConfigRejectsInvalidSpeed(t *testing.T) {
 	err := ValidateSimulationConfig(contracts.SimulationConfig{Speed: 0})
 	if err == nil || !strings.Contains(err.Error(), "speed") {
 		t.Fatalf("expected speed validation error, got %v", err)
+	}
+}
+
+func TestValidateHardwareRejectsUnrepresentableUplinkInterval(t *testing.T) {
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000001")
+	device.PayloadConfig.UplinkInterval = math.SmallestNonzeroFloat32
+
+	err := ValidateHardware([]contracts.Device{device}, nil)
+	if err == nil || !strings.Contains(err.Error(), "uplinkInterval") {
+		t.Fatalf("expected uplink interval validation error, got %v", err)
 	}
 }
 

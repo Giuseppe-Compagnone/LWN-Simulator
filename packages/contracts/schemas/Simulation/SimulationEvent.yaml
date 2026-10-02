@@ -38,6 +38,11 @@ properties:
     x-go-name: ScheduledEventID
     x-oapi-codegen-extra-tags:
       validate: "omitempty"
+  packetID:
+    type: string
+    x-go-name: PacketID
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,len=36"
 
 required:
   - id
