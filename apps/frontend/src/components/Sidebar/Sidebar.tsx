@@ -1,6 +1,32 @@
+"use client";
+
 import { SidebarProps } from "./Sidebar.types";
+import { usePathname } from "next/navigation";
+import cn from "classnames";
+import Link from "next/link";
 
 const Sidebar = (props: SidebarProps) => {
+  const routes: Record<string, Array<{ route: string; icon: string }>> = {
+    simulation: [{ route: "dashboard", icon: "dashboard" }],
+    hardware: [
+      { route: "devices", icon: "sensors" },
+      { route: "gateways", icon: "router" },
+    ],
+    logs: [],
+  };
+
+  // Hooks
+  const pathname = usePathname();
+
+  // Estraiamo la sezione principale del path in modo sicuro
+  const mainSection = pathname?.split("/")[1] || "";
+  const subSection = pathname?.split("/")[2] || "";
+
+  // Recuperiamo le rotte corrispondenti o un array vuoto di fallback
+  const isHome = mainSection === "";
+  const currentRoutes = isHome ? routes.simulation : routes[mainSection] || [];
+  const currentSubSection = isHome ? "dashboard" : subSection;
+
   return (
     <div className="sidebar">
       <aside>
@@ -12,23 +38,32 @@ const Sidebar = (props: SidebarProps) => {
             <div className="inactive">Simulation inactive</div>
           )}
         </div>
-        <div className="sub-section active">
-          <span className="material-symbols-outlined icon">dashboard</span>
-          <span>Dashboard</span>
-        </div>
-        <div className="sub-section">
-          <span className="material-symbols-outlined icon">dashboard</span>
-          <span>Dashboard</span>
-        </div>
-        <div className="sub-section">
-          <span className="material-symbols-outlined icon">dashboard</span>
-          <span>Dashboard</span>
-        </div>
+
+        {/* ✅ Ora .map() viene chiamato in sicurezza solo se le rotte esistono */}
+        {currentRoutes.map((route, i) => {
+          return (
+            <Link
+              className={cn(
+                "sub-section",
+                currentSubSection === route.route && "active",
+              )}
+              key={i}
+              href={`/${mainSection}/${route.route}`}
+            >
+              <span className="material-symbols-outlined icon">
+                {route.icon}
+              </span>
+              <span>{route.route}</span>
+            </Link>
+          );
+        })}
+
         <hr />
         <a
           href="https://giuseppe-compagnone.github.io/LWN-Simulator/docs/"
           target="_blank"
           className="sub-section"
+          rel="noreferrer"
         >
           <span className="material-symbols-outlined icon">menu_book</span>
           <span>Documentation</span>

@@ -1,10 +1,21 @@
-import { ApiCaller, AppInfoService } from "@lwn-simulator/sdk";
+type RemoteAppInfo = {
+  app?: unknown;
+  version?: unknown;
+};
+
+async function getRemoteAppInfo(url: string): Promise<RemoteAppInfo> {
+  const response = await fetch(new URL("/api/app-info/info", url));
+
+  if (!response.ok) {
+    throw new Error(`Request failed with status ${response.status}`);
+  }
+
+  return (await response.json()) as RemoteAppInfo;
+}
 
 export async function validateRemote(url: string) {
-  ApiCaller.baseUrl = new URL("/api", url).toString();
-
   try {
-    const info = await AppInfoService.instance.appInfo();
+    const info = await getRemoteAppInfo(url);
 
     if (info.app !== "lwn-simulator") {
       throw new Error("Server isn't a LWN Simulator instance");
@@ -18,6 +29,15 @@ export async function validateRemote(url: string) {
 
     return info;
   } catch (err) {
+    if (
+      err instanceof Error &&
+      ["Server isn't a LWN Simulator instance", "Incompatible version"].includes(
+        err.message,
+      )
+    ) {
+      throw err;
+    }
+
     throw new Error("Server unreachable", {
       cause: err,
     });

@@ -54,9 +54,7 @@ func (h *DeviceHandler) CreateDevice(c *gin.Context) {
 
 	res, err := h.service.CreateDevice(req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+		writeServiceError(c, err)
 		return
 	}
 
@@ -72,9 +70,7 @@ func (h *DeviceHandler) GetDevice(c *gin.Context) {
 
 	res, err := h.service.GetDevice(req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+		writeServiceError(c, err)
 		return
 	}
 
@@ -86,9 +82,7 @@ func (h *DeviceHandler) GetDevices(c *gin.Context) {
 
 	res, err := h.service.GetDevices(req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+		writeServiceError(c, err)
 		return
 	}
 
@@ -98,19 +92,37 @@ func (h *DeviceHandler) GetDevices(c *gin.Context) {
 func (h *DeviceHandler) UpdateDevice(c *gin.Context) {
 	var req contracts.UpdateDeviceRequest
 
-	if !bindUriAndValidate(c, h.validator, &req) {
+	if err := c.ShouldBindUri(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
 		return
 	}
 
-	if !bindJSONAndValidate(c, h.validator, &req) {
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	if err := h.validator.Struct(req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	if req.Device.ID != req.ID {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "device ID in body does not match device ID in URI",
+		})
 		return
 	}
 
 	res, err := h.service.UpdateDevice(req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+		writeServiceError(c, err)
 		return
 	}
 
@@ -126,9 +138,7 @@ func (h *DeviceHandler) DeleteDevice(c *gin.Context) {
 
 	_, err := h.service.DeleteDevice(req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
+		writeServiceError(c, err)
 		return
 	}
 

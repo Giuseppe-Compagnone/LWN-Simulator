@@ -1,22 +1,38 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { TableLogic, TableRecordItemSort, UseTableProps } from "./Table.types";
 
 const useTable = (props: UseTableProps): TableLogic => {
   // States
   const [sortedUp, setSortedUp] = useState<boolean>(true);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [filterValues, setFilterValues] = useState<Record<string, string>>({});
 
   // Memo
   const filteredRecords = useMemo(() => {
     const labels = new Set(props.rowLabels.map((label) => label.value));
+    const activeFilters = (props.filters ?? []).filter(
+      (filter) => filterValues[filter.field],
+    );
 
-    return props.records.map((record) => ({
-      ...record,
-      items: record.items.filter((item) => labels.has(item.label)),
-    }));
-  }, [props.records, props.rowLabels]);
+    return props.records
+      .map((record) => ({
+        ...record,
+        items: record.items.filter((item) => labels.has(item.label)),
+      }))
+      .filter((record) =>
+        activeFilters.every((filter) => {
+          const item = record.items.find((value) => value.label === filter.field);
+          const value = item?.value.toLocaleLowerCase() ?? "";
+          const filterValue = filterValues[filter.field].toLocaleLowerCase();
+
+          return filter.type === "select"
+            ? value === filterValue
+            : value.includes(filterValue);
+        }),
+      );
+  }, [filterValues, props.filters, props.records, props.rowLabels]);
 
   const sortedRecords = useMemo(() => {
     if (!props.orderBy) {
@@ -62,8 +78,8 @@ const useTable = (props: UseTableProps): TableLogic => {
   const pagesAmount = useMemo(() => {
     if (!props.pageSize) return 1;
 
-    return Math.ceil(props.records.length / props.pageSize);
-  }, [props.pageSize, props.records.length]);
+    return Math.max(1, Math.ceil(sortedRecords.length / props.pageSize));
+  }, [props.pageSize, sortedRecords.length]);
 
   const visiblePages = useMemo(() => {
     return Array.from({ length: 5 }, (_, index) => {
@@ -71,19 +87,38 @@ const useTable = (props: UseTableProps): TableLogic => {
     });
   }, [currentPage]);
 
+  // Effects
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, pagesAmount));
+  }, [pagesAmount]);
+
   // Functions
+  const setFilterValue = (field: string, value: string) => {
+    setFilterValues((previous) => ({ ...previous, [field]: value }));
+    setCurrentPage(1);
+  };
+
+  const clearFilters = () => {
+    setFilterValues({});
+    setCurrentPage(1);
+  };
+
   const toggleSort = () => {
     setSortedUp((prev) => !prev);
   };
 
   const nextPage = () => {
-    if (currentPage == pagesAmount) return;
+    if (currentPage >= pagesAmount) return;
     setCurrentPage((prev) => prev + 1);
   };
 
   const prevPage = () => {
-    if (currentPage == 1) return;
+    if (currentPage <= 1) return;
     setCurrentPage((prev) => prev - 1);
+  };
+
+  const changePage = (page: number) => {
+    setCurrentPage(Math.min(Math.max(page, 1), pagesAmount));
   };
 
   return {
@@ -99,7 +134,10 @@ const useTable = (props: UseTableProps): TableLogic => {
     currentPage,
     nextPage,
     prevPage,
-    setCurrentPage,
+    setCurrentPage: changePage,
+    filterValues,
+    setFilterValue,
+    clearFilters,
     visiblePages,
   };
 };

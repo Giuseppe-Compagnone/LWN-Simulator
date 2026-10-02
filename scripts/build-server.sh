@@ -1,70 +1,41 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -e
+set -Eeuo pipefail
 
-ROOT_DIR=$(cd "$(dirname "$0")/.." && pwd)
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+VERSION="$(node -p "require('$ROOT_DIR/package.json').version")"
 
-VERSION=$(node -p "require('$ROOT_DIR/package.json').version")
-
-echo "Building version: $VERSION"
+source "$ROOT_DIR/scripts/lib/cli.sh"
+source "$ROOT_DIR/scripts/lib/build.sh"
 
 RELEASE_DIR="$ROOT_DIR/releases/server"
-SERVER_DIR="$ROOT_DIR/apps/backend/cmd/server"
 
+prepare_release() {
+  rm -rf -- "$RELEASE_DIR"
+  mkdir -p "$RELEASE_DIR"
+}
 
+cli_init "LWN-Simulator server release" "$VERSION" 8
+cli_header
+cli_roadmap \
+  "Prepare release directory" \
+  "Verify workspace dependencies" \
+  "Generate API contracts" \
+  "Build UI components" \
+  "Build SDK" \
+  "Build frontend" \
+  "Build backend" \
+  "Verify release artifact"
 
-echo "Cleaning server release"
+run_step "Prepare release directory" prepare_release
+ensure_dependencies
+build_contracts
+build_components
+build_sdk
+build_frontend
+build_backend "$RELEASE_DIR/lwn-server"
+run_step "Verify release artifact" test -x "$RELEASE_DIR/lwn-server"
 
-rm -rf "$RELEASE_DIR"
-
-mkdir -p "$RELEASE_DIR"
-
-
-echo "Installing dependencies"
-
-cd "$ROOT_DIR"
-
-yarn install
-
-
-echo "Building contracts"
-
-cd "$ROOT_DIR/packages/contracts"
-
-yarn build
-
-
-echo "Building components"
-
-cd "$ROOT_DIR/packages/ui-components"
-
-yarn build
-
-
-echo "Building SDK"
-
-cd "$ROOT_DIR/packages/sdk"
-
-yarn build
-
-
-echo "Building frontend"
-
-cd "$ROOT_DIR/apps/frontend"
-
-VERSION=$VERSION yarn build
-
-
-echo "Building backend"
-
-cd "$ROOT_DIR/apps/backend"
-
-go build \
--ldflags "-X lwn-simulator-backend/version.AppVersion=$VERSION" \
--o "$RELEASE_DIR/lwn-server" \
-cmd/server/main.go
-
-
-echo "Server release created"
-
-ls -lah "$RELEASE_DIR"
+printf '\n%sRelease artifacts%s\n' "$CLI_BOLD$CLI_CYAN" "$CLI_RESET"
+cli_artifact "$RELEASE_DIR/lwn-server"
+cli_footer

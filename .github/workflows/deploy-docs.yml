@@ -32,8 +32,11 @@ jobs:
           node-version: 20
           cache: yarn
           cache-dependency-path: |
+            yarn.lock
             docs/yarn.lock
-            packages/ui-components/yarn.lock
+
+      - name: Install workspace dependencies
+        run: yarn install --immutable
 
       # ----------------------------
       # Nextra
@@ -41,7 +44,7 @@ jobs:
 
       - name: Install docs dependencies
         working-directory: docs
-        run: yarn install --frozen-lockfile
+        run: yarn install --immutable
 
       - name: Build docs
         working-directory: docs
@@ -61,13 +64,8 @@ jobs:
       # Storybook
       # ----------------------------
 
-      - name: Install Storybook dependencies
-        working-directory: packages/ui-components
-        run: yarn install --frozen-lockfile
-
       - name: Build Storybook
-        working-directory: packages/ui-components
-        run: yarn build-storybook
+        run: yarn workspace @lwn-simulator/ui-components build-storybook
 
       - name: Prepare Storybook artifact
         run: |

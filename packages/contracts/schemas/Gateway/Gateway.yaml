@@ -5,15 +5,59 @@ properties:
   id:
     type: string
     x-go-name: ID
+    x-oapi-codegen-extra-tags:
+      validate: "required,len=36"
+  active:
+    type: boolean
+  name:
+    type: string
+    x-oapi-codegen-extra-tags:
+      validate: "required"
+  type:
+    $ref: "./GatewayType.yaml"
+  macAddress:
+    type: string
+    x-oapi-codegen-extra-tags:
+      validate: "required"
   gatewayEUI:
     type: string
+    x-oapi-codegen-extra-tags:
+      validate: "required,len=16"
+  keepAlive:
+    type: integer
+    format: int32
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,gt=0"
+  gatewayIPv4:
+    type: string
+  gatewayPort:
+    type: integer
+    format: int32
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,min=1,max=65535"
   latitude:
     type: number
+    x-go-type: "*float32"
+    x-oapi-codegen-extra-tags:
+      validate: "required,min=-90,max=90"
   longitude:
     type: number
+    x-go-type: "*float32"
+    x-oapi-codegen-extra-tags:
+      validate: "required,min=-180,max=180"
+  altitude:
+    type: number
+    x-go-type: "*float32"
+    x-oapi-codegen-extra-tags:
+      validate: "required"
 
 required:
   - id
+  - active
+  - name
+  - type
+  - macAddress
   - gatewayEUI
   - latitude
   - longitude
+  - altitude

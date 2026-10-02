@@ -4,11 +4,12 @@ import "material-symbols/index.css";
 import { Metadata } from "next";
 import { ProvidersWrapper } from "@/components";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import "react-toastify/ReactToastify.css";
 import cn from "classnames";
 
 export const metadata: Metadata = {
   title: "LWN Simulator",
-  icons: ["./icon.png"],
+  icons: ["/icon.png"],
 };
 
 const inter = Inter({

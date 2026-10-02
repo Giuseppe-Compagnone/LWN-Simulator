@@ -4,10 +4,13 @@ import { installLinuxDesktopEntry } from "./system";
 import { createMainWindow } from "./window";
 import { stopBackend } from "./backend";
 
+const isGeolocationPermission = (permission: string): boolean =>
+  permission === "geolocation" || permission === "geolocation-approximate";
+
 app.whenReady().then(() => {
   session.defaultSession.setPermissionCheckHandler(
     (webContents, permission) => {
-      if (permission === "geolocation") {
+      if (isGeolocationPermission(permission)) {
         return true;
       }
       return false;
@@ -16,7 +19,7 @@ app.whenReady().then(() => {
 
   session.defaultSession.setPermissionRequestHandler(
     (webContents, permission, callback) => {
-      if (permission === "geolocation") {
+      if (isGeolocationPermission(permission)) {
         callback(true);
       } else {
         callback(false);

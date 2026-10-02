@@ -81,7 +81,7 @@ The simulator is written in Go, so you must have installed Go on your machine.
 
 #### Build Steps
 
-Firstly, you must clone this repository:
+Firstly, clone this repository:
 
 ```bash
 git clone https://github.com/UniCT-ARSLab/LWN-Simulator.git
@@ -93,37 +93,28 @@ After the download, you must enter in main directory:
 cd LWN-Simulator
 ```
 
-You must install all dependencies to build the simulator:
+Enable Corepack and install all dependencies:
 
 ```bash
-make install-dep
+corepack enable
+yarn install
+yarn generate
 ```
 
-Now you can launch the build of the simulator:
+Now launch the build of the simulator:
 
 ```bash
-make build
+yarn build
 ```
 
-The binary file will be created in the `bin` directory.
+The release artifacts are created in the `releases` directory.
 
 #### Run the simulator
 
-To run the simulator, you can:
-
-- Run from the built binary file:
+To run the simulator from source code:
 
 ```bash
-./bin/lwnsimulator // for Linux
-./bin/lwnsimulator.exe // for Windows
-
-make run-release // if you use makefile
-```
-
-- Run from the source code:
-
-```bash
-make run
+yarn dev
 ```
 
 ### Configuration file

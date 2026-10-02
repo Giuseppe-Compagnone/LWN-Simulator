@@ -5,11 +5,13 @@ import { ProvidersWrapperProps } from "./ProvidersWrapper.types";
 import {
   AppInfoServiceProvider,
   DeviceServiceProvider,
+  GatewayServiceProvider,
 } from "@lwn-simulator/sdk";
 import Navbar from "../Navbar";
 import Sidebar from "../Sidebar";
 import Footer from "../Footer";
 import { useEffect, useState } from "react";
+import { ToastContainer } from "react-toastify";
 
 const ProvidersWrapper = (props: ProvidersWrapperProps) => {
   // States
@@ -24,12 +26,15 @@ const ProvidersWrapper = (props: ProvidersWrapperProps) => {
   return (
     <ThemeServiceProvider>
       <AppInfoServiceProvider baseUrl={origin}>
-        <DeviceServiceProvider>
-          <Navbar />
-          <Sidebar>
-            {props.children}
-            <Footer />
-          </Sidebar>
+        <DeviceServiceProvider baseUrl={origin}>
+          <GatewayServiceProvider baseUrl={origin}>
+            <Navbar />
+            <Sidebar>
+              {props.children}
+              <Footer />
+            </Sidebar>
+            <ToastContainer />
+          </GatewayServiceProvider>
         </DeviceServiceProvider>
       </AppInfoServiceProvider>
     </ThemeServiceProvider>

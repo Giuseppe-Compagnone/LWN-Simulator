@@ -1,0 +1,40 @@
+import { MapLayerMouseEvent } from "maplibre-gl";
+import { Device, Gateway } from "@lwn-simulator/contracts";
+
+export enum SensorMapMode {
+  Sensor = "sensor",
+  Coords = "coords",
+}
+
+export interface Marker {
+  latitude: number;
+  longitude: number;
+}
+
+export interface SensorMapPos {
+  lat: number;
+  lng: number;
+}
+
+export interface useSensorMapProps {
+  mode?: SensorMapMode;
+}
+
+export interface SensorMapLogic {
+  handleClick?: (e: MapLayerMouseEvent) => void;
+  selectedPos: SensorMapPos | null;
+  markerPos: SensorMapPos | null;
+  updatePos: (lat: number, lng: number) => void;
+  antennaRange: number | null;
+  setAntennaRange: (val: number | null) => void;
+}
+export type SensorMapEntity =
+  | { kind: "device"; entity: Device }
+  | { kind: "gateway"; entity: Gateway };
+
+export interface SensorMapProps {
+  logic: SensorMapLogic;
+  mode?: SensorMapMode;
+  devices?: Array<Device>;
+  gateways?: Array<Gateway>;
+}

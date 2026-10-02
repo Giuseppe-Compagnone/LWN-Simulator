@@ -8,7 +8,7 @@ const TablePaginator = (props: TablePaginatorProps) => {
       <span>
         Page {props.tableLogic.currentPage} of {props.tableLogic.pagesAmount}
       </span>
-      <div className="pages">
+      <div className="table-pages">
         <Button
           value={
             <span className="material-symbols-outlined">chevron_left</span>
@@ -25,7 +25,7 @@ const TablePaginator = (props: TablePaginatorProps) => {
             <div
               key={i}
               className={cn(
-                "page",
+                "table-page",
                 page === props.tableLogic.currentPage && "current",
               )}
               onClick={

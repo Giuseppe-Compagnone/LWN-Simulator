@@ -11,6 +11,7 @@ import {
   booleanCheckboxField,
 } from "./components";
 import { FormField } from "./Form.types";
+import { Button, ButtonLayout, ButtonType } from "@/components/common";
 
 const meta = {
   title: "ui-components/form/Form",
@@ -31,8 +32,18 @@ export const SimpleForm: Story = {
         name: "name",
         label: "Name",
         value: "Name",
-        info: "Your Name",
+        info: { default: "Your Name" },
         error: null,
+        toolbar: (
+          <Button
+            value={<span className="material-symbols-outlined">delete</span>}
+            type={ButtonType.Outlined}
+            layout={ButtonLayout.Icon}
+            onClick={() => {
+              console.log("Click");
+            }}
+          />
+        ),
       }),
       textField({
         name: "last",
@@ -111,6 +122,11 @@ export const SimpleForm: Story = {
             value: "blue",
           },
         ],
+        info: {
+          default: "color",
+          red: "red",
+          green: "Green",
+        },
       }),
       checkboxField({
         name: "skills",
@@ -162,7 +178,7 @@ export const ValidatedForm: Story = {
         name: "name",
         label: "Name",
         value: "Name",
-        info: "Your Name",
+        info: { default: "Your Name" },
         error: null,
         required: true,
       }),
@@ -308,7 +324,7 @@ export const DisabledForm: Story = {
         name: "name",
         label: "Name",
         value: "Name",
-        info: "Your Name",
+        info: { default: "Your Name" },
         error: null,
         disabled: true,
       }),
@@ -447,7 +463,7 @@ export const ConditionalForm: Story = {
         name: "name",
         label: "Name",
         value: "Name",
-        info: "Your Name",
+        info: { default: "Your Name" },
         error: null,
       }),
       textField({

@@ -1,5 +1,5 @@
 import { ButtonProps } from "@/components/common";
-import { ReactNode } from "react";
+import { JSX, ReactNode } from "react";
 
 /**
  * Represents the possible values supported by form fields.
@@ -71,14 +71,28 @@ export interface FormField {
   value: FormValue;
 
   /**
+   * Callback invoked when the field value changes.
+   *
+   * Receives the current form logic, which can be used to access the form
+   * state or interact with other fields.
+   */
+  onChange?: (logic: FormLogic) => void;
+
+  /**
    * Placeholder text displayed when the field has no value.
    */
   placeholder?: string;
 
   /**
    * Additional information or helper text displayed alongside the field.
+   *
+   * The key is matched against the field value. If no key matches,
+   * the `default` value is used.
    */
-  info?: string;
+  info?: {
+    default: string;
+    [value: string]: string;
+  };
 
   /**
    * Function used to transform the raw input value before storing it.
@@ -124,6 +138,14 @@ export interface FormField {
   display?: boolean | ((fieldsState: Record<string, FormField>) => boolean);
 
   /**
+   * Optional custom content displayed alongside the field.
+   *
+   * Typically used to render additional controls or actions related to the
+   * field.
+   */
+  toolbar?: JSX.Element;
+
+  /**
    * Custom renderer used to define the field UI.
    *
    * Receives the field properties and the callback required to update
@@ -154,6 +176,16 @@ export interface FormProps {
    * Configuration of the submit button displayed by the form.
    */
   submitButton?: ButtonProps;
+
+  /**
+   * Callback invoked when the form logic is initialized and becomes available.
+   *
+   * The provided logic can be used to access the form state and interact with
+   * its fields programmatically.
+   *
+   * @param logic The form logic instance exposed by the form.
+   */
+  onLogicReady?: (logic: FormLogic) => void;
 }
 
 /**
@@ -179,6 +211,15 @@ export interface FormLogic {
    * @param value New value assigned to the field.
    */
   setValue(name: string, value: FormValue): void;
+
+  /**
+   * Updates a property of a specific form field.
+   *
+   * @param name Name of the field to update.
+   * @param prop Name of the property to update.
+   * @param value New value assigned to the property.
+   */
+  setProp(name: string, prop: string, value: unknown): void;
 
   /**
    * Determines whether a field should be disabled.

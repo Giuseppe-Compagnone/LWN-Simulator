@@ -1,37 +1,63 @@
 package server
 
 import (
-	"log"
+	"fmt"
 	"lwn-simulator-backend/internal/database"
 	"lwn-simulator-backend/internal/frontend"
 	"lwn-simulator-backend/internal/repositories"
 	"lwn-simulator-backend/internal/services"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
-func registerFrontend(r *gin.Engine) {
+func registerFrontend(r *gin.Engine) error {
 
 	webFS, err := frontend.Files()
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("load embedded frontend: %w", err)
 	}
 
-	r.NoRoute(gin.WrapH(
-		http.FileServer(http.FS(webFS)),
-	))
+	fileServer := http.FileServer(http.FS(webFS))
+	r.NoRoute(func(c *gin.Context) {
+		if strings.HasPrefix(c.Request.URL.Path, "/api/") {
+			c.JSON(http.StatusNotFound, gin.H{"error": "route not found"})
+			return
+		}
+
+		fileServer.ServeHTTP(c.Writer, c.Request)
+	})
+
+	return nil
 }
 
-func New(port string) *gin.Engine {
+func New(port string) (*gin.Engine, error) {
 
 	gin.SetMode(gin.ReleaseMode)
 
 	r := gin.Default()
 
 	r.Use(cors.New(cors.Config{
-		AllowOrigins: []string{"*"},
+		AllowOriginFunc: func(origin string) bool {
+			if origin == "" {
+				return true
+			}
+
+			parsed, err := url.Parse(origin)
+			if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+				return false
+			}
+
+			switch parsed.Hostname() {
+			case "localhost", "127.0.0.1", "::1":
+				return true
+			default:
+				return false
+			}
+		},
 		AllowMethods: []string{
 			"GET",
 			"POST",
@@ -49,7 +75,7 @@ func New(port string) *gin.Engine {
 
 	dataDir, err := database.Initialize()
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("initialize database: %w", err)
 	}
 
 	deviceRepository := repositories.NewDeviceRepository(dataDir)
@@ -65,7 +91,9 @@ func New(port string) *gin.Engine {
 		Gateway: gatewayService,
 	})
 
-	registerFrontend(r)
+	if err := registerFrontend(r); err != nil {
+		return nil, err
+	}
 
-	return r
+	return r, nil
 }

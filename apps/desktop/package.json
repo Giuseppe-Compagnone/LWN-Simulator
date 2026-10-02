@@ -1,17 +1,15 @@
 {
   "name": "@lwn-simulator/desktop",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "desktopName": "lwn-simulator",
   "main": "dist/main.js",
   "scripts": {
     "compile": "tsc --build",
     "start": "yarn compile && electron .",
-    "build": "rm -rf dist && yarn compile && electron-builder",
+    "build": "rm -rf dist && yarn compile && electron-builder --publish never",
     "lint": "eslint"
   },
   "dependencies": {
-    "@lwn-simulator/contracts": "workspace:*",
-    "@lwn-simulator/sdk": "workspace:*",
     "electron-store": "^11.0.2"
   },
   "devDependencies": {
@@ -32,21 +30,20 @@
     "icon": "public/icon.png",
     "directories": {
       "app": ".",
-      "output": "dist"
+      "output": "../../releases/desktop/build"
     },
     "files": [
       "dist/**/*",
-      "package.json",
-      "assets/**/*"
+      "package.json"
     ],
     "extraResources": [
       {
-        "from": "assets",
-        "to": "."
+        "from": "assets/lwn-server",
+        "to": "lwn-server"
       },
       {
-        "from": "public",
-        "to": "."
+        "from": "public/icon.png",
+        "to": "icon.png"
       },
       {
         "from": "../launcher/out",
@@ -59,6 +56,10 @@
       ],
       "category": "Utility",
       "syncDesktopName": true
-    }
+    },
+    "electronLanguages": [
+      "en-US",
+      "it"
+    ]
   }
 }

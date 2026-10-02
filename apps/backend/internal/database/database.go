@@ -11,6 +11,11 @@ import (
 
 const applicationName = "lwn-simulator"
 
+const (
+	dataDirPermissions  = 0700
+	dataFilePermissions = 0600
+)
+
 //go:embed defaults/*.json
 var defaults embed.FS
 
@@ -62,7 +67,7 @@ func Initialize() (string, error) {
 		return "", err
 	}
 
-	if err := os.MkdirAll(dataDir, 0755); err != nil {
+	if err := os.MkdirAll(dataDir, dataDirPermissions); err != nil {
 		return "", fmt.Errorf("create data directory: %w", err)
 	}
 
@@ -92,6 +97,10 @@ func initializeFile(dataDir string, name string) error {
 	path := filepath.Join(dataDir, name)
 
 	if _, err := os.Stat(path); err == nil {
+		if err := os.Chmod(path, dataFilePermissions); err != nil {
+			return fmt.Errorf("set permissions for database file %s: %w", name, err)
+		}
+
 		return nil
 	} else if !os.IsNotExist(err) {
 		return fmt.Errorf("check database file %s: %w", name, err)
@@ -102,7 +111,7 @@ func initializeFile(dataDir string, name string) error {
 		return fmt.Errorf("read embedded default %s: %w", name, err)
 	}
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, dataFilePermissions); err != nil {
 		return fmt.Errorf("create database file %s: %w", name, err)
 	}
 

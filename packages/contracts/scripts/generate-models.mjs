@@ -5,6 +5,12 @@ const output = "generated/models.ts";
 
 const content = fs.readFileSync(input, "utf8");
 
+const toPascalCase = (str) =>
+  str
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join("");
+
 const schemasSection = content.match(
   /export interface components \{[\s\S]*?schemas: \{([\s\S]*?)\n    \};/,
 );
@@ -17,8 +23,6 @@ const schemasContent = schemasSection[1];
 
 let result = "";
 
-// Empty schemas:
-// GetDevicesRequest: Record<string, never>;
 for (const schema of schemasContent.matchAll(
   /^\s{8}(\w+): Record<string, never>;\s*$/gm,
 )) {
@@ -27,11 +31,21 @@ for (const schema of schemasContent.matchAll(
   result += `export interface ${name} {}\n\n`;
 }
 
-// Normal schemas:
-// Device: {
-//   id: string;
-//   ...
-// };
+for (const schema of schemasContent.matchAll(
+  /^\s{8}(\w+):\s*((?:"[^"]+"\s*(?:\|\s*)?)+);\s*$/gm,
+)) {
+  const name = schema[1].charAt(0).toUpperCase() + schema[1].slice(1);
+  const values = [...schema[2].matchAll(/"([^"]+)"/g)].map((match) => match[1]);
+
+  result += `export enum ${name} {\n`;
+
+  for (const value of values) {
+    result += `  ${toPascalCase(value)} = "${value}",\n`;
+  }
+
+  result += `}\n\n`;
+}
+
 for (const schema of schemasContent.matchAll(
   /^\s{8}(\w+): \{([\s\S]*?)^\s{8}\};/gm,
 )) {
@@ -39,10 +53,8 @@ for (const schema of schemasContent.matchAll(
 
   let body = schema[2];
 
-  // components["schemas"]["Device"] -> Device
   body = body.replace(/components\["schemas"\]\["(\w+)"\]/g, "$1");
 
-  // Remove indentation inherited from openapi-typescript
   body = body
     .split("\n")
     .map((line) => line.replace(/^ {8}/, ""))

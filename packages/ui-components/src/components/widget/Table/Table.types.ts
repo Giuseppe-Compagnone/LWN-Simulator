@@ -20,6 +20,9 @@ export interface TableLabel {
    */
   value: string;
 
+  /** Optional human-readable header label. */
+  label?: string;
+
   /**
    * Sorting strategy applied to the column.
    *
@@ -52,6 +55,9 @@ export interface TableRecordItem {
  * Represents a single row of data displayed in the table.
  */
 export interface TableRecord {
+  /** Stable identifier used as the React key and by row actions. */
+  id?: string;
+
   /**
    * Collection of cells composing the row.
    */
@@ -61,6 +67,21 @@ export interface TableRecord {
 /**
  * Properties for configuring a table component.
  */
+export type TableFilterType = "text" | "select";
+
+export interface TableFilterOption {
+  label: string;
+  value: string;
+}
+
+export interface TableFilter {
+  field: string;
+  label: string;
+  type?: TableFilterType;
+  placeholder?: string;
+  options?: Array<TableFilterOption>;
+}
+
 export interface TableProps {
   /**
    * Column definitions displayed in the table header.
@@ -84,6 +105,9 @@ export interface TableProps {
    */
   onRowClick?: (row: TableRecord) => void | Promise<void>;
 
+  /** Filters rendered above the table. */
+  filters?: Array<TableFilter>;
+
   /**
    * Number of rows displayed per page.
    *
@@ -94,6 +118,15 @@ export interface TableProps {
    * single page without showing pagination controls.
    */
   pageSize?: number;
+  /**
+   * Indicates whether the table is currently loading.
+   *
+   * When enabled, the table displays its loading state instead of the
+   * available records.
+   *
+   * @default false
+   */
+  isLoading?: boolean;
 }
 
 /**
@@ -148,6 +181,15 @@ export interface TableLogic {
    * @param page The target page index.
    */
   setCurrentPage: (page: number) => void;
+
+  /** Current values of the configured filters. */
+  filterValues: Record<string, string>;
+
+  /** Updates one filter value. */
+  setFilterValue: (field: string, value: string) => void;
+
+  /** Clears all active filters. */
+  clearFilters: () => void;
 
   /**
    * List of page indexes currently visible in the pagination controls.

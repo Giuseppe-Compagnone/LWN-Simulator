@@ -78,19 +78,24 @@ export default function Home() {
               ): Promise<void> => {
                 switch (values["env"]) {
                   case "local":
-                    console.log("[Launcher] Running local backend...");
                     setLoadingText("Running local backend");
                     setIsLoading(true);
-                    window.electron.connectLocal();
+                    try {
+                      await window.electron.connectLocal();
+                    } catch {
+                      setLoadingText("");
+                      setIsLoading(false);
+                      NotificationHandler.instance.error(
+                        "Failed to start local backend",
+                      );
+                    }
                     break;
                   case "remote":
                     setLoadingText(`Connecting to: ${values["url"]}`);
                     setIsLoading(true);
-                    console.log(`[Launcher] Connecting to ${values["url"]}...`);
                     const result = await window.electron.connectRemote(
                       values["url"] as string,
                     );
-                    console.log("\n\nRESULT", result);
                     if (!result.success) {
                       setLoadingText("");
                       setIsLoading(false);

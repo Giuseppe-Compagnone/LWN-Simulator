@@ -9,6 +9,7 @@ import { AnimatedField } from "./components";
 
 const Form = (props: FormProps) => {
   const formLogic = useForm({ ...props });
+  const onLogicReady = props.onLogicReady;
 
   // Memos
   const visibleFields = useMemo(
@@ -28,11 +29,15 @@ const Form = (props: FormProps) => {
 
   // Effects
   useEffect(() => {
+    onLogicReady?.(formLogic);
+  }, [formLogic, onLogicReady]);
+
+  useEffect(() => {
     mounted.current = true;
   }, []);
 
   return (
-    <form className="form" noValidate>
+    <form className="form" noValidate onSubmit={(e) => e.preventDefault()}>
       {Object.values(formLogic.fieldsState).map((field) => (
         <AnimatedField
           key={field.name}

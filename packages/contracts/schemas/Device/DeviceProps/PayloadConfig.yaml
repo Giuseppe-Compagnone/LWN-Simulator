@@ -1,0 +1,23 @@
+title: PayloadConfig
+type: object
+
+properties:
+  uplinkInterval:
+    type: number
+    x-oapi-codegen-extra-tags:
+      validate: "required,gt=0"
+  oversizedPayloadBehavior:
+    $ref: "./OversizedPayloadBehavior.yaml"
+  MType:
+    $ref: "./DeviceMType.yaml"
+  payload:
+    type: string
+  base64Encoded:
+    type: boolean
+
+required:
+  - uplinkInterval
+  - oversizedPayloadBehavior
+  - MType
+  - payload
+  - base64Encoded

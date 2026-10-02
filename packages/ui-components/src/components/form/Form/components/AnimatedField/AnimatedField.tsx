@@ -1,6 +1,5 @@
 "use client";
 
-/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from "react";
 import cn from "classnames";
 import { AnimatedFieldProps } from "./AnimatedField.types";
@@ -45,20 +44,28 @@ export const AnimatedField = (props: AnimatedFieldProps) => {
         <div className="error">{props.field.error}</div>
       </div>
 
-      {props.field.render({
-        ...props.field,
-        value: props.formLogic.fieldsState[props.field.name].value,
-        setValue: (v) => props.formLogic.setValue(props.field.name, v),
-        disabled: props.formLogic.isFieldDisabled(
-          props.field,
-          props.formLogic.fieldsState,
-        ),
-      })}
+      <div className="field-wrapper">
+        {props.field.render({
+          ...props.field,
+          value: props.formLogic.fieldsState[props.field.name].value,
+          setValue: (v) => props.formLogic.setValue(props.field.name, v),
+          disabled: props.formLogic.isFieldDisabled(
+            props.field,
+            props.formLogic.fieldsState,
+          ),
+        })}
+        {props.field.toolbar && (
+          <div className="field-toolbar">{props.field.toolbar}</div>
+        )}
+      </div>
 
       {props.field.info && (
         <div className="field-info">
           <span className="material-symbols-outlined icon">info</span>
-          <span>{props.field.info}</span>
+          <span>
+            {props.field.info[props.field.value as string] ||
+              props.field.info.default}
+          </span>
         </div>
       )}
     </div>

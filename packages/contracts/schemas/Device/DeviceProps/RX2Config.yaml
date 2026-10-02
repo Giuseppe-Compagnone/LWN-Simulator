@@ -1,0 +1,34 @@
+title: RX2Config
+type: object
+
+properties:
+  delay:
+    type: integer
+    x-go-type: "*int"
+    x-oapi-codegen-extra-tags:
+      validate: "required,min=0"
+  duration:
+    type: integer
+    x-go-type: "*int"
+    x-oapi-codegen-extra-tags:
+      validate: "required,min=0"
+  channelFrequency:
+    type: number
+    x-oapi-codegen-extra-tags:
+      validate: "required,gt=0"
+  dataRate:
+    type: integer
+    x-go-type: "*int"
+    x-oapi-codegen-extra-tags:
+      validate: "required,min=0"
+  ACKTimeout:
+    type: integer
+    x-oapi-codegen-extra-tags:
+      validate: "required,min=1000,max=3000"
+
+required:
+  - delay
+  - duration
+  - channelFrequency
+  - dataRate
+  - ACKTimeout

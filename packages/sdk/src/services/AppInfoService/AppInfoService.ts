@@ -5,25 +5,12 @@ import { BaseService } from "../../models";
  * Service responsible for retrieving application status and information
  * from the backend.
  *
- * Implements the singleton pattern and uses the application information
- * API namespace configured by the base service.
+ * Uses the application information API namespace configured by the base
+ * service instance.
  */
 export class AppInfoService extends BaseService {
-  private static _instance: AppInfoService | null = null;
-
-  /**
-   * Returns the singleton instance of the application information service.
-   */
-  public static get instance() {
-    if (!this._instance) {
-      this._instance = new AppInfoService();
-    }
-
-    return this._instance;
-  }
-
-  private constructor() {
-    super("app-info");
+  constructor(baseUrl: string) {
+    super("app-info", baseUrl);
   }
 
   /**

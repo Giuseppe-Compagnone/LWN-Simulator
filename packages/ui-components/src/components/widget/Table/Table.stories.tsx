@@ -367,6 +367,13 @@ export const SimpleTable: Story = {
   },
 };
 
+export const EmptyTable: Story = {
+  args: {
+    rowLabels: [{ value: "id" }, { value: "name" }, { value: "age" }],
+    records: [],
+  },
+};
+
 export const ClickableTable: Story = {
   args: {
     rowLabels: [{ value: "id" }, { value: "name" }, { value: "age" }],
@@ -379,6 +386,14 @@ export const ClickableTable: Story = {
         }, 2000);
       });
     },
+  },
+};
+
+export const LoadingTable: Story = {
+  args: {
+    rowLabels: [{ value: "id" }, { value: "name" }, { value: "age" }],
+    records: [],
+    isLoading: true,
   },
 };
 

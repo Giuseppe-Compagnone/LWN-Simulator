@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+          cache-dependency-path: yarn.lock
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/backend/go.mod
+          cache: true
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Generate contracts
+        run: yarn generate
+
+      - name: Type-check
+        run: yarn typecheck
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Build frontend assets
+        run: yarn workspace @lwn-simulator/frontend build
+
+      - name: Test backend
+        run: yarn test
+
+      - name: Vet backend
+        working-directory: apps/backend
+        run: go vet ./...

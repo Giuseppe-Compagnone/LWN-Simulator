@@ -16,7 +16,10 @@ func main() {
 	flag.StringVar(&port, "p", "8080", "Port to start the server on (short)")
 	flag.Parse()
 
-	app := server.New(port)
+	app, err := server.New(port)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	privateIP := utils.GetPrivateIP()
 
