@@ -158,6 +158,7 @@ const GatewayInfoContent = () => {
         }
       } catch (err) {
         if (isCurrent) {
+          NotificationHandler.instance.error("Failed to load gateway");
           setError(
             err instanceof Error ? err : new Error("Failed to load gateway"),
           );
@@ -182,7 +183,7 @@ const GatewayInfoContent = () => {
     try {
       await gatewayService.deleteGateway({ id: gateway.id });
       NotificationHandler.instance.success("Gateway deleted");
-      router.push("/hardware/gateways");
+      router.back();
     } catch {
       NotificationHandler.instance.error("Failed to delete gateway");
     }
@@ -204,7 +205,7 @@ const GatewayInfoContent = () => {
       >
         <Button
           value="Back"
-          onClick={() => router.push("/hardware/gateways")}
+          onClick={() => router.back()}
         />
         {gateway && (
           <Button

@@ -202,11 +202,12 @@ const NewDevicePage = () => {
           },
         });
         NotificationHandler.instance.success("Device updated");
+        router.back();
       } else {
         await deviceService.createDevice(req);
         NotificationHandler.instance.success("Device created");
+        router.push("/hardware/devices");
       }
-      router.push("/hardware/devices");
     } catch {
       NotificationHandler.instance.error(
         editingDevice ? "Failed to update device" : "Failed to create device",

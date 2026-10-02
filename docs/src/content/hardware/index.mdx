@@ -1,0 +1,76 @@
+---
+title: Hardware management
+---
+
+# Hardware management
+
+The Hardware section is the place where the simulated LoRaWAN network is
+configured. It provides a list, filters, creation and editing forms, detail
+pages, and a map for devices and gateways.
+
+## Using the Hardware section
+
+Use **Devices** to configure LoRaWAN end devices and **Gateways** to configure
+the network endpoints that connect them to the simulation. Each area provides
+its own list, filters, creation form, detail page, and editing workflow.
+
+The forms guide you through the configuration and show only the fields that
+apply to the selected mode. For example, a device displays OTAA or ABP
+credentials according to its activation type, while a gateway displays
+keep-alive settings or network connection settings according to its type.
+
+Identifiers generated during creation are shown in the form and kept stable
+when the object is edited. Validation messages identify invalid or incomplete
+values before submission. After an operation, the application reports the
+result with a notification and returns to the most useful page when the action
+is complete.
+
+The simulation home page provides the operational view of the configured
+network: map, active hardware, health indicators, uptime, and recent events.
+Metrics that depend on simulation traffic remain unavailable until traffic is
+produced.
+
+## Creating hardware
+
+1. Open **Hardware** and select **Devices** or **Gateways**.
+2. Select **Create**.
+3. Complete the form. Required fields are marked by the form validation.
+4. Use the map to select or refine latitude and longitude, when available.
+5. Submit the form and check the notification for the result.
+
+New devices are active by default. The create request therefore does not need
+an `active` field. The active state can be changed later from the edit form.
+
+The same workflow applies to gateways. Their form changes according to the
+selected gateway type; see [Gateways](./gateways) for the exact behavior.
+
+## Lists, filters, and details
+
+The list pages support searching and filtering the records before opening one.
+Selecting a row opens the detail page, where values are grouped by purpose
+instead of being shown as one undifferentiated list. This keeps the page usable
+as runtime and simulation information is added in the future.
+
+From a detail page:
+
+- use **Edit** to update the configuration;
+- use **Delete** to remove the object after confirmation;
+- use **Back** to return to the previous page;
+- use the map to inspect the object in its geographic context.
+
+Actions show a success or error notification. A successful create returns to
+the relevant list, while a successful edit or delete returns to the previous
+context.
+
+## Map behavior
+
+The map starts centered on the Catania area and keeps its initial position once
+mounted. It does not periodically replace the user’s position with browser
+geolocation.
+
+Selecting a marker opens a compact tooltip. Clicking anywhere outside the
+tooltip closes it. Device selection also displays the configured antenna range
+as a white dashed circle, expressed in meters.
+
+See the detailed field reference for [devices](./devices) and
+[gateways](./gateways).

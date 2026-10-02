@@ -119,11 +119,12 @@ const NewGatewayPage = () => {
           gateway: { ...editingGateway, ...req, type: editingGateway.type, macAddress: editingGateway.macAddress, gatewayEUI: editingGateway.gatewayEUI, active: values.active as boolean },
         });
         NotificationHandler.instance.success("Gateway updated");
+        router.back();
       } else {
         await gatewayService.createGateway(req);
         NotificationHandler.instance.success("Gateway created");
+        router.push("/hardware/gateways");
       }
-      router.push("/hardware/gateways");
     } catch {
       NotificationHandler.instance.error(editingGateway ? "Failed to update gateway" : "Failed to create gateway");
     }

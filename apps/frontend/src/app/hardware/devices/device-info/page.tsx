@@ -228,6 +228,7 @@ const DeviceInfoContent = () => {
         }
       } catch (err) {
         if (isCurrent) {
+          NotificationHandler.instance.error("Failed to load device");
           setError(
             err instanceof Error ? err : new Error("Failed to load device"),
           );
@@ -252,7 +253,7 @@ const DeviceInfoContent = () => {
     try {
       await deviceService.deleteDevice({ id: device.id });
       NotificationHandler.instance.success("Device deleted");
-      router.push("/hardware/devices");
+      router.back();
     } catch {
       NotificationHandler.instance.error("Failed to delete device");
     }
@@ -272,7 +273,7 @@ const DeviceInfoContent = () => {
         title={device?.name || "Device details"}
         subTitle="View device configuration and status"
       >
-        <Button value="Back" onClick={() => router.push("/hardware/devices")} />
+        <Button value="Back" onClick={() => router.back()} />
         {device && <Button value="Edit" onClick={() => router.push("/hardware/devices/new?deviceId=" + encodeURIComponent(device.id))} />}
         {device && <Button value="Delete" type={ButtonType.Outlined} onClick={handleDelete} />}
       </PageHeader>
