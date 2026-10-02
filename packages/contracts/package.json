@@ -19,7 +19,7 @@
     "generate:ts": "openapi-typescript bundled.yaml -o generated/openapi.ts",
     "generate:models": "node scripts/generate-models.mjs",
     "generate:bundle": "redocly bundle openapi.yaml -o bundled.yaml",
-    "generate:go": "oapi-codegen -config oapi-codegen.yaml bundled.yaml"
+    "generate:go": "go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0 -config oapi-codegen.yaml bundled.yaml"
   },
   "devDependencies": {
     "@redocly/cli": "1.34.18",
