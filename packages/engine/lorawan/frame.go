@@ -47,6 +47,13 @@ type JoinAcceptOptions struct {
 	AppKey            []byte
 }
 
+type JoinRequestOptions struct {
+	JoinEUI  uint64
+	DevEUI   uint64
+	DevNonce uint16
+	AppKey   []byte
+}
+
 func Parse(raw []byte) (Packet, error) {
 	if len(raw) < 5 {
 		return Packet{}, fmt.Errorf("%w: frame is too short", ErrInvalidFrame)
@@ -182,6 +189,26 @@ func BuildJoinAccept(options JoinAcceptOptions) ([]byte, error) {
 		return nil, err
 	}
 	return append(mhdr, encrypted...), nil
+}
+
+func BuildJoinRequest(options JoinRequestOptions) ([]byte, error) {
+	if len(options.AppKey) != 16 {
+		return nil, fmt.Errorf("%w: AppKey must be 16 bytes", ErrInvalidFrame)
+	}
+	frame := []byte{MTypeJoinRequest << 5}
+	value := make([]byte, 8)
+	binary.LittleEndian.PutUint64(value, options.JoinEUI)
+	frame = append(frame, value...)
+	binary.LittleEndian.PutUint64(value, options.DevEUI)
+	frame = append(frame, value...)
+	nonce := make([]byte, 2)
+	binary.LittleEndian.PutUint16(nonce, options.DevNonce)
+	frame = append(frame, nonce...)
+	mac, err := cmac(options.AppKey, frame)
+	if err != nil {
+		return nil, err
+	}
+	return append(frame, mac[:4]...), nil
 }
 
 func VerifyDataMIC(packet Packet, nwkSKey []byte, direction byte) bool {

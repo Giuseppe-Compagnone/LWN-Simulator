@@ -410,7 +410,7 @@ func sameEUI(value string, numeric uint64) bool {
 	if err != nil || len(parsed) != 8 {
 		return false
 	}
-	return binary.LittleEndian.Uint64(parsed) == numeric
+	return binary.BigEndian.Uint64(parsed) == numeric
 }
 
 func (e *Engine) processVirtualGatewayHeartbeatLocked(scheduled types.ScheduledEvent) []contracts.SimulationEvent {

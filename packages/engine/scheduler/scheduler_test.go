@@ -62,3 +62,40 @@ func TestSchedulerCanCancelEvent(t *testing.T) {
 		t.Fatalf("expected empty scheduler, got %d events", scheduler.Len())
 	}
 }
+
+func TestSchedulerValidatesEventsAndSupportsInspection(t *testing.T) {
+	scheduler := New()
+	invalid := []types.ScheduledEvent{
+		{At: time.Second, Type: contracts.DeviceRegistered, Message: "missing id"},
+		{ID: "negative", At: -time.Second, Type: contracts.DeviceRegistered, Message: "negative"},
+		{ID: "type", At: time.Second, Type: contracts.SimulationEventType("invalid"), Message: "invalid type"},
+		{ID: "message", At: time.Second, Type: contracts.DeviceRegistered},
+	}
+	for _, event := range invalid {
+		if err := scheduler.Schedule(event); err == nil {
+			t.Fatalf("expected invalid event %q to be rejected", event.ID)
+		}
+	}
+
+	event := types.ScheduledEvent{ID: "one", At: time.Second, Type: contracts.DeviceRegistered, Message: "one"}
+	if err := scheduler.Schedule(event); err != nil {
+		t.Fatalf("schedule valid event: %v", err)
+	}
+	if err := scheduler.Schedule(event); err == nil {
+		t.Fatal("expected duplicate event id to be rejected")
+	}
+	peeked, ok := scheduler.Peek()
+	if !ok || peeked.ID != event.ID {
+		t.Fatalf("unexpected peek result: %+v", peeked)
+	}
+	if pending := scheduler.Events(); len(pending) != 1 || pending[0].ID != event.ID {
+		t.Fatalf("unexpected pending events: %+v", pending)
+	}
+	if _, ok := scheduler.Cancel("missing"); ok {
+		t.Fatal("missing event unexpectedly cancelled")
+	}
+	scheduler.Clear()
+	if scheduler.Len() != 0 {
+		t.Fatal("scheduler was not cleared")
+	}
+}

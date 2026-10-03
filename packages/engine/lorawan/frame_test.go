@@ -1,6 +1,9 @@
 package lorawan
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestBuildAndParseDataFrame(t *testing.T) {
 	nwkSKey := []byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
@@ -69,5 +72,78 @@ func TestBuildJoinAcceptCreatesEncryptedPayload(t *testing.T) {
 	}
 	if string(frame[1:]) == string(make([]byte, 16)) {
 		t.Fatal("join accept payload was not encrypted")
+	}
+}
+
+func TestBuildJoinRequestCreatesVerifiableFrame(t *testing.T) {
+	key := make([]byte, 16)
+	frame, err := BuildJoinRequest(JoinRequestOptions{JoinEUI: 1, DevEUI: 2, DevNonce: 3, AppKey: key})
+	if err != nil {
+		t.Fatalf("build join request: %v", err)
+	}
+	packet, err := Parse(frame)
+	if err != nil || packet.JoinEUI != 1 || packet.DevEUI != 2 || packet.DevNonce != 3 || !VerifyJoinRequestMIC(packet, key) {
+		t.Fatalf("unexpected join request: packet=%+v error=%v", packet, err)
+	}
+}
+
+func TestLoRaWANCodecRejectsMalformedInputs(t *testing.T) {
+	if _, err := Parse([]byte{0x40}); err == nil {
+		t.Fatal("expected short frame to be rejected")
+	}
+	if _, err := Parse([]byte{0x00, 1, 2, 3, 4}); err == nil {
+		t.Fatal("expected malformed join request to be rejected")
+	}
+	if _, err := Parse([]byte{0xe0, 1, 2, 3, 4}); err != nil {
+		t.Fatalf("unknown frame type should remain parseable: %v", err)
+	}
+	if _, err := BuildDataFrame(DataFrameOptions{NwkSKey: []byte{1}, AppSKey: make([]byte, 16)}); err == nil {
+		t.Fatal("expected invalid key length to be rejected")
+	}
+	key := make([]byte, 16)
+	fPort := byte(0)
+	if _, err := BuildDataFrame(DataFrameOptions{FPort: &fPort, NwkSKey: key, AppSKey: key}); err == nil {
+		t.Fatal("expected invalid FPort to be rejected")
+	}
+	if _, err := BuildDataFrame(DataFrameOptions{Payload: []byte{1}, NwkSKey: key, AppSKey: key}); err == nil {
+		t.Fatal("expected payload without FPort to be rejected")
+	}
+	if _, err := BuildDataFrame(DataFrameOptions{Direction: 2, NwkSKey: key, AppSKey: key}); err == nil {
+		t.Fatal("expected invalid direction to be rejected")
+	}
+	if _, err := BuildJoinAccept(JoinAcceptOptions{AppKey: key, RX1DataRate: 16}); err == nil {
+		t.Fatal("expected invalid Join-Accept settings to be rejected")
+	}
+	if _, err := DecodeHex("not-hex"); err == nil || !strings.Contains(err.Error(), "decode") {
+		t.Fatalf("expected invalid hex error, got %v", err)
+	}
+	if _, _, err := DeriveSessionKeys(key[:1], 0, 0, 0); err == nil {
+		t.Fatal("expected invalid session-key input to be rejected")
+	}
+}
+
+func TestLoRaWANJoinRequestMICValidation(t *testing.T) {
+	key := make([]byte, 16)
+	raw := make([]byte, 23)
+	raw[0] = MTypeJoinRequest << 5
+	raw[1] = 1
+	raw[9] = 2
+	raw[17] = 3
+	mac, err := cmac(key, raw[:19])
+	if err != nil {
+		t.Fatalf("compute join MIC: %v", err)
+	}
+	copy(raw[19:], mac[:4])
+	packet, err := Parse(raw)
+	if err != nil || !VerifyJoinRequestMIC(packet, key) {
+		t.Fatalf("valid join request was rejected: %v", err)
+	}
+	raw[19] ^= 0xff
+	packet, _ = Parse(raw)
+	if VerifyJoinRequestMIC(packet, key) {
+		t.Fatal("tampered join request MIC was accepted")
+	}
+	if VerifyJoinRequestMIC(Packet{}, key[:1]) {
+		t.Fatal("invalid join request inputs were accepted")
 	}
 }

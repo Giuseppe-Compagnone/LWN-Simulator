@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"strconv"
 	"testing"
 	"time"
 
@@ -138,6 +139,55 @@ func TestPhaseFiveRealUplinkUpdatesDeviceAndSchedulesConfirmedACK(t *testing.T) 
 		}
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for real gateway ACK")
+	}
+}
+
+func TestPhaseFiveRealOTAAJoinQueuesEncryptedJoinAccept(t *testing.T) {
+	adapter := newFakeGatewayAdapter()
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000042")
+	gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c42")
+	gateway.Type = contracts.Real
+	gateway.KeepAlive = nil
+	gateway.GatewayEUI = "A840410001000142"
+	gateway.MacAddress = "02:00:00:10:00:42"
+	gateway.GatewayIPv4 = engineStringPtr("127.0.0.1")
+	gateway.GatewayPort = engineInt32Ptr(1742)
+
+	engine, err := New(
+		contracts.SimulationConfig{Speed: 1},
+		[]contracts.Device{device},
+		[]contracts.Gateway{gateway},
+		types.Options{EventBuffer: 256, GatewayAdapterFactory: &fakeGatewayFactory{adapter: adapter}},
+	)
+	if err != nil {
+		t.Fatalf("create engine: %v", err)
+	}
+	startEngine(t, engine)
+	defer stopEngine(t, engine)
+	waitForEventType(t, engine.Events(), contracts.GatewayConnecting)
+	adapter.emit(types.GatewayAdapterEvent{GatewayID: gateway.ID, State: contracts.Connected})
+	waitForEventType(t, engine.Events(), contracts.GatewayConnected)
+
+	joinEUI, _ := strconv.ParseUint(device.OOTAConfig.JoinEUI, 16, 64)
+	devEUI, _ := strconv.ParseUint(device.DevEUI, 16, 64)
+	appKey, _ := lorawan.DecodeHex(device.OOTAConfig.AppKey)
+	joinRequest, err := lorawan.BuildJoinRequest(lorawan.JoinRequestOptions{JoinEUI: joinEUI, DevEUI: devEUI, DevNonce: 7, AppKey: appKey})
+	if err != nil {
+		t.Fatalf("build real join request: %v", err)
+	}
+	adapter.packets <- types.GatewayPacket{GatewayID: gateway.ID, Payload: joinRequest, Frequency: 868100000, Bandwidth: 125000, DataRate: "SF7BW125"}
+	waitForEventType(t, engine.Events(), contracts.JoinAcceptReceived)
+
+	select {
+	case packet := <-adapter.sends:
+		if packet.Kind != types.GatewayPacketDownlink || len(packet.Payload) != 17 || packet.Payload[0] != lorawan.MTypeJoinAccept<<5 {
+			t.Fatalf("unexpected real Join-Accept packet: %+v", packet)
+		}
+		if packet.TransmitAt.IsZero() {
+			t.Fatal("Join-Accept packet is not scheduled for RX1")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for real Join-Accept")
 	}
 }
 

@@ -19,6 +19,12 @@ func TestManualClockDoesNotMoveBackwards(t *testing.T) {
 	if err := clock.Set(14 * time.Millisecond); err == nil {
 		t.Fatal("expected backwards clock movement to fail")
 	}
+	if err := clock.Advance(-time.Millisecond); err == nil {
+		t.Fatal("expected negative clock delta to fail")
+	}
+	if err := clock.Set(20 * time.Millisecond); err != nil || clock.Now() != 20*time.Millisecond {
+		t.Fatalf("expected clock to move forward with Set, got %s / %v", clock.Now(), err)
+	}
 }
 
 func TestManualClockWaitsUntilTarget(t *testing.T) {
