@@ -125,6 +125,7 @@ func (factory *UDPFactory) NewGatewayAdapter(gateway contracts.Gateway) (types.G
 		events:     make(chan types.GatewayAdapterEvent, factory.options.EventBuffer),
 		failures:   make(chan error, 4),
 		done:       make(chan struct{}),
+		pending:    make(map[string]types.GatewayPacket),
 	}, nil
 }
 
@@ -329,6 +330,7 @@ type udpAdapter struct {
 	events   chan types.GatewayAdapterEvent
 	failures chan error
 	done     chan struct{}
+	pending  map[string]types.GatewayPacket
 }
 
 type udpDatagram struct {
@@ -381,7 +383,7 @@ func (adapter *udpAdapter) Send(ctx context.Context, packet types.GatewayPacket)
 		frequency = 868.1
 	}
 	txpk := txPacket{
-		Immediate:  true,
+		Immediate:  packet.TransmitAt.IsZero(),
 		Frequency:  frequency,
 		Modulation: "LORA",
 		DataRate:   dataRate,
@@ -389,6 +391,9 @@ func (adapter *udpAdapter) Send(ctx context.Context, packet types.GatewayPacket)
 		Power:      packet.Power,
 		Size:       len(packet.Payload),
 		Data:       base64.StdEncoding.EncodeToString(packet.Payload),
+	}
+	if !packet.TransmitAt.IsZero() {
+		txpk.Time = packet.TransmitAt.UTC().Format(time.RFC3339Nano)
 	}
 	body, err := json.Marshal(struct {
 		TXPK txPacket `json:"txpk"`
@@ -401,7 +406,18 @@ func (adapter *udpAdapter) Send(ctx context.Context, packet types.GatewayPacket)
 		return fmt.Errorf("create gateway packet token: %w", err)
 	}
 	frame := append(packetHeader(token, pullResponseType), body...)
+	tokenKey := hex.EncodeToString(token[:])
+	adapter.mu.Lock()
+	adapter.pending[tokenKey] = types.GatewayPacket{
+		GatewayID: packet.GatewayID, Kind: packet.Kind, Payload: append([]byte(nil), packet.Payload...),
+		Frequency: packet.Frequency, Bandwidth: packet.Bandwidth, SpreadingFactor: packet.SpreadingFactor,
+		Power: packet.Power, DataRate: packet.DataRate, TransmitAt: packet.TransmitAt,
+	}
+	adapter.mu.Unlock()
 	if err := adapter.factory.send(adapter, frame, destination); err != nil {
+		adapter.mu.Lock()
+		delete(adapter.pending, tokenKey)
+		adapter.mu.Unlock()
 		return err
 	}
 	return nil
@@ -532,7 +548,11 @@ func (adapter *udpAdapter) handleDatagram(ctx context.Context, datagram udpDatag
 		}
 		return adapter.handlePushData(ctx, data[12:])
 	case txAckType:
-		return adapter.handleTXAck(data[4:])
+		packet, err := adapter.handleTXAck(data[1:3], data[4:])
+		if err != nil && !adapter.emitErrorForPacket(ctx, err, false, packet) {
+			return ctx.Err()
+		}
+		return nil
 	default:
 		return fmt.Errorf("unsupported Semtech UDP packet type 0x%02x", data[3])
 	}
@@ -595,18 +615,29 @@ func parseBandwidth(dataRate string) int64 {
 	return value * 1000
 }
 
-func (adapter *udpAdapter) handleTXAck(body []byte) error {
+func (adapter *udpAdapter) handleTXAck(token, body []byte) (*types.GatewayPacket, error) {
+	tokenKey := hex.EncodeToString(token)
+	adapter.mu.Lock()
+	pending, hasPending := adapter.pending[tokenKey]
+	delete(adapter.pending, tokenKey)
+	adapter.mu.Unlock()
 	if len(body) == 0 {
-		return nil
+		return nil, nil
 	}
 	var ack txAckPayload
 	if err := json.Unmarshal(body, &ack); err != nil {
-		return fmt.Errorf("decode TX_ACK payload: %w", err)
+		if hasPending {
+			return &pending, fmt.Errorf("decode TX_ACK payload: %w", err)
+		}
+		return nil, fmt.Errorf("decode TX_ACK payload: %w", err)
 	}
 	if ack.TXPKAck.Error != "" && ack.TXPKAck.Error != "NONE" {
-		return fmt.Errorf("gateway TX_ACK: %s", ack.TXPKAck.Error)
+		if hasPending {
+			return &pending, fmt.Errorf("gateway TX_ACK: %s", ack.TXPKAck.Error)
+		}
+		return nil, fmt.Errorf("gateway TX_ACK: %s", ack.TXPKAck.Error)
 	}
-	return nil
+	return nil, nil
 }
 
 func (adapter *udpAdapter) validateGatewayEUI(value []byte) error {
@@ -629,7 +660,11 @@ func (adapter *udpAdapter) emitHeartbeat(ctx context.Context) error {
 }
 
 func (adapter *udpAdapter) emitError(ctx context.Context, err error, timeout bool) bool {
-	return adapter.emitEvent(ctx, types.GatewayAdapterEvent{GatewayID: adapter.gatewayID, State: contracts.Error, Error: err.Error(), Timeout: timeout, At: time.Now()})
+	return adapter.emitErrorForPacket(ctx, err, timeout, nil)
+}
+
+func (adapter *udpAdapter) emitErrorForPacket(ctx context.Context, err error, timeout bool, packet *types.GatewayPacket) bool {
+	return adapter.emitEvent(ctx, types.GatewayAdapterEvent{GatewayID: adapter.gatewayID, State: contracts.Error, Error: err.Error(), Timeout: timeout, At: time.Now(), Packet: packet})
 }
 
 func (adapter *udpAdapter) emitEvent(ctx context.Context, event types.GatewayAdapterEvent) bool {
@@ -653,6 +688,8 @@ type rxPacket struct {
 
 type txPacket struct {
 	Immediate  bool    `json:"imme"`
+	Timestamp  *uint32 `json:"tmst,omitempty"`
+	Time       string  `json:"time,omitempty"`
 	Frequency  float64 `json:"freq"`
 	Modulation string  `json:"modu"`
 	DataRate   string  `json:"datr"`

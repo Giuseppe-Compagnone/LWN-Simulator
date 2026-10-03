@@ -6,6 +6,7 @@ import (
 	"time"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
+	"github.com/Giuseppe-Compagnone/lwn-engine/lorawan"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 )
 
@@ -72,6 +73,71 @@ func TestPhaseFiveEngineTracksRealGatewayLifecycleAndPackets(t *testing.T) {
 	if snapshot.Metrics.GatewayConnections != 1 || snapshot.Metrics.GatewayHeartbeats != 1 ||
 		snapshot.Metrics.GatewayIngressPackets != 1 || snapshot.Metrics.GatewayEgressPackets != 1 || snapshot.Metrics.GatewayTimeouts != 1 {
 		t.Fatalf("unexpected gateway metrics: %+v", snapshot.Metrics)
+	}
+}
+
+func TestPhaseFiveRealUplinkUpdatesDeviceAndSchedulesConfirmedACK(t *testing.T) {
+	adapter := newFakeGatewayAdapter()
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000041")
+	configureABP(&device)
+	device.PayloadConfig.MType = contracts.ConfirmedDataUp
+	gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c41")
+	gateway.Type = contracts.Real
+	gateway.KeepAlive = nil
+	gateway.GatewayEUI = "A840410001000141"
+	gateway.MacAddress = "02:00:00:10:00:41"
+	gateway.GatewayIPv4 = engineStringPtr("127.0.0.1")
+	gateway.GatewayPort = engineInt32Ptr(1741)
+
+	engine, err := New(
+		contracts.SimulationConfig{Speed: 1},
+		[]contracts.Device{device},
+		[]contracts.Gateway{gateway},
+		types.Options{EventBuffer: 256, GatewayAdapterFactory: &fakeGatewayFactory{adapter: adapter}},
+	)
+	if err != nil {
+		t.Fatalf("create engine: %v", err)
+	}
+	startEngine(t, engine)
+	defer stopEngine(t, engine)
+	waitForEventType(t, engine.Events(), contracts.GatewayConnecting)
+	adapter.emit(types.GatewayAdapterEvent{GatewayID: gateway.ID, State: contracts.Connected})
+	waitForEventType(t, engine.Events(), contracts.GatewayConnected)
+
+	nwkSKey, _ := lorawan.DecodeHex(device.ABPConfig.NwkSKey)
+	appSKey, _ := lorawan.DecodeHex(device.ABPConfig.AppSKey)
+	fPort := byte(device.FrameConfig.FPort)
+	payload, err := lorawan.BuildDataFrame(lorawan.DataFrameOptions{
+		DevAddr:   0x26011bda,
+		FCnt:      1,
+		FPort:     &fPort,
+		Payload:   []byte("uplink"),
+		Confirmed: true,
+		NwkSKey:   nwkSKey,
+		AppSKey:   appSKey,
+	})
+	if err != nil {
+		t.Fatalf("build real uplink: %v", err)
+	}
+	adapter.packets <- types.GatewayPacket{
+		GatewayID: gateway.ID,
+		Payload:   payload,
+		Frequency: 868100000,
+		Bandwidth: 125000,
+		DataRate:  "SF7BW125",
+	}
+	waitForEventTypeWithLog(t, engine, contracts.UplinkACKReceived)
+	if snapshot := engine.Snapshot(); snapshot.Devices[0].FrameCounterUp < 1 || snapshot.Metrics.SuccessfulUplinks != 1 {
+		t.Fatalf("real uplink did not update runtime state: %+v", snapshot)
+	}
+	select {
+	case ack := <-adapter.sends:
+		decoded, parseErr := lorawan.Parse(ack.Payload)
+		if parseErr != nil || decoded.MType != lorawan.MTypeUnconfirmedDataDown {
+			t.Fatalf("unexpected real ACK frame: %+v", ack)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for real gateway ACK")
 	}
 }
 

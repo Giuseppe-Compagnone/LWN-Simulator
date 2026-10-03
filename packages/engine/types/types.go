@@ -199,14 +199,27 @@ type EventSink func(contracts.SimulationEvent)
 
 type GatewayPacket struct {
 	GatewayID       string
+	Kind            GatewayPacketKind
 	Payload         []byte
 	Frequency       int64
 	Bandwidth       int64
 	SpreadingFactor int
 	Power           int
 	DataRate        string
-	ReceivedAt      time.Time
+	// TransmitAt requests a timed downlink. A zero value keeps the existing
+	// immediate-transmission behavior used by ordinary gateway packets.
+	TransmitAt time.Time
+	ReceivedAt time.Time
 }
+
+type GatewayPacketKind string
+
+const (
+	GatewayPacketGeneric        GatewayPacketKind = "generic"
+	GatewayPacketClassBBeacon   GatewayPacketKind = "class-b-beacon"
+	GatewayPacketClassBDownlink GatewayPacketKind = "class-b-downlink"
+	GatewayPacketDownlink       GatewayPacketKind = "downlink"
+)
 
 type GatewayAdapterEvent struct {
 	GatewayID string
@@ -215,6 +228,7 @@ type GatewayAdapterEvent struct {
 	Timeout   bool
 	Heartbeat bool
 	At        time.Time
+	Packet    *GatewayPacket
 }
 
 type GatewayAdapter interface {
@@ -254,13 +268,14 @@ type Options struct {
 // the contract snapshot and the engine runtime state together so a backend
 // restart can continue from the same simulation timeline.
 type EngineCheckpoint struct {
-	Config    contracts.SimulationConfig
-	State     contracts.SimulationState
-	Metrics   contracts.SimulationMetrics
-	Sessions  map[string]DeviceSession
-	Radio     map[string]RadioTransmission
-	Scheduled []ScheduledEvent
-	EventLog  []contracts.SimulationEvent
+	Config         contracts.SimulationConfig
+	State          contracts.SimulationState
+	Metrics        contracts.SimulationMetrics
+	Sessions       map[string]DeviceSession
+	Radio          map[string]RadioTransmission
+	Scheduled      []ScheduledEvent
+	GatewayPackets []GatewayPacket
+	EventLog       []contracts.SimulationEvent
 }
 
 type ScheduledEvent struct {
@@ -297,6 +312,7 @@ const (
 	ScheduledEventGatewayBeacon       ScheduledEventKind = "gateway-beacon"
 	ScheduledEventClassBBeaconTimeout ScheduledEventKind = "class-b-beacon-timeout"
 	ScheduledEventClassBPingSlot      ScheduledEventKind = "class-b-ping-slot"
+	ScheduledEventClassCDownlink      ScheduledEventKind = "class-c-downlink"
 )
 
 // Class B follows the LoRaWAN beacon cadence. The one-second ping-slot period
@@ -308,41 +324,52 @@ const (
 )
 
 type DeviceSession struct {
-	Joined                 bool
-	FrameCounterUp         int64
-	FrameCounterDown       int64
-	CurrentDataRate        int
-	CurrentSpreadingFactor int
-	DeviceAddress          string
-	JoinEUI                string
-	SecurityFingerprint    string
-	PendingUplink          *PendingUplink
-	PendingJoinRequest     *PendingJoinRequest
-	LastRSSI               float64
-	LastSNR                float64
-	LastAirtime            time.Duration
-	LastChannel            int64
-	LastPayloadSize        int
-	LastFPort              int
-	ClassBSynchronized     bool
-	LastBeaconAt           time.Duration
-	NextPingSlotAt         time.Duration
-	ClassBMissedBeacons    int64
-	ClassBGatewayID        string
-	ClassBNextPingEventID  string
-	ClassBBeaconTimeoutID  string
-	PendingClassBDownlinks []ClassBDownlink
+	Joined                    bool
+	FrameCounterUp            int64
+	LastExternalFrameCounter  uint32
+	FrameCounterDown          int64
+	CurrentDataRate           int
+	CurrentSpreadingFactor    int
+	DeviceAddress             string
+	JoinEUI                   string
+	SecurityFingerprint       string
+	PendingUplink             *PendingUplink
+	PendingJoinRequest        *PendingJoinRequest
+	LastRSSI                  float64
+	LastSNR                   float64
+	LastAirtime               time.Duration
+	LastChannel               int64
+	LastPayloadSize           int
+	LastFPort                 int
+	ClassBSynchronized        bool
+	LastBeaconAt              time.Duration
+	NextPingSlotAt            time.Duration
+	ClassBMissedBeacons       int64
+	ClassBGatewayID           string
+	ClassBNextPingEventID     string
+	ClassBBeaconTimeoutID     string
+	PendingClassBDownlinks    []ClassBDownlink
+	PendingClassADownlinks    []Downlink
+	PendingClassCDownlinks    []Downlink
+	ClassCNextDownlinkEventID string
+	NwkSKey                   []byte
+	AppSKey                   []byte
+	DevNonce                  uint16
 }
 
-// ClassBDownlink is queued for delivery in the next available Class B ping
-// slot. An empty ID is replaced by the engine with a generated identifier.
-type ClassBDownlink struct {
+// Downlink is queued for delivery according to the device class. An empty ID
+// is replaced by the engine with a generated identifier.
+type Downlink struct {
 	ID       string
 	DeviceID string
 	Payload  []byte
 	FPort    int
 	DataRate int
 }
+
+// ClassBDownlink is kept as a semantic alias for callers that use the
+// Class-B-specific API.
+type ClassBDownlink = Downlink
 
 type PendingUplink struct {
 	PacketID       string

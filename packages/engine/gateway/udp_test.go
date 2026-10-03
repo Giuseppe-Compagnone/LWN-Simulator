@@ -82,6 +82,44 @@ func TestUDPAdapterImplementsSemtechIngressAndEgress(t *testing.T) {
 	if err != nil || string(decoded) != "downlink" {
 		t.Fatalf("unexpected egress payload: %+v", responseBody.TXPK)
 	}
+
+	target := time.Now().Add(time.Second).UTC().Truncate(time.Millisecond)
+	if err := adapter.Send(ctx, types.GatewayPacket{Payload: []byte("timed-downlink"), TransmitAt: target}); err != nil {
+		t.Fatalf("send timed PULL_RESP: %v", err)
+	}
+	timedResponse := readSemtechPacket(t, gatewaySocket, pullResponseType)
+	var timedBody struct {
+		TXPK txPacket `json:"txpk"`
+	}
+	if err := json.Unmarshal(timedResponse[4:], &timedBody); err != nil {
+		t.Fatalf("decode timed PULL_RESP: %v", err)
+	}
+	if timedBody.TXPK.Immediate || timedBody.TXPK.Time == "" {
+		t.Fatalf("expected timed packet-forwarder transmission: %+v", timedBody.TXPK)
+	}
+	if got, err := time.Parse(time.RFC3339Nano, timedBody.TXPK.Time); err != nil || !got.Equal(target) {
+		t.Fatalf("unexpected timed transmission timestamp: got=%q target=%s err=%v", timedBody.TXPK.Time, target, err)
+	}
+	txAckBody := []byte(`{"txpk_ack":{"error":"TOO_LATE"}}`)
+	txAck := append([]byte{protocolVersion, timedResponse[1], timedResponse[2], txAckType}, txAckBody...)
+	if _, err := gatewaySocket.WriteToUDP(txAck, serverAddress); err != nil {
+		t.Fatalf("send TX_ACK: %v", err)
+	}
+	deadline := time.After(time.Second)
+	for {
+		select {
+		case event := <-adapter.Events():
+			if event.State != contracts.Error {
+				continue
+			}
+			if event.Packet == nil || string(event.Packet.Payload) != "timed-downlink" {
+				t.Fatalf("expected correlated TX_ACK error, got %+v", event)
+			}
+			return
+		case <-deadline:
+			t.Fatal("timed out waiting for correlated TX_ACK error")
+		}
+	}
 }
 
 func TestUDPAdapterReportsTimeoutAndReconnectState(t *testing.T) {

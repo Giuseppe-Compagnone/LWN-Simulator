@@ -198,6 +198,9 @@ func (e *Engine) completeRadioSuccessLocked(transmission *types.RadioTransmissio
 			e.metrics.SuccessfulUplinks++
 			e.metrics.PacketSuccessRate = e.packetSuccessRate()
 			events := []contracts.SimulationEvent{e.newPacketEventLocked(contracts.MetricsUpdated, "simulation metrics updated", transmission.DeviceID, "", scheduledID, transmission.PacketID)}
+			if len(session.PendingClassADownlinks) > 0 {
+				events = append(events, e.scheduleWindowLocked(device, radioWindowSource(transmission), contracts.RX1, transmission.PacketID, transmission.FrameCounter, false))
+			}
 			return append(events, e.scheduleNextUplinkAfterTransmissionLocked(device, transmission)...)
 		}
 		return nil

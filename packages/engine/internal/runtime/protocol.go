@@ -28,6 +28,8 @@ func (e *Engine) processScheduledEventLocked(scheduled types.ScheduledEvent) []c
 		return e.processClassBBeaconTimeoutLocked(scheduled)
 	case types.ScheduledEventClassBPingSlot:
 		return e.processClassBPingSlotLocked(scheduled)
+	case types.ScheduledEventClassCDownlink:
+		return e.processClassCDownlinkLocked(scheduled)
 	default:
 		return []contracts.SimulationEvent{
 			e.newEventLocked(scheduled.Type, scheduled.Message, scheduled.DeviceID, scheduled.GatewayID, scheduled.ID),
@@ -173,12 +175,28 @@ func (e *Engine) processReceiveWindowLocked(scheduled types.ScheduledEvent) []co
 	// the event is being handled.
 	windowExpired := scheduled.WindowDuration > 0 && e.eventTimestampLocked() > scheduled.At+scheduled.WindowDuration
 
+	// Unconfirmed uplinks normally do not create receive-window events. When a
+	// Class A downlink is queued, however, the next uplink opens the same RX1/
+	// RX2 opportunity even if no ACK is required.
+	if session.PendingUplink == nil && len(session.PendingClassADownlinks) > 0 {
+		if !windowExpired {
+			if downlinkEvent, delivered := e.transmitQueuedClassADownlinkLocked(device, session, scheduled); delivered {
+				return append(events, downlinkEvent)
+			}
+		}
+		if window == contracts.RX1 {
+			return append(events, e.scheduleWindowLocked(device, scheduled, contracts.RX2, scheduled.PacketID, scheduled.FrameCounter, false))
+		}
+		return events
+	}
+
 	if session.PendingJoinRequest != nil && session.PendingJoinRequest.PacketID == scheduled.PacketID {
 		pending := session.PendingJoinRequest
 		if len(pending.GatewayIDs) > 0 && !windowExpired {
 			session.Joined = true
 			session.JoinEUI = pending.JoinEUI
 			session.DeviceAddress = joinedDeviceAddress(session)
+			deriveOTAAKeys(device, session)
 			session.PendingJoinRequest = nil
 			session.FrameCounterDown++
 			e.metrics.JoinAccepts++
@@ -231,6 +249,9 @@ func (e *Engine) processReceiveWindowLocked(scheduled types.ScheduledEvent) []co
 				return append(events, e.newEventLocked(contracts.PacketDropped, "next payload fragment could not be scheduled", device.ID, "", next.ID))
 			}
 			return append(events, e.newEventLocked(contracts.DeviceUplinkScheduled, "next application payload fragment scheduled", device.ID, "", next.ID))
+		}
+		if downlinkEvent, delivered := e.transmitQueuedClassADownlinkLocked(device, session, scheduled); delivered {
+			events = append(events, downlinkEvent)
 		}
 		session.PendingUplink = nil
 		e.metrics.SuccessfulUplinks++

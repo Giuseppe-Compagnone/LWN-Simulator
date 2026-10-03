@@ -2,12 +2,15 @@ package runtime
 
 import (
 	"context"
+	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
+	"github.com/Giuseppe-Compagnone/lwn-engine/lorawan"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 	"github.com/google/uuid"
 )
@@ -34,7 +37,11 @@ func (e *Engine) startGatewayAdapters(ctx context.Context) {
 		e.mu.Unlock()
 		e.publish(connecting)
 
-		go e.consumeGatewayAdapter(ctx, gateway.ID, adapter)
+		e.gatewayWG.Add(1)
+		go func() {
+			defer e.gatewayWG.Done()
+			e.consumeGatewayAdapter(ctx, gateway.ID, adapter)
+		}()
 		if err := adapter.Start(ctx); err != nil {
 			e.publishGatewayError(gateway.ID, fmt.Errorf("start gateway adapter: %w", err), false)
 			_ = adapter.Close()
@@ -99,8 +106,11 @@ func (e *Engine) handleGatewayAdapterEvent(adapterEvent types.GatewayAdapterEven
 		return
 	}
 
+	wasConnected := runtime.State == contracts.Connected
+	var pendingPackets []types.GatewayPacket
 	eventType := contracts.GatewayNetworkError
 	message := "gateway network error"
+	events := make([]contracts.SimulationEvent, 0, 2)
 	switch adapterEvent.State {
 	case contracts.Connected:
 		runtime.State = contracts.Connected
@@ -108,6 +118,9 @@ func (e *Engine) handleGatewayAdapterEvent(adapterEvent types.GatewayAdapterEven
 		e.metrics.GatewayConnections++
 		eventType = contracts.GatewayConnected
 		message = "gateway connected"
+		if !wasConnected {
+			pendingPackets = e.takeGatewayPacketsLocked(adapterEvent.GatewayID)
+		}
 	case contracts.Disconnected:
 		runtime.State = contracts.Disconnected
 		eventType = contracts.GatewayDisconnected
@@ -125,12 +138,17 @@ func (e *Engine) handleGatewayAdapterEvent(adapterEvent types.GatewayAdapterEven
 		if adapterEvent.Timeout {
 			e.metrics.GatewayTimeouts++
 		}
+		if adapterEvent.Packet != nil && adapterEvent.Packet.Kind != types.GatewayPacketGeneric {
+			copyPacket := *adapterEvent.Packet
+			copyPacket.Payload = append([]byte(nil), adapterEvent.Packet.Payload...)
+			e.gatewayPackets = append(e.gatewayPackets, copyPacket)
+		}
 	default:
 		e.mu.Unlock()
 		return
 	}
 
-	event := e.newGatewayEventLocked(
+	events = append(events, e.newGatewayEventLocked(
 		eventType,
 		message,
 		adapterEvent.GatewayID,
@@ -138,9 +156,19 @@ func (e *Engine) handleGatewayAdapterEvent(adapterEvent types.GatewayAdapterEven
 		nil,
 		"",
 		adapterEvent.Error,
-	)
+	))
+	if adapterEvent.State == contracts.Connected && !wasConnected {
+		if beacon := e.rescheduleRealGatewayBeaconLocked(adapterEvent.GatewayID); beacon != nil {
+			events = append(events, *beacon)
+		}
+	}
 	e.mu.Unlock()
-	e.publish(event)
+	for _, event := range events {
+		e.publish(event)
+	}
+	if len(pendingPackets) > 0 {
+		e.dispatchGatewayPackets(pendingPackets)
+	}
 }
 
 func (e *Engine) handleGatewayPacket(packet types.GatewayPacket) {
@@ -175,8 +203,214 @@ func (e *Engine) handleGatewayPacket(packet types.GatewayPacket) {
 	if dataRate := parseGatewayDataRate(packet.DataRate); dataRate >= 0 {
 		event.DataRate = &dataRate
 	}
+	events := []contracts.SimulationEvent{event}
+	if decoded, err := lorawan.Parse(packet.Payload); err == nil {
+		events = append(events, e.processRealUplinkLocked(packet, decoded)...)
+	}
+	pendingPackets := e.takeGatewayPacketsLocked(packet.GatewayID)
 	e.mu.Unlock()
-	e.publish(event)
+	for _, event := range events {
+		e.publish(event)
+	}
+	if len(pendingPackets) > 0 {
+		e.dispatchGatewayPackets(pendingPackets)
+	}
+}
+
+func (e *Engine) processRealUplinkLocked(packet types.GatewayPacket, decoded lorawan.Packet) []contracts.SimulationEvent {
+	if decoded.MType == lorawan.MTypeJoinRequest {
+		for _, device := range e.registry.ActiveDevices() {
+			if device.OOTAConfig == nil || !sameEUI(device.OOTAConfig.JoinEUI, decoded.JoinEUI) || !sameEUI(device.DevEUI, decoded.DevEUI) {
+				continue
+			}
+			appKey, keyErr := lorawan.DecodeHex(device.OOTAConfig.AppKey)
+			if keyErr != nil || !lorawan.VerifyJoinRequestMIC(decoded, appKey) {
+				return []contracts.SimulationEvent{e.newPacketEventLocked(
+					contracts.PacketDropped,
+					"OTAA join request from real gateway has an invalid MIC",
+					"", packet.GatewayID, "", uuid.NewString(),
+				)}
+			}
+			session := e.sessions[device.ID]
+			if session == nil {
+				return nil
+			}
+			e.metrics.JoinRequests++
+			if session.Joined {
+				return []contracts.SimulationEvent{e.newProtocolEventLocked(
+					contracts.JoinRequestReceived,
+					"OTAA join request received from real gateway",
+					device.ID, packet.GatewayID, "", uuid.NewString(), -1, 1, false, nil,
+				)}
+			}
+			session.DevNonce = decoded.DevNonce
+			session.Joined = true
+			session.JoinEUI = device.OOTAConfig.JoinEUI
+			session.DeviceAddress = joinedDeviceAddress(session)
+			deriveOTAAKeys(device, session)
+			joinAcceptQueued := e.queueRealJoinAcceptLocked(packet, device, session, appKey)
+			e.metrics.JoinAccepts++
+			packetID := uuid.NewString()
+			events := []contracts.SimulationEvent{
+				e.newProtocolEventLocked(contracts.JoinRequestReceived, "OTAA join request received from real gateway", device.ID, packet.GatewayID, "", packetID, -1, 1, false, nil),
+				e.newProtocolEventLocked(contracts.JoinAcceptReceived, "OTAA join accepted for real gateway uplink", device.ID, packet.GatewayID, "", packetID, -1, 1, false, nil),
+			}
+			if !joinAcceptQueued {
+				return append(events, e.newPacketEventLocked(contracts.PacketDropped, "OTAA join accept could not be queued for the real gateway", device.ID, packet.GatewayID, "", packetID))
+			}
+			return events
+		}
+		return nil
+	}
+	if decoded.MType != lorawan.MTypeUnconfirmedDataUp && decoded.MType != lorawan.MTypeConfirmedDataUp {
+		return nil
+	}
+	device, session := e.realDeviceSessionLocked(decoded.DevAddr)
+	if session == nil {
+		return nil
+	}
+	if len(session.NwkSKey) == 16 && !lorawan.VerifyDataMIC(decoded, session.NwkSKey, 0) {
+		return []contracts.SimulationEvent{e.newPacketEventLocked(
+			contracts.PacketDropped,
+			"real gateway uplink has an invalid MIC",
+			device.ID, packet.GatewayID, "", uuid.NewString(),
+		)}
+	}
+	if !device.FrameConfig.DisableFrameCounterValidation && decoded.FCnt <= session.LastExternalFrameCounter {
+		frameCounter := int64(decoded.FCnt)
+		e.metrics.FrameCounterErrors++
+		return []contracts.SimulationEvent{e.newProtocolEventLocked(
+			contracts.FrameCounterRejected,
+			"real gateway uplink rejected because its frame counter is not newer",
+			device.ID, packet.GatewayID, "", uuid.NewString(), frameCounter, 1, decoded.Confirmed, nil,
+		)}
+	}
+	frameCounter := decoded.FCnt
+	session.LastExternalFrameCounter = decoded.FCnt
+	if int64(frameCounter) > session.FrameCounterUp {
+		session.FrameCounterUp = int64(frameCounter)
+	}
+	e.metrics.TotalUplinks++
+	e.metrics.SuccessfulUplinks++
+	e.metrics.TotalPacketsReceived++
+	e.metrics.PacketSuccessRate = e.packetSuccessRate()
+	packetID := uuid.NewString()
+	events := []contracts.SimulationEvent{e.newProtocolEventLocked(
+		contracts.DeviceUplinkTransmitted,
+		"uplink received from real gateway",
+		device.ID, packet.GatewayID, "", packetID, int64(frameCounter), 1, decoded.Confirmed, nil,
+	)}
+	if decoded.Confirmed {
+		if ack := e.queueRealACKLocked(packet, device, session, decoded); ack {
+			events = append(events, e.newProtocolEventLocked(
+				contracts.UplinkACKReceived,
+				"ACK scheduled for real gateway uplink",
+				device.ID, packet.GatewayID, "", packetID, int64(frameCounter), 1, true, nil,
+			))
+		}
+	}
+	return events
+}
+
+func (e *Engine) realDeviceSessionLocked(devAddr uint32) (contracts.Device, *types.DeviceSession) {
+	for _, device := range e.registry.ActiveDevices() {
+		session := e.sessions[device.ID]
+		if session == nil {
+			continue
+		}
+		if parsed, err := hex.DecodeString(session.DeviceAddress); err == nil && len(parsed) == 4 {
+			value := binary.BigEndian.Uint32(parsed)
+			if value == devAddr {
+				return device, session
+			}
+		}
+	}
+	return contracts.Device{}, nil
+}
+
+func (e *Engine) queueRealACKLocked(packet types.GatewayPacket, device contracts.Device, session *types.DeviceSession, uplink lorawan.Packet) bool {
+	if len(session.NwkSKey) != 16 || len(session.AppSKey) != 16 {
+		return false
+	}
+	devAddrBytes, err := hex.DecodeString(session.DeviceAddress)
+	if err != nil || len(devAddrBytes) != 4 {
+		return false
+	}
+	devAddr := binary.BigEndian.Uint32(devAddrBytes)
+	payload, err := lorawan.BuildDataFrame(lorawan.DataFrameOptions{
+		DevAddr:   devAddr,
+		FCnt:      uint32(session.FrameCounterDown + 1),
+		Direction: 1,
+		ACK:       true,
+		NwkSKey:   session.NwkSKey,
+		AppSKey:   session.AppSKey,
+	})
+	if err != nil {
+		return false
+	}
+	delay := durationSeconds(device.RX1Config.Delay)
+	transmitAt := time.Now().Add(time.Duration(float64(delay) / e.state.Speed))
+	dataRate := parseGatewayDataRate(packet.DataRate)
+	if dataRate < 0 {
+		dataRate = currentDeviceDataRate(session, device)
+	}
+	spreadingFactor := spreadingFactorForDataRate(dataRate)
+	e.gatewayPackets = append(e.gatewayPackets, types.GatewayPacket{
+		GatewayID:       packet.GatewayID,
+		Kind:            types.GatewayPacketDownlink,
+		Payload:         payload,
+		Frequency:       packet.Frequency,
+		Bandwidth:       packet.Bandwidth,
+		SpreadingFactor: spreadingFactor,
+		Power:           classBBeaconPower,
+		DataRate:        fmt.Sprintf("SF%dBW125", spreadingFactor),
+		TransmitAt:      transmitAt,
+	})
+	session.FrameCounterDown++
+	_ = uplink
+	return true
+}
+
+func (e *Engine) queueRealJoinAcceptLocked(packet types.GatewayPacket, device contracts.Device, session *types.DeviceSession, appKey []byte) bool {
+	devAddrBytes, err := hex.DecodeString(session.DeviceAddress)
+	if err != nil || len(devAddrBytes) != 4 {
+		return false
+	}
+	devAddr := binary.BigEndian.Uint32(devAddrBytes)
+	payload, err := lorawan.BuildJoinAccept(lorawan.JoinAcceptOptions{
+		AppNonce:          0,
+		NetID:             0,
+		DevAddr:           devAddr,
+		RX1DataRate:       intValue(device.RX2Config.DataRate),
+		RX1DataRateOffset: intValue(device.RX1Config.DataRateOffset),
+		RXDelay:           intValue(device.RX1Config.Delay),
+		AppKey:            appKey,
+	})
+	if err != nil {
+		return false
+	}
+	delay := durationSeconds(device.RX1Config.Delay)
+	transmitAt := time.Now().Add(time.Duration(float64(delay) / e.state.Speed))
+	e.gatewayPackets = append(e.gatewayPackets, types.GatewayPacket{
+		GatewayID:       packet.GatewayID,
+		Kind:            types.GatewayPacketDownlink,
+		Payload:         payload,
+		Frequency:       packet.Frequency,
+		Bandwidth:       packet.Bandwidth,
+		SpreadingFactor: spreadingFactorForDataRate(currentDeviceDataRate(session, device)),
+		Power:           classBBeaconPower,
+		DataRate:        fmt.Sprintf("SF%dBW125", spreadingFactorForDataRate(currentDeviceDataRate(session, device))),
+		TransmitAt:      transmitAt,
+	})
+	return true
+}
+
+func sameEUI(value string, numeric uint64) bool {
+	parsed, err := hex.DecodeString(value)
+	if err != nil || len(parsed) != 8 {
+		return false
+	}
+	return binary.LittleEndian.Uint64(parsed) == numeric
 }
 
 func (e *Engine) processVirtualGatewayHeartbeatLocked(scheduled types.ScheduledEvent) []contracts.SimulationEvent {
@@ -305,31 +539,45 @@ func (e *Engine) SendGatewayPacket(ctx context.Context, gatewayID string, payloa
 	if ctx == nil {
 		return fmt.Errorf("send gateway packet context cannot be nil")
 	}
+	return e.sendGatewayPacket(ctx, types.GatewayPacket{
+		GatewayID: gatewayID,
+		Payload:   append([]byte(nil), payload...),
+	})
+}
 
-	e.mu.RLock()
-	adapter, ok := e.gatewayAdapters[gatewayID]
-	e.mu.RUnlock()
-	if !ok || adapter == nil {
-		return fmt.Errorf("%w: %s", ErrGatewayTransportUnavailable, gatewayID)
+func (e *Engine) sendGatewayPacket(ctx context.Context, packet types.GatewayPacket) error {
+	if ctx == nil {
+		return fmt.Errorf("send gateway packet context cannot be nil")
 	}
 
-	packet := types.GatewayPacket{GatewayID: gatewayID, Payload: append([]byte(nil), payload...)}
+	e.mu.RLock()
+	adapter, ok := e.gatewayAdapters[packet.GatewayID]
+	e.mu.RUnlock()
+	if !ok || adapter == nil {
+		return fmt.Errorf("%w: %s", ErrGatewayTransportUnavailable, packet.GatewayID)
+	}
+
 	if err := adapter.Send(ctx, packet); err != nil {
-		e.publishGatewayError(gatewayID, err, false)
+		if packet.Kind != types.GatewayPacketGeneric {
+			e.mu.Lock()
+			e.gatewayPackets = append(e.gatewayPackets, cloneGatewayPackets([]types.GatewayPacket{packet})...)
+			e.mu.Unlock()
+		}
+		e.publishGatewayError(packet.GatewayID, err, false)
 		return err
 	}
 
 	e.mu.Lock()
-	runtime := e.gatewayRuntime[gatewayID]
+	runtime := e.gatewayRuntime[packet.GatewayID]
 	if runtime != nil {
 		runtime.EgressPackets++
 	}
 	e.metrics.GatewayEgressPackets++
-	payloadSize := int64(len(payload))
+	payloadSize := int64(len(packet.Payload))
 	event := e.newGatewayEventLocked(
 		contracts.GatewayPacketEgress,
 		"packet sent to real gateway",
-		gatewayID,
+		packet.GatewayID,
 		contracts.Connected,
 		&payloadSize,
 		"",
@@ -338,4 +586,38 @@ func (e *Engine) SendGatewayPacket(ctx context.Context, gatewayID string, payloa
 	e.mu.Unlock()
 	e.publish(event)
 	return nil
+}
+
+func (e *Engine) drainGatewayPacketsLocked() []types.GatewayPacket {
+	if len(e.gatewayPackets) == 0 {
+		return nil
+	}
+	packets := append([]types.GatewayPacket(nil), e.gatewayPackets...)
+	e.gatewayPackets = e.gatewayPackets[:0]
+	return packets
+}
+
+func (e *Engine) takeGatewayPacketsLocked(gatewayID string) []types.GatewayPacket {
+	if len(e.gatewayPackets) == 0 {
+		return nil
+	}
+	packets := make([]types.GatewayPacket, 0)
+	remaining := e.gatewayPackets[:0]
+	for _, packet := range e.gatewayPackets {
+		if packet.GatewayID == gatewayID {
+			packets = append(packets, packet)
+			continue
+		}
+		remaining = append(remaining, packet)
+	}
+	e.gatewayPackets = remaining
+	return packets
+}
+
+func (e *Engine) dispatchGatewayPackets(packets []types.GatewayPacket) {
+	for _, packet := range packets {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		_ = e.sendGatewayPacket(ctx, packet)
+		cancel()
+	}
 }

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
+	"github.com/Giuseppe-Compagnone/lwn-engine/lorawan"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 	"github.com/google/uuid"
 )
@@ -26,6 +27,7 @@ type Engine struct {
 	gatewayAdapterFactory types.GatewayAdapterFactory
 	gatewayAdapters       map[string]types.GatewayAdapter
 	gatewayRuntime        map[string]*types.GatewayRuntime
+	gatewayPackets        []types.GatewayPacket
 
 	scheduler *Scheduler
 	events    chan contracts.SimulationEvent
@@ -38,6 +40,7 @@ type Engine struct {
 	runCancel    context.CancelFunc
 	done         chan struct{}
 	wake         chan struct{}
+	gatewayWG    sync.WaitGroup
 	processingAt time.Duration
 	processing   bool
 	restored     bool
@@ -155,6 +158,10 @@ func (e *Engine) restoreCheckpoint(checkpoint *types.EngineCheckpoint) error {
 				copySession.PendingJoinRequest = &pending
 			}
 			copySession.PendingClassBDownlinks = cloneClassBDownlinks(session.PendingClassBDownlinks)
+			copySession.PendingClassADownlinks = cloneDownlinks(session.PendingClassADownlinks)
+			copySession.PendingClassCDownlinks = cloneDownlinks(session.PendingClassCDownlinks)
+			copySession.NwkSKey = append([]byte(nil), session.NwkSKey...)
+			copySession.AppSKey = append([]byte(nil), session.AppSKey...)
 			e.sessions[deviceID] = &copySession
 		}
 	}
@@ -162,6 +169,11 @@ func (e *Engine) restoreCheckpoint(checkpoint *types.EngineCheckpoint) error {
 		copyTransmission := transmission
 		copyTransmission.GatewayIDs = append([]string(nil), transmission.GatewayIDs...)
 		e.radio[packetID] = &copyTransmission
+	}
+	for _, packet := range checkpoint.GatewayPackets {
+		copyPacket := packet
+		copyPacket.Payload = append([]byte(nil), packet.Payload...)
+		e.gatewayPackets = append(e.gatewayPackets, copyPacket)
 	}
 	for _, scheduled := range checkpoint.Scheduled {
 		if err := e.scheduler.Schedule(scheduled); err != nil {
@@ -224,6 +236,13 @@ func (e *Engine) Start(ctx context.Context) error {
 	if !e.restored {
 		for _, gateway := range e.registry.ActiveVirtualGateways() {
 			beacon := e.scheduleClassBBeaconLocked(gateway.ID, 0)
+			events = append(events, beacon)
+		}
+		for _, gateway := range e.registry.Gateways() {
+			if !gateway.Active || gateway.Type != contracts.Real {
+				continue
+			}
+			beacon := e.scheduleClassBBeaconLocked(gateway.ID, classBRealGatewayInitialDelay)
 			events = append(events, beacon)
 		}
 		for _, gateway := range e.registry.ActiveVirtualGateways() {
@@ -425,11 +444,18 @@ func (e *Engine) Cancel(eventID string) error {
 // available Class B ping slot. The payload remains queued while the device is
 // acquiring or recovering beacon synchronization.
 func (e *Engine) QueueClassBDownlink(downlink types.ClassBDownlink) (string, error) {
+	return e.QueueDownlink(downlink)
+}
+
+// QueueDownlink queues an application downlink according to the device class.
+// Class A uses the next receive window, Class B uses the next ping slot and
+// Class C is delivered as soon as a gateway path is available.
+func (e *Engine) QueueDownlink(downlink types.Downlink) (string, error) {
 	if downlink.DeviceID == "" {
-		return "", fmt.Errorf("class B downlink device id is required")
+		return "", fmt.Errorf("downlink device id is required")
 	}
 	if len(downlink.Payload) == 0 {
-		return "", fmt.Errorf("class B downlink payload cannot be empty")
+		return "", fmt.Errorf("downlink payload cannot be empty")
 	}
 
 	e.mu.Lock()
@@ -439,9 +465,9 @@ func (e *Engine) QueueClassBDownlink(downlink types.ClassBDownlink) (string, err
 		e.mu.Unlock()
 		return "", fmt.Errorf("class B downlink device %s is not registered", downlink.DeviceID)
 	}
-	if device.Class != contracts.ClassB {
+	if device.Class != contracts.ClassA && device.Class != contracts.ClassB && device.Class != contracts.ClassC {
 		e.mu.Unlock()
-		return "", fmt.Errorf("device %s is not a Class B device", downlink.DeviceID)
+		return "", fmt.Errorf("device %s has an unsupported class", downlink.DeviceID)
 	}
 	if !device.Active {
 		e.mu.Unlock()
@@ -456,16 +482,16 @@ func (e *Engine) QueueClassBDownlink(downlink types.ClassBDownlink) (string, err
 	}
 	if downlink.FPort < 1 || downlink.FPort > 223 {
 		e.mu.Unlock()
-		return "", fmt.Errorf("class B downlink FPort must be between 1 and 223")
+		return "", fmt.Errorf("downlink FPort must be between 1 and 223")
 	}
 	if downlink.DataRate < -1 || downlink.DataRate > 5 {
 		e.mu.Unlock()
-		return "", fmt.Errorf("class B downlink data rate must be between -1 and 5")
+		return "", fmt.Errorf("downlink data rate must be between -1 and 5")
 	}
 	if downlink.ID != "" {
 		if _, err := uuid.Parse(downlink.ID); err != nil {
 			e.mu.Unlock()
-			return "", fmt.Errorf("class B downlink id must be a valid UUID: %w", err)
+			return "", fmt.Errorf("downlink id must be a valid UUID: %w", err)
 		}
 	}
 	dataRate := downlink.DataRate
@@ -474,29 +500,42 @@ func (e *Engine) QueueClassBDownlink(downlink types.ClassBDownlink) (string, err
 	}
 	if len(downlink.Payload) > maximumPayloadSize(device.LocationConfig.Region, dataRate) {
 		e.mu.Unlock()
-		return "", fmt.Errorf("class B downlink payload exceeds the regional maximum for data rate %d", dataRate)
+		return "", fmt.Errorf("downlink payload exceeds the regional maximum for data rate %d", dataRate)
 	}
 	if downlink.ID == "" {
 		downlink.ID = uuid.NewString()
 	}
 	downlink.Payload = append([]byte(nil), downlink.Payload...)
-	session.PendingClassBDownlinks = append(session.PendingClassBDownlinks, downlink)
-	event := e.newClassBDownlinkEventLocked(
-		contracts.ClassBDownlinkScheduled,
-		"Class B downlink queued for the next ping slot",
-		device,
-		session,
-		downlink,
-		"",
-	)
+	eventType := contracts.DeviceDownlinkScheduled
+	message := fmt.Sprintf("Class %s downlink queued", device.Class)
+	switch device.Class {
+	case contracts.ClassA:
+		session.PendingClassADownlinks = append(session.PendingClassADownlinks, downlink)
+	case contracts.ClassB:
+		session.PendingClassBDownlinks = append(session.PendingClassBDownlinks, downlink)
+		eventType = contracts.ClassBDownlinkScheduled
+		message = "Class B downlink queued for the next ping slot"
+	case contracts.ClassC:
+		session.PendingClassCDownlinks = append(session.PendingClassCDownlinks, downlink)
+	}
+	event := e.newDownlinkEventLocked(eventType, message, device, session, downlink, "")
 
 	// The normal ping-slot chain is created by beacon synchronization. If a
 	// caller queues after synchronization but the chain was interrupted, make
 	// sure the next slot is restored immediately.
-	if session.ClassBSynchronized && session.ClassBNextPingEventID == "" {
+	if device.Class == contracts.ClassB && session.ClassBSynchronized && session.ClassBNextPingEventID == "" {
 		scheduleEvent := e.scheduleClassBPingSlotLocked(device, session, e.eventTimestampLocked()+types.ClassBPingSlotPeriod)
 		if scheduleEvent != nil {
 			deferredScheduleEvent := *scheduleEvent
+			e.mu.Unlock()
+			e.publish(deferredScheduleEvent)
+			e.publish(event)
+			return downlink.ID, nil
+		}
+	}
+	if device.Class == contracts.ClassC && session.ClassCNextDownlinkEventID == "" {
+		if scheduled := e.scheduleClassCDownlinkLocked(device, session, e.eventTimestampLocked()); scheduled != nil {
+			deferredScheduleEvent := *scheduled
 			e.mu.Unlock()
 			e.publish(deferredScheduleEvent)
 			e.publish(event)
@@ -564,13 +603,14 @@ func (e *Engine) Checkpoint() types.EngineCheckpoint {
 		state.ElapsedMilliseconds = elapsed
 	}
 	checkpoint := types.EngineCheckpoint{
-		Config:    e.config,
-		State:     state,
-		Metrics:   e.metrics,
-		Sessions:  make(map[string]types.DeviceSession, len(e.sessions)),
-		Radio:     make(map[string]types.RadioTransmission, len(e.radio)),
-		Scheduled: e.scheduler.Events(),
-		EventLog:  append([]contracts.SimulationEvent(nil), e.eventLog...),
+		Config:         e.config,
+		State:          state,
+		Metrics:        e.metrics,
+		Sessions:       make(map[string]types.DeviceSession, len(e.sessions)),
+		Radio:          make(map[string]types.RadioTransmission, len(e.radio)),
+		Scheduled:      e.scheduler.Events(),
+		GatewayPackets: cloneGatewayPackets(e.gatewayPackets),
+		EventLog:       append([]contracts.SimulationEvent(nil), e.eventLog...),
 	}
 	for deviceID, session := range e.sessions {
 		if session == nil {
@@ -588,6 +628,10 @@ func (e *Engine) Checkpoint() types.EngineCheckpoint {
 			copySession.PendingJoinRequest = &pending
 		}
 		copySession.PendingClassBDownlinks = cloneClassBDownlinks(session.PendingClassBDownlinks)
+		copySession.PendingClassADownlinks = cloneDownlinks(session.PendingClassADownlinks)
+		copySession.PendingClassCDownlinks = cloneDownlinks(session.PendingClassCDownlinks)
+		copySession.NwkSKey = append([]byte(nil), session.NwkSKey...)
+		copySession.AppSKey = append([]byte(nil), session.AppSKey...)
 		checkpoint.Sessions[deviceID] = copySession
 	}
 	for packetID, transmission := range e.radio {
@@ -617,6 +661,7 @@ func (e *Engine) Events() <-chan contracts.SimulationEvent {
 func (e *Engine) run(ctx context.Context) {
 	defer func() {
 		e.stopGatewayAdapters()
+		e.gatewayWG.Wait()
 		e.mu.Lock()
 		if e.state.Status != contracts.SimulationStatusFailed {
 			e.state.Status = contracts.SimulationStatusStopped
@@ -688,10 +733,12 @@ func (e *Engine) run(ctx context.Context) {
 		e.processing = true
 		events := e.processScheduledEventLocked(due)
 		e.processing = false
+		gatewayPackets := e.drainGatewayPacketsLocked()
 		e.mu.Unlock()
 		for _, event := range events {
 			e.publish(event)
 		}
+		e.dispatchGatewayPackets(gatewayPackets)
 	}
 }
 
@@ -732,12 +779,34 @@ func newDeviceSession(device contracts.Device) *types.DeviceSession {
 	if device.ABPConfig != nil {
 		session.DeviceAddress = device.ABPConfig.DevAddr
 		session.SecurityFingerprint = securityFingerprint(device.DevEUI, device.ABPConfig.NwkSKey, device.ABPConfig.AppSKey)
+		if nwkSKey, err := lorawan.DecodeHex(device.ABPConfig.NwkSKey); err == nil {
+			session.NwkSKey = nwkSKey
+		}
+		if appSKey, err := lorawan.DecodeHex(device.ABPConfig.AppSKey); err == nil {
+			session.AppSKey = appSKey
+		}
 	}
 	if device.OOTAConfig != nil {
 		session.JoinEUI = device.OOTAConfig.JoinEUI
 		session.SecurityFingerprint = securityFingerprint(device.DevEUI, device.OOTAConfig.JoinEUI, device.OOTAConfig.AppKey)
 	}
 	return session
+}
+
+func deriveOTAAKeys(device contracts.Device, session *types.DeviceSession) {
+	if device.OOTAConfig == nil || session == nil {
+		return
+	}
+	appKey, err := lorawan.DecodeHex(device.OOTAConfig.AppKey)
+	if err != nil {
+		return
+	}
+	nwkSKey, appSKey, err := lorawan.DeriveSessionKeys(appKey, 0, 0, session.DevNonce)
+	if err != nil {
+		return
+	}
+	session.NwkSKey = nwkSKey
+	session.AppSKey = appSKey
 }
 
 func cloneClassBDownlinks(downlinks []types.ClassBDownlink) []types.ClassBDownlink {
@@ -748,6 +817,30 @@ func cloneClassBDownlinks(downlinks []types.ClassBDownlink) []types.ClassBDownli
 	for index, downlink := range downlinks {
 		cloned[index] = downlink
 		cloned[index].Payload = append([]byte(nil), downlink.Payload...)
+	}
+	return cloned
+}
+
+func cloneDownlinks(downlinks []types.Downlink) []types.Downlink {
+	if len(downlinks) == 0 {
+		return nil
+	}
+	cloned := make([]types.Downlink, len(downlinks))
+	for index, downlink := range downlinks {
+		cloned[index] = downlink
+		cloned[index].Payload = append([]byte(nil), downlink.Payload...)
+	}
+	return cloned
+}
+
+func cloneGatewayPackets(packets []types.GatewayPacket) []types.GatewayPacket {
+	if len(packets) == 0 {
+		return nil
+	}
+	cloned := make([]types.GatewayPacket, len(packets))
+	for index, packet := range packets {
+		cloned[index] = packet
+		cloned[index].Payload = append([]byte(nil), packet.Payload...)
 	}
 	return cloned
 }

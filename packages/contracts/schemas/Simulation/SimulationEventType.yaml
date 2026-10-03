@@ -46,6 +46,9 @@ enum:
   - class-b-ping-slot-opened
   - class-b-downlink-scheduled
   - class-b-downlink-transmitted
+  - device-downlink-scheduled
+  - device-downlink-transmitted
+  - device-downlink-dropped
 
 x-enum-varnames:
   - SimulationStarted
@@ -92,3 +95,6 @@ x-enum-varnames:
   - ClassBPingSlotOpened
   - ClassBDownlinkScheduled
   - ClassBDownlinkTransmitted
+  - DeviceDownlinkScheduled
+  - DeviceDownlinkTransmitted
+  - DeviceDownlinkDropped

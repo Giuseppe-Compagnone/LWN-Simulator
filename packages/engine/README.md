@@ -46,14 +46,18 @@ The foundation currently provides:
 - deterministic geometric coverage for active virtual gateways;
 - packet delivery/drop events and base traffic metrics;
 - OTAA join sessions and immediate ABP sessions;
+- LoRaWAN data-frame construction/parsing with AES-128 payload protection and MIC validation at the gateway boundary;
 - RX1/RX2 receive windows for confirmed traffic;
 - ACK handling, frame counters and bounded retransmissions;
+- Class A and Class C application downlink queues, in addition to Class B ping-slot downlinks;
 - radio transmissions with deterministic airtime and regional channel selection;
 - log-distance RSSI/SNR estimates, overlapping-transmission collision detection
   and seeded packet-loss outcomes;
 - radio-level metrics and link metadata in the event stream and runtime snapshot;
 - real-gateway transport hooks with a shared Semtech UDP listener, heartbeat
   monitoring, packet ingress/egress, timeout detection and reconnect backoff;
+- real-gateway uplink routing for ABP/OTAA data frames, confirmed-uplink ACKs
+  and TX_ACK-correlated retry retention;
 - Class B beacon synchronization for virtual gateways, deterministic ping-slot
   scheduling, queued downlinks, synchronization loss detection and runtime
   metrics/events;
@@ -69,9 +73,9 @@ every regulatory channel.
 
 At transmission completion, a packet is delivered to each active virtual
 gateway whose location is within the device's `advancedConfig.antennaRange`,
-expressed in meters. Real gateways are not connected by this phase and are
-intentionally excluded from virtual coverage. Real gateway adapters are
-provided through `types.Options.GatewayAdapterFactory`; the concrete
+expressed in meters. Real gateways are intentionally excluded from virtual
+coverage and participate through their transport adapter. Real gateway
+adapters are provided through `types.Options.GatewayAdapterFactory`; the concrete
 `gateway.UDPFactory` implements the Semtech UDP packet-forwarder protocol used
 by ChirpStack Gateway Bridge. It listens on the configurable local address
 (`:1700` by default), routes `PUSH_DATA` and `PULL_DATA` by Gateway EUI,
@@ -116,10 +120,22 @@ downlink queue and downlink transmission events. If the next beacon is not
 received within two beacon periods, the device loses synchronization and its
 pending downlinks remain queued for the next successful synchronization.
 
-Class B is intentionally limited to virtual gateways in this phase. Real
-gateways use the transport adapter path and will receive Class B scheduling
-once the gateway downlink path is extended with the corresponding network
-server timing model.
+Real gateways participate once their adapter reports `connected`. The engine
+then emits the same beacon cadence and sends Class B beacon and downlink
+packets through the adapter with an absolute UTC transmission time. Gateway
+uplinks are parsed at the same boundary: valid ABP/OTAA frames are checked
+with their MIC, OTAA Join-Accepts are encrypted with the AppKey, ABP data
+frames update the device session and confirmed frames produce an authenticated
+ACK. Pending
+timed packets are included in the checkpoint and are retried when a gateway
+reports a transport or TX_ACK failure. The
+Semtech UDP adapter encodes these as timed `PULL_RESP` packets (`imme: false`,
+`time: ...`) instead of immediate transmissions, allowing ChirpStack Gateway
+Bridge and compatible packet-forwarders to schedule them on the gateway. The
+beacon payload follows the LoRaWAN Class B 17-byte format and currently uses
+the EU868 beacon radio defaults, matching the simulator's primary region.
+Gateway-specific regional beacon plans can be added when the gateway contract
+exposes its region.
 
 Frontend streaming builds on top of this foundation in the following roadmap
 phase.

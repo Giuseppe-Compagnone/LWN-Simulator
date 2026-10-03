@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"encoding/binary"
 	"fmt"
 	"math"
 	"time"
@@ -11,16 +12,34 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	classBRealGatewayInitialDelay = time.Second
+	classBRealGatewayTimingLead   = 100 * time.Millisecond
+	classBBeaconFrequency         = int64(869525000)
+	classBBeaconBandwidth         = int64(125000)
+	classBBeaconSpreadingFactor   = 9
+	classBBeaconPower             = 14
+)
+
 func (e *Engine) processGatewayBeaconLocked(scheduled types.ScheduledEvent) []contracts.SimulationEvent {
 	gateway, ok := e.registry.Gateway(scheduled.GatewayID)
-	if !ok || !gateway.Active || gateway.Type != contracts.Virtual {
+	if !ok || !gateway.Active || (gateway.Type != contracts.Virtual && gateway.Type != contracts.Real) {
 		return nil
+	}
+	if gateway.Type == contracts.Real && !e.realGatewayReadyLocked(gateway.ID) {
+		return []contracts.SimulationEvent{
+			e.scheduleClassBBeaconLocked(gateway.ID, scheduled.At+types.ClassBBeaconPeriod),
+		}
 	}
 
 	e.metrics.ClassBBeacons++
+	beaconMessage := "virtual gateway beacon transmitted"
+	if gateway.Type == contracts.Real {
+		beaconMessage = "real gateway beacon scheduled for transmission"
+	}
 	events := []contracts.SimulationEvent{e.newEventLocked(
 		contracts.GatewayBeaconTransmitted,
-		"virtual gateway beacon transmitted",
+		beaconMessage,
 		"",
 		gateway.ID,
 		scheduled.ID,
@@ -74,6 +93,9 @@ func (e *Engine) processGatewayBeaconLocked(scheduled types.ScheduledEvent) []co
 			session.ClassBBeaconTimeoutID = ""
 		}
 	}
+	if gateway.Type == contracts.Real {
+		e.queueClassBBeaconLocked(gateway)
+	}
 
 	events = append(events, e.scheduleClassBBeaconLocked(gateway.ID, scheduled.At+types.ClassBBeaconPeriod))
 	return events
@@ -112,6 +134,13 @@ func (e *Engine) processClassBPingSlotLocked(scheduled types.ScheduledEvent) []c
 		!session.ClassBSynchronized || session.ClassBGatewayID != scheduled.GatewayID {
 		return nil
 	}
+	gateway, gatewayExists := e.registry.Gateway(scheduled.GatewayID)
+	if !gatewayExists || (gateway.Type == contracts.Real && !e.realGatewayReadyLocked(gateway.ID)) {
+		if next := e.scheduleClassBPingSlotLocked(device, session, scheduled.At+types.ClassBPingSlotPeriod); next != nil {
+			return []contracts.SimulationEvent{*next}
+		}
+		return nil
+	}
 
 	session.ClassBNextPingEventID = ""
 	session.NextPingSlotAt = scheduled.At
@@ -129,6 +158,9 @@ func (e *Engine) processClassBPingSlotLocked(scheduled types.ScheduledEvent) []c
 		session.PendingClassBDownlinks = session.PendingClassBDownlinks[1:]
 		session.FrameCounterDown++
 		e.metrics.ClassBDownlinks++
+		if gateway.Type == contracts.Real {
+			e.queueClassBDownlinkLocked(gateway, device, session, downlink)
+		}
 		events = append(events, e.newClassBDownlinkEventLocked(
 			contracts.ClassBDownlinkTransmitted,
 			"Class B downlink transmitted in ping slot",
@@ -173,7 +205,7 @@ func (e *Engine) scheduleClassBPingSlotLocked(device contracts.Device, session *
 }
 
 func (e *Engine) classBGatewayForDevice(device contracts.Device) *contracts.Gateway {
-	gateways := e.coveredGateways(device)
+	gateways := e.classBCoveredGateways(device)
 	if len(gateways) == 0 {
 		return nil
 	}
@@ -192,6 +224,44 @@ func (e *Engine) classBGatewayForDevice(device contracts.Device) *contracts.Gate
 		}
 	}
 	return &selected
+}
+
+func (e *Engine) classBCoveredGateways(device contracts.Device) []contracts.Gateway {
+	deviceLatitude, deviceLongitude := locationCoordinates(device)
+	gateways := make([]contracts.Gateway, 0)
+	for _, gateway := range e.registry.ActiveGateways() {
+		if gateway.Type == contracts.Real && !e.realGatewayReadyLocked(gateway.ID) {
+			continue
+		}
+		gatewayLatitude, gatewayLongitude := gatewayCoordinates(gateway)
+		if geometry.DistanceMeters(deviceLatitude, deviceLongitude, gatewayLatitude, gatewayLongitude) <= float64(device.AdvancedConfig.AntennaRange) {
+			gateways = append(gateways, gateway)
+		}
+	}
+	return gateways
+}
+
+func (e *Engine) realGatewayReadyLocked(gatewayID string) bool {
+	runtime, ok := e.gatewayRuntime[gatewayID]
+	if !ok || runtime.State != contracts.Connected {
+		return false
+	}
+	_, ok = e.gatewayAdapters[gatewayID]
+	return ok
+}
+
+func (e *Engine) rescheduleRealGatewayBeaconLocked(gatewayID string) *contracts.SimulationEvent {
+	gateway, ok := e.registry.Gateway(gatewayID)
+	if !ok || gateway.Type != contracts.Real {
+		return nil
+	}
+	for _, scheduled := range e.scheduler.Events() {
+		if scheduled.Kind == types.ScheduledEventGatewayBeacon && scheduled.GatewayID == gatewayID {
+			e.scheduler.Cancel(scheduled.ID)
+		}
+	}
+	event := e.scheduleClassBBeaconLocked(gatewayID, e.clock.Now()+classBRealGatewayInitialDelay)
+	return &event
 }
 
 func deviceIsCoveredByGateway(device contracts.Device, gateway contracts.Gateway) bool {
@@ -225,6 +295,80 @@ func (e *Engine) newClassBDownlinkEventLocked(
 	event.FrameCounter = &frameCounter
 	e.eventLog[len(e.eventLog)-1] = event
 	return event
+}
+
+func (e *Engine) queueClassBBeaconLocked(gateway contracts.Gateway) {
+	target := time.Now().Add(classBRealGatewayTimingLead)
+	e.gatewayPackets = append(e.gatewayPackets, types.GatewayPacket{
+		GatewayID:       gateway.ID,
+		Kind:            types.GatewayPacketClassBBeacon,
+		Payload:         classBBeaconPayload(target, gateway),
+		Frequency:       classBBeaconFrequency,
+		Bandwidth:       classBBeaconBandwidth,
+		SpreadingFactor: classBBeaconSpreadingFactor,
+		Power:           classBBeaconPower,
+		DataRate:        "SF9BW125",
+		TransmitAt:      target,
+	})
+}
+
+func (e *Engine) queueClassBDownlinkLocked(
+	gateway contracts.Gateway,
+	device contracts.Device,
+	session *types.DeviceSession,
+	downlink types.ClassBDownlink,
+) {
+	e.queueDataDownlinkLocked(
+		gateway,
+		device,
+		session,
+		downlink,
+		int64(device.RX2Config.ChannelFrequency),
+		downlink.DataRate,
+		0,
+	)
+}
+
+func classBBeaconPayload(transmitAt time.Time, gateway contracts.Gateway) []byte {
+	payload := make([]byte, 17)
+	gpsEpoch := time.Date(1980, time.January, 6, 0, 0, 0, 0, time.UTC)
+	seconds := uint32(transmitAt.UTC().Sub(gpsEpoch).Seconds())
+	binary.LittleEndian.PutUint32(payload[2:6], seconds)
+	binary.LittleEndian.PutUint16(payload[6:8], classBBeaconCRC(payload[:6]))
+	payload[8] = 0
+	putBeaconCoordinate(payload[9:12], float64(pointerValue(gateway.Latitude)), -90, 90)
+	putBeaconCoordinate(payload[12:15], float64(pointerValue(gateway.Longitude)), -180, 180)
+	binary.LittleEndian.PutUint16(payload[15:17], classBBeaconCRC(payload[8:15]))
+	return payload
+}
+
+func putBeaconCoordinate(destination []byte, value, minimum, maximum float64) {
+	normalized := (value - minimum) / (maximum - minimum)
+	if normalized < 0 {
+		normalized = 0
+	}
+	if normalized > 1 {
+		normalized = 1
+	}
+	encoded := uint32(normalized * float64(1<<24-1))
+	destination[0] = byte(encoded)
+	destination[1] = byte(encoded >> 8)
+	destination[2] = byte(encoded >> 16)
+}
+
+func classBBeaconCRC(value []byte) uint16 {
+	var crc uint16
+	for _, current := range value {
+		crc ^= uint16(current) << 8
+		for bit := 0; bit < 8; bit++ {
+			if crc&0x8000 != 0 {
+				crc = (crc << 1) ^ 0x1021
+			} else {
+				crc <<= 1
+			}
+		}
+	}
+	return crc
 }
 
 func pointerTo[T any](value T) *T {

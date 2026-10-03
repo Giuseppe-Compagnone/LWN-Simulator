@@ -5,6 +5,7 @@ import (
 	"time"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
+	"github.com/Giuseppe-Compagnone/lwn-engine/lorawan"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 )
 
@@ -191,5 +192,86 @@ func TestClassBDownlinkValidation(t *testing.T) {
 		if _, err := engine.QueueClassBDownlink(downlink); err == nil {
 			t.Fatalf("invalid downlink %d was accepted", index)
 		}
+	}
+}
+
+func TestClassBRealGatewayUsesTimedUDPPackets(t *testing.T) {
+	clock := types.NewManualClock(0)
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000016")
+	configureABP(&device)
+	device.Class = contracts.ClassB
+	device.DevEUI = "70B3D57ED0000016"
+	gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c16")
+	gateway.Type = contracts.Real
+	gateway.KeepAlive = nil
+	gateway.GatewayEUI = "A840410001000116"
+	gateway.MacAddress = "02:00:00:10:00:16"
+	gateway.GatewayIPv4 = engineStringPtr("127.0.0.1")
+	gateway.GatewayPort = engineInt32Ptr(1700)
+
+	adapter := newFakeGatewayAdapter()
+	engine, err := New(
+		contracts.SimulationConfig{Speed: 1},
+		[]contracts.Device{device},
+		[]contracts.Gateway{gateway},
+		types.Options{Clock: clock, EventBuffer: 512, GatewayAdapterFactory: &fakeGatewayFactory{adapter: adapter}},
+	)
+	if err != nil {
+		t.Fatalf("create real Class B engine: %v", err)
+	}
+	startEngine(t, engine)
+	defer stopEngine(t, engine)
+
+	waitForEventType(t, engine.Events(), contracts.GatewayConnecting)
+	adapter.emit(types.GatewayAdapterEvent{GatewayID: gateway.ID, State: contracts.Connected})
+	waitForEventType(t, engine.Events(), contracts.GatewayConnected)
+
+	if err := clock.Advance(time.Second); err != nil {
+		t.Fatalf("advance to real gateway beacon: %v", err)
+	}
+	waitForEventType(t, engine.Events(), contracts.DeviceBeaconSynchronized)
+	beacon := waitForGatewayPacketKind(t, adapter.sends, types.GatewayPacketClassBBeacon)
+	if len(beacon.Payload) != 17 || beacon.TransmitAt.IsZero() || beacon.DataRate != "SF9BW125" {
+		t.Fatalf("unexpected timed Class B beacon packet: %+v", beacon)
+	}
+
+	if _, err := engine.QueueClassBDownlink(types.ClassBDownlink{DeviceID: device.ID, Payload: []byte("real-downlink")}); err != nil {
+		t.Fatalf("queue real Class B downlink: %v", err)
+	}
+	if err := clock.Advance(time.Second); err != nil {
+		t.Fatalf("advance to real gateway ping slot: %v", err)
+	}
+	waitForEventType(t, engine.Events(), contracts.ClassBDownlinkTransmitted)
+	downlink := waitForGatewayPacketKind(t, adapter.sends, types.GatewayPacketClassBDownlink)
+	decoded, err := lorawan.Parse(downlink.Payload)
+	if err != nil || decoded.MType != lorawan.MTypeUnconfirmedDataDown || downlink.TransmitAt.IsZero() {
+		t.Fatalf("unexpected timed Class B downlink packet: %+v", downlink)
+	}
+}
+
+func waitForGatewayPacketKind(t *testing.T, packets <-chan types.GatewayPacket, expected types.GatewayPacketKind) types.GatewayPacket {
+	t.Helper()
+	deadline := time.After(time.Second)
+	for {
+		select {
+		case packet := <-packets:
+			if packet.Kind == expected {
+				return packet
+			}
+		case <-deadline:
+			t.Fatalf("timed out waiting for gateway packet kind %q", expected)
+			return types.GatewayPacket{}
+		}
+	}
+}
+
+func TestClassBBeaconCRCMatchesLoRaWANExample(t *testing.T) {
+	commonPart := []byte{0x00, 0x00, 0x00, 0x00, 0x02, 0xcc}
+	if got := classBBeaconCRC(commonPart); got != 0x7ea2 {
+		t.Fatalf("unexpected common beacon CRC: got %#04x", got)
+	}
+	gatewayPart := []byte{0x00, 0x01, 0x20, 0x00, 0x00, 0x81, 0x03}
+	if got := classBBeaconCRC(gatewayPart); got != 0x55de {
+		t.Fatalf("unexpected gateway-specific beacon CRC: got %#04x", got)
 	}
 }
