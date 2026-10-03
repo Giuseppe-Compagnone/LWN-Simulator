@@ -114,6 +114,48 @@ properties:
     format: double
     x-go-type: float64
     x-go-name: AverageAirtimeMilliseconds
+  gatewayConnections:
+    type: integer
+    format: int64
+    x-go-name: GatewayConnections
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  gatewayHeartbeats:
+    type: integer
+    format: int64
+    x-go-name: GatewayHeartbeats
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  gatewayIngressPackets:
+    type: integer
+    format: int64
+    x-go-name: GatewayIngressPackets
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  gatewayEgressPackets:
+    type: integer
+    format: int64
+    x-go-name: GatewayEgressPackets
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  gatewayNetworkErrors:
+    type: integer
+    format: int64
+    x-go-name: GatewayNetworkErrors
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  gatewayTimeouts:
+    type: integer
+    format: int64
+    x-go-name: GatewayTimeouts
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  gatewayReconnects:
+    type: integer
+    format: int64
+    x-go-name: GatewayReconnects
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
 
 required:
   - totalUplinks
@@ -135,3 +177,10 @@ required:
   - averageRSSI
   - averageSNR
   - averageAirtimeMilliseconds
+  - gatewayConnections
+  - gatewayHeartbeats
+  - gatewayIngressPackets
+  - gatewayEgressPackets
+  - gatewayNetworkErrors
+  - gatewayTimeouts
+  - gatewayReconnects

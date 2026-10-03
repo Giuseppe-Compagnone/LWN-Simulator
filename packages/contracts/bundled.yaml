@@ -677,6 +677,14 @@ components:
         - radio-transmission-completed
         - radio-collision-detected
         - radio-packet-lost
+        - gateway-connecting
+        - gateway-connected
+        - gateway-disconnected
+        - gateway-reconnecting
+        - gateway-heartbeat
+        - gateway-packet-ingress
+        - gateway-packet-egress
+        - gateway-network-error
       x-enum-varnames:
         - SimulationStarted
         - SimulationPaused
@@ -706,6 +714,14 @@ components:
         - RadioTransmissionCompleted
         - RadioCollisionDetected
         - RadioPacketLost
+        - GatewayConnecting
+        - GatewayConnected
+        - GatewayDisconnected
+        - GatewayReconnecting
+        - GatewayHeartbeat
+        - GatewayPacketIngress
+        - GatewayPacketEgress
+        - GatewayNetworkError
     RuntimeStatus:
       title: RuntimeStatus
       type: string
@@ -805,11 +821,55 @@ components:
           type: boolean
         status:
           $ref: '#/components/schemas/RuntimeStatus'
+        gatewayType:
+          $ref: '#/components/schemas/GatewayType'
+          x-go-name: GatewayType
+        gatewayEUI:
+          type: string
+          x-go-name: GatewayEUI
+        gatewayState:
+          $ref: '#/components/schemas/GatewayConnectionState'
+          x-go-name: GatewayState
+        lastHeartbeatMilliseconds:
+          type: integer
+          format: int64
+          x-go-name: LastHeartbeatMilliseconds
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        connectionAttempts:
+          type: integer
+          format: int64
+          x-go-name: ConnectionAttempts
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        lastNetworkError:
+          type: string
+          x-go-name: LastNetworkError
+        ingressPackets:
+          type: integer
+          format: int64
+          x-go-name: IngressPackets
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        egressPackets:
+          type: integer
+          format: int64
+          x-go-name: EgressPackets
+          x-oapi-codegen-extra-tags:
+            validate: min=0
       required:
         - id
         - name
         - active
         - status
+        - gatewayType
+        - gatewayEUI
+        - gatewayState
+        - lastHeartbeatMilliseconds
+        - connectionAttempts
+        - lastNetworkError
+        - ingressPackets
+        - egressPackets
     SimulationState:
       title: SimulationState
       type: object
@@ -952,6 +1012,17 @@ components:
           x-go-name: Collision
         radioLossReason:
           $ref: '#/components/schemas/SimulationRadioLossReason'
+        gatewayState:
+          $ref: '#/components/schemas/GatewayConnectionState'
+        payloadSize:
+          type: integer
+          format: int64
+          x-go-name: PayloadSize
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=0
+        error:
+          type: string
+          x-go-name: Error
       required:
         - id
         - sequence
@@ -1095,6 +1166,48 @@ components:
           format: double
           x-go-type: float64
           x-go-name: AverageAirtimeMilliseconds
+        gatewayConnections:
+          type: integer
+          format: int64
+          x-go-name: GatewayConnections
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        gatewayHeartbeats:
+          type: integer
+          format: int64
+          x-go-name: GatewayHeartbeats
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        gatewayIngressPackets:
+          type: integer
+          format: int64
+          x-go-name: GatewayIngressPackets
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        gatewayEgressPackets:
+          type: integer
+          format: int64
+          x-go-name: GatewayEgressPackets
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        gatewayNetworkErrors:
+          type: integer
+          format: int64
+          x-go-name: GatewayNetworkErrors
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        gatewayTimeouts:
+          type: integer
+          format: int64
+          x-go-name: GatewayTimeouts
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        gatewayReconnects:
+          type: integer
+          format: int64
+          x-go-name: GatewayReconnects
+          x-oapi-codegen-extra-tags:
+            validate: min=0
       required:
         - totalUplinks
         - successfulUplinks
@@ -1115,6 +1228,13 @@ components:
         - averageRSSI
         - averageSNR
         - averageAirtimeMilliseconds
+        - gatewayConnections
+        - gatewayHeartbeats
+        - gatewayIngressPackets
+        - gatewayEgressPackets
+        - gatewayNetworkErrors
+        - gatewayTimeouts
+        - gatewayReconnects
     SimulationRxWindow:
       title: SimulationRxWindow
       type: string
@@ -1137,6 +1257,21 @@ components:
         - Collision
         - LowSNR
         - RandomLoss
+    GatewayConnectionState:
+      title: GatewayConnectionState
+      type: string
+      enum:
+        - connecting
+        - connected
+        - disconnected
+        - reconnecting
+        - error
+      x-enum-varnames:
+        - Connecting
+        - Connected
+        - Disconnected
+        - Reconnecting
+        - Error
     RX1Config:
       title: RX1Config
       type: object

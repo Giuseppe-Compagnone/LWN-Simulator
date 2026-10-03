@@ -137,10 +137,56 @@ func (c *ManualClock) WaitUntil(
 
 type EventSink func(contracts.SimulationEvent)
 
+type GatewayPacket struct {
+	GatewayID       string
+	Payload         []byte
+	Frequency       int64
+	Bandwidth       int64
+	SpreadingFactor int
+	Power           int
+	DataRate        string
+	ReceivedAt      time.Time
+}
+
+type GatewayAdapterEvent struct {
+	GatewayID string
+	State     contracts.GatewayConnectionState
+	Error     string
+	Timeout   bool
+	Heartbeat bool
+	At        time.Time
+}
+
+type GatewayAdapter interface {
+	Start(context.Context) error
+	Send(context.Context, GatewayPacket) error
+	Packets() <-chan GatewayPacket
+	Events() <-chan GatewayAdapterEvent
+	Close() error
+}
+
+type GatewayAdapterFactory interface {
+	NewGatewayAdapter(contracts.Gateway) (GatewayAdapter, error)
+}
+
+type GatewayAdapterFactoryCloser interface {
+	Close() error
+}
+
+type GatewayRuntime struct {
+	State              contracts.GatewayConnectionState
+	LastHeartbeat      time.Duration
+	ConnectionAttempts int64
+	LastNetworkError   string
+	IngressPackets     int64
+	EgressPackets      int64
+}
+
 type Options struct {
-	Clock       Clock
-	EventSink   EventSink
-	EventBuffer int
+	Clock                 Clock
+	EventSink             EventSink
+	EventBuffer           int
+	GatewayAdapterFactory GatewayAdapterFactory
 }
 
 type ScheduledEvent struct {

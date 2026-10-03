@@ -99,6 +99,17 @@ properties:
     x-go-name: Collision
   radioLossReason:
     $ref: "./SimulationRadioLossReason.yaml"
+  gatewayState:
+    $ref: "./GatewayConnectionState.yaml"
+  payloadSize:
+    type: integer
+    format: int64
+    x-go-name: PayloadSize
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,min=0"
+  error:
+    type: string
+    x-go-name: Error
 
 required:
   - id

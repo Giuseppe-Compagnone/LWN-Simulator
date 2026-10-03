@@ -30,6 +30,14 @@ enum:
   - radio-transmission-completed
   - radio-collision-detected
   - radio-packet-lost
+  - gateway-connecting
+  - gateway-connected
+  - gateway-disconnected
+  - gateway-reconnecting
+  - gateway-heartbeat
+  - gateway-packet-ingress
+  - gateway-packet-egress
+  - gateway-network-error
 
 x-enum-varnames:
   - SimulationStarted
@@ -60,3 +68,11 @@ x-enum-varnames:
   - RadioTransmissionCompleted
   - RadioCollisionDetected
   - RadioPacketLost
+  - GatewayConnecting
+  - GatewayConnected
+  - GatewayDisconnected
+  - GatewayReconnecting
+  - GatewayHeartbeat
+  - GatewayPacketIngress
+  - GatewayPacketEgress
+  - GatewayNetworkError

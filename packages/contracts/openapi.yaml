@@ -105,3 +105,5 @@ components:
       $ref: "./schemas/Simulation/SimulationRxWindow.yaml"
     SimulationRadioLossReason:
       $ref: "./schemas/Simulation/SimulationRadioLossReason.yaml"
+    GatewayConnectionState:
+      $ref: "./schemas/Simulation/GatewayConnectionState.yaml"

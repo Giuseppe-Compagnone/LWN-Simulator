@@ -14,12 +14,15 @@ import (
 type Engine struct {
 	mu sync.RWMutex
 
-	config   contracts.SimulationConfig
-	registry *Registry
-	clock    types.Clock
-	sessions map[string]*types.DeviceSession
-	radio    map[string]*types.RadioTransmission
-	rng      *rand.Rand
+	config                contracts.SimulationConfig
+	registry              *Registry
+	clock                 types.Clock
+	sessions              map[string]*types.DeviceSession
+	radio                 map[string]*types.RadioTransmission
+	rng                   *rand.Rand
+	gatewayAdapterFactory types.GatewayAdapterFactory
+	gatewayAdapters       map[string]types.GatewayAdapter
+	gatewayRuntime        map[string]*types.GatewayRuntime
 
 	scheduler *Scheduler
 	events    chan contracts.SimulationEvent
@@ -65,20 +68,31 @@ func New(
 		seed = *config.Seed
 	}
 	sessions := make(map[string]*types.DeviceSession, len(devices))
+	gatewayRuntime := make(map[string]*types.GatewayRuntime, len(gateways))
 	for _, device := range registry.Devices() {
 		sessions[device.ID] = newDeviceSession(device)
 	}
+	for _, gateway := range registry.Gateways() {
+		state := contracts.Connected
+		if gateway.Type == contracts.Real {
+			state = contracts.Disconnected
+		}
+		gatewayRuntime[gateway.ID] = &types.GatewayRuntime{State: state}
+	}
 	return &Engine{
-		config:    config,
-		registry:  registry,
-		clock:     clock,
-		sessions:  sessions,
-		radio:     make(map[string]*types.RadioTransmission),
-		rng:       rand.New(rand.NewSource(seed)),
-		scheduler: NewScheduler(),
-		events:    make(chan contracts.SimulationEvent, bufferSize),
-		eventLog:  make([]contracts.SimulationEvent, 0, bufferSize),
-		sink:      options.EventSink,
+		config:                config,
+		registry:              registry,
+		clock:                 clock,
+		sessions:              sessions,
+		radio:                 make(map[string]*types.RadioTransmission),
+		rng:                   rand.New(rand.NewSource(seed)),
+		gatewayAdapterFactory: options.GatewayAdapterFactory,
+		gatewayAdapters:       make(map[string]types.GatewayAdapter),
+		gatewayRuntime:        gatewayRuntime,
+		scheduler:             NewScheduler(),
+		events:                make(chan contracts.SimulationEvent, bufferSize),
+		eventLog:              make([]contracts.SimulationEvent, 0, bufferSize),
+		sink:                  options.EventSink,
 		state: contracts.SimulationState{
 			Status:              contracts.SimulationStatusIdle,
 			Speed:               config.Speed,
@@ -179,6 +193,7 @@ func (e *Engine) Start(ctx context.Context) error {
 	for _, event := range events {
 		e.publish(event)
 	}
+	e.startGatewayAdapters(runCtx)
 	go e.run(runCtx)
 	return nil
 }
@@ -329,6 +344,18 @@ func (e *Engine) Snapshot() contracts.SimulationSnapshot {
 			snapshot.Devices[index].LastChannelFrequency = session.LastChannel
 		}
 	}
+	for index, gateway := range e.registry.Gateways() {
+		if runtime := e.gatewayRuntime[gateway.ID]; runtime != nil {
+			snapshot.Gateways[index].GatewayType = gateway.Type
+			snapshot.Gateways[index].GatewayEUI = gateway.GatewayEUI
+			snapshot.Gateways[index].GatewayState = runtime.State
+			snapshot.Gateways[index].LastHeartbeatMilliseconds = runtime.LastHeartbeat.Milliseconds()
+			snapshot.Gateways[index].ConnectionAttempts = runtime.ConnectionAttempts
+			snapshot.Gateways[index].LastNetworkError = runtime.LastNetworkError
+			snapshot.Gateways[index].IngressPackets = runtime.IngressPackets
+			snapshot.Gateways[index].EgressPackets = runtime.EgressPackets
+		}
+	}
 	if elapsed := e.clock.Now().Milliseconds(); elapsed > snapshot.State.ElapsedMilliseconds {
 		snapshot.State.ElapsedMilliseconds = elapsed
 	}
@@ -350,6 +377,7 @@ func (e *Engine) Events() <-chan contracts.SimulationEvent {
 
 func (e *Engine) run(ctx context.Context) {
 	defer func() {
+		e.stopGatewayAdapters()
 		e.mu.Lock()
 		if e.state.Status != contracts.SimulationStatusFailed {
 			e.state.Status = contracts.SimulationStatusStopped
