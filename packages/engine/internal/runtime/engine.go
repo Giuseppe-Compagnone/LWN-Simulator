@@ -35,10 +35,12 @@ type Engine struct {
 	state   contracts.SimulationState
 	metrics contracts.SimulationMetrics
 
-	runCancel context.CancelFunc
-	done      chan struct{}
-	wake      chan struct{}
-	restored  bool
+	runCancel    context.CancelFunc
+	done         chan struct{}
+	wake         chan struct{}
+	processingAt time.Duration
+	processing   bool
+	restored     bool
 }
 
 func New(
@@ -570,6 +572,13 @@ func (e *Engine) run(ctx context.Context) {
 		}
 
 		e.mu.Lock()
+		// Pause may have won the lock while WaitUntil was returning. Re-check
+		// the lifecycle state before consuming a due event so no scheduled work
+		// is processed after the pause transition has been committed.
+		if e.state.Status != contracts.SimulationStatusRunning {
+			e.mu.Unlock()
+			continue
+		}
 		due, ok := e.scheduler.PopDue(e.clock.Now())
 		if !ok {
 			e.mu.Unlock()
@@ -578,7 +587,10 @@ func (e *Engine) run(ctx context.Context) {
 		if elapsed := e.clock.Now().Milliseconds(); elapsed > e.state.ElapsedMilliseconds {
 			e.state.ElapsedMilliseconds = elapsed
 		}
+		e.processingAt = due.At
+		e.processing = true
 		events := e.processScheduledEventLocked(due)
+		e.processing = false
 		e.mu.Unlock()
 		for _, event := range events {
 			e.publish(event)
@@ -665,7 +677,7 @@ func (e *Engine) newEventLocked(
 		ID:                    uuid.NewString(),
 		Sequence:              e.state.EventSequence,
 		Type:                  eventType,
-		TimestampMilliseconds: e.clock.Now().Milliseconds(),
+		TimestampMilliseconds: e.eventTimestampLocked().Milliseconds(),
 		Message:               message,
 	}
 	if deviceID != "" {
@@ -679,6 +691,13 @@ func (e *Engine) newEventLocked(
 	}
 	e.eventLog = append(e.eventLog, event)
 	return event
+}
+
+func (e *Engine) eventTimestampLocked() time.Duration {
+	if e.processing {
+		return e.processingAt
+	}
+	return e.clock.Now()
 }
 
 func (e *Engine) newPacketEventLocked(

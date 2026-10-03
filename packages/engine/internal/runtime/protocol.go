@@ -160,7 +160,12 @@ func (e *Engine) processReceiveWindowLocked(scheduled types.ScheduledEvent) []co
 	)}
 	e.decorateWindowEventLocked(&events[0], scheduled, device, window)
 	e.eventLog[len(e.eventLog)-1] = events[0]
-	windowExpired := scheduled.WindowDuration > 0 && e.clock.Now() > scheduled.At+scheduled.WindowDuration
+	// A scheduled receive-window event represents the opening instant of the
+	// window. The engine may be catching up after a large manual-clock jump, so
+	// comparing against clock.Now() would incorrectly expire RX1/RX2 before the
+	// event is processed. eventTimestampLocked() resolves to scheduled.At while
+	// the event is being handled.
+	windowExpired := scheduled.WindowDuration > 0 && e.eventTimestampLocked() > scheduled.At+scheduled.WindowDuration
 
 	if session.PendingJoinRequest != nil && session.PendingJoinRequest.PacketID == scheduled.PacketID {
 		pending := session.PendingJoinRequest
