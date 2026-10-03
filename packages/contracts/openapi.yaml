@@ -103,3 +103,5 @@ components:
       $ref: "./schemas/Simulation/SimulationMetrics.yaml"
     SimulationRxWindow:
       $ref: "./schemas/Simulation/SimulationRxWindow.yaml"
+    SimulationRadioLossReason:
+      $ref: "./schemas/Simulation/SimulationRadioLossReason.yaml"

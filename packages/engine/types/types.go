@@ -161,11 +161,12 @@ type ScheduledEvent struct {
 type ScheduledEventKind string
 
 const (
-	ScheduledEventGeneric      ScheduledEventKind = "generic"
-	ScheduledEventDeviceUplink ScheduledEventKind = "device-uplink"
-	ScheduledEventJoinRequest  ScheduledEventKind = "join-request"
-	ScheduledEventRX1Window    ScheduledEventKind = "rx1-window"
-	ScheduledEventRX2Window    ScheduledEventKind = "rx2-window"
+	ScheduledEventGeneric       ScheduledEventKind = "generic"
+	ScheduledEventDeviceUplink  ScheduledEventKind = "device-uplink"
+	ScheduledEventJoinRequest   ScheduledEventKind = "join-request"
+	ScheduledEventRX1Window     ScheduledEventKind = "rx1-window"
+	ScheduledEventRX2Window     ScheduledEventKind = "rx2-window"
+	ScheduledEventRadioComplete ScheduledEventKind = "radio-transmission-complete"
 )
 
 type DeviceSession struct {
@@ -174,6 +175,10 @@ type DeviceSession struct {
 	FrameCounterDown   int64
 	PendingUplink      *PendingUplink
 	PendingJoinRequest *PendingJoinRequest
+	LastRSSI           float64
+	LastSNR            float64
+	LastAirtime        time.Duration
+	LastChannel        int64
 }
 
 type PendingUplink struct {
@@ -189,6 +194,30 @@ type PendingJoinRequest struct {
 	PacketID       string
 	GatewayIDs     []string
 	TransmissionAt time.Duration
+}
+
+type RadioChannel struct {
+	Frequency       int64
+	Bandwidth       int64
+	SpreadingFactor int
+}
+
+type RadioTransmission struct {
+	PacketID         string
+	DeviceID         string
+	FrameCounter     int64
+	Attempt          int
+	Confirmed        bool
+	StartAt          time.Duration
+	EndAt            time.Duration
+	ChannelFrequency int64
+	Bandwidth        int64
+	SpreadingFactor  int
+	Airtime          time.Duration
+	RSSI             float64
+	SNR              float64
+	GatewayIDs       []string
+	Collision        bool
 }
 
 type ValidationIssue struct {

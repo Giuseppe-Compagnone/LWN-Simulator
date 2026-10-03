@@ -673,6 +673,10 @@ components:
         - uplink-ack-received
         - uplink-retry-scheduled
         - frame-counter-rejected
+        - radio-transmission-started
+        - radio-transmission-completed
+        - radio-collision-detected
+        - radio-packet-lost
       x-enum-varnames:
         - SimulationStarted
         - SimulationPaused
@@ -698,6 +702,10 @@ components:
         - UplinkACKReceived
         - UplinkRetryScheduled
         - FrameCounterRejected
+        - RadioTransmissionStarted
+        - RadioTransmissionCompleted
+        - RadioCollisionDetected
+        - RadioPacketLost
     RuntimeStatus:
       title: RuntimeStatus
       type: string
@@ -745,6 +753,28 @@ components:
         pendingConfirmedUplink:
           type: boolean
           x-go-name: PendingConfirmedUplink
+        lastRSSI:
+          type: number
+          format: double
+          x-go-type: float64
+          x-go-name: LastRSSI
+        lastSNR:
+          type: number
+          format: double
+          x-go-type: float64
+          x-go-name: LastSNR
+        lastAirtimeMilliseconds:
+          type: integer
+          format: int64
+          x-go-name: LastAirtimeMilliseconds
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        lastChannelFrequency:
+          type: integer
+          format: int64
+          x-go-name: LastChannelFrequency
+          x-oapi-codegen-extra-tags:
+            validate: min=0
       required:
         - id
         - name
@@ -754,6 +784,10 @@ components:
         - frameCounterUp
         - frameCounterDown
         - pendingConfirmedUplink
+        - lastRSSI
+        - lastSNR
+        - lastAirtimeMilliseconds
+        - lastChannelFrequency
     RuntimeGateway:
       title: RuntimeGateway
       type: object
@@ -879,6 +913,45 @@ components:
           x-go-name: Confirmed
         rxWindow:
           $ref: '#/components/schemas/SimulationRxWindow'
+        channelFrequency:
+          type: integer
+          format: int64
+          x-go-name: ChannelFrequency
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=1
+        bandwidth:
+          type: integer
+          format: int64
+          x-go-name: Bandwidth
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=1
+        spreadingFactor:
+          type: integer
+          format: int32
+          x-go-name: SpreadingFactor
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=7,max=12
+        airtimeMilliseconds:
+          type: integer
+          format: int64
+          x-go-name: AirtimeMilliseconds
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=1
+        rssi:
+          type: number
+          format: double
+          x-go-type: float64
+          x-go-name: RSSI
+        snr:
+          type: number
+          format: double
+          x-go-type: float64
+          x-go-name: SNR
+        collision:
+          type: boolean
+          x-go-name: Collision
+        radioLossReason:
+          $ref: '#/components/schemas/SimulationRadioLossReason'
       required:
         - id
         - sequence
@@ -983,6 +1056,45 @@ components:
           x-go-name: FrameCounterErrors
           x-oapi-codegen-extra-tags:
             validate: min=0
+        totalTransmissions:
+          type: integer
+          format: int64
+          x-go-name: TotalTransmissions
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        collisions:
+          type: integer
+          format: int64
+          x-go-name: Collisions
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        radioPacketLosses:
+          type: integer
+          format: int64
+          x-go-name: RadioPacketLosses
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        lowSnrLosses:
+          type: integer
+          format: int64
+          x-go-name: LowSNRLosses
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        averageRSSI:
+          type: number
+          format: double
+          x-go-type: float64
+          x-go-name: AverageRSSI
+        averageSNR:
+          type: number
+          format: double
+          x-go-type: float64
+          x-go-name: AverageSNR
+        averageAirtimeMilliseconds:
+          type: number
+          format: double
+          x-go-type: float64
+          x-go-name: AverageAirtimeMilliseconds
       required:
         - totalUplinks
         - successfulUplinks
@@ -996,6 +1108,13 @@ components:
         - acknowledgedUplinks
         - retransmissions
         - frameCounterErrors
+        - totalTransmissions
+        - collisions
+        - radioPacketLosses
+        - lowSnrLosses
+        - averageRSSI
+        - averageSNR
+        - averageAirtimeMilliseconds
     SimulationRxWindow:
       title: SimulationRxWindow
       type: string
@@ -1005,6 +1124,19 @@ components:
       x-enum-varnames:
         - RX1
         - RX2
+    SimulationRadioLossReason:
+      title: SimulationRadioLossReason
+      type: string
+      enum:
+        - no-gateway
+        - collision
+        - low-snr
+        - random-loss
+      x-enum-varnames:
+        - NoGateway
+        - Collision
+        - LowSNR
+        - RandomLoss
     RX1Config:
       title: RX1Config
       type: object

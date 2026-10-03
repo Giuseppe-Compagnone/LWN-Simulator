@@ -26,6 +26,10 @@ enum:
   - uplink-ack-received
   - uplink-retry-scheduled
   - frame-counter-rejected
+  - radio-transmission-started
+  - radio-transmission-completed
+  - radio-collision-detected
+  - radio-packet-lost
 
 x-enum-varnames:
   - SimulationStarted
@@ -52,3 +56,7 @@ x-enum-varnames:
   - UplinkACKReceived
   - UplinkRetryScheduled
   - FrameCounterRejected
+  - RadioTransmissionStarted
+  - RadioTransmissionCompleted
+  - RadioCollisionDetected
+  - RadioPacketLost

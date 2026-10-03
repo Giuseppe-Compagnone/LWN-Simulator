@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"sync"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
@@ -17,6 +18,8 @@ type Engine struct {
 	registry *Registry
 	clock    types.Clock
 	sessions map[string]*types.DeviceSession
+	radio    map[string]*types.RadioTransmission
+	rng      *rand.Rand
 
 	scheduler *Scheduler
 	events    chan contracts.SimulationEvent
@@ -57,6 +60,10 @@ func New(
 	}
 
 	snapshot := registry.Snapshot()
+	seed := int64(1)
+	if config.Seed != nil {
+		seed = *config.Seed
+	}
 	sessions := make(map[string]*types.DeviceSession, len(devices))
 	for _, device := range registry.Devices() {
 		sessions[device.ID] = newDeviceSession(device)
@@ -66,6 +73,8 @@ func New(
 		registry:  registry,
 		clock:     clock,
 		sessions:  sessions,
+		radio:     make(map[string]*types.RadioTransmission),
+		rng:       rand.New(rand.NewSource(seed)),
 		scheduler: NewScheduler(),
 		events:    make(chan contracts.SimulationEvent, bufferSize),
 		eventLog:  make([]contracts.SimulationEvent, 0, bufferSize),
@@ -314,6 +323,10 @@ func (e *Engine) Snapshot() contracts.SimulationSnapshot {
 			snapshot.Devices[index].FrameCounterUp = session.FrameCounterUp
 			snapshot.Devices[index].FrameCounterDown = session.FrameCounterDown
 			snapshot.Devices[index].PendingConfirmedUplink = session.PendingUplink != nil
+			snapshot.Devices[index].LastRSSI = session.LastRSSI
+			snapshot.Devices[index].LastSNR = session.LastSNR
+			snapshot.Devices[index].LastAirtimeMilliseconds = session.LastAirtime.Milliseconds()
+			snapshot.Devices[index].LastChannelFrequency = session.LastChannel
 		}
 	}
 	if elapsed := e.clock.Now().Milliseconds(); elapsed > snapshot.State.ElapsedMilliseconds {

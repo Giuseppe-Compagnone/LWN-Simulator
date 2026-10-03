@@ -60,6 +60,45 @@ properties:
     x-go-name: Confirmed
   rxWindow:
     $ref: "./SimulationRxWindow.yaml"
+  channelFrequency:
+    type: integer
+    format: int64
+    x-go-name: ChannelFrequency
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,min=1"
+  bandwidth:
+    type: integer
+    format: int64
+    x-go-name: Bandwidth
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,min=1"
+  spreadingFactor:
+    type: integer
+    format: int32
+    x-go-name: SpreadingFactor
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,min=7,max=12"
+  airtimeMilliseconds:
+    type: integer
+    format: int64
+    x-go-name: AirtimeMilliseconds
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,min=1"
+  rssi:
+    type: number
+    format: double
+    x-go-type: float64
+    x-go-name: RSSI
+  snr:
+    type: number
+    format: double
+    x-go-type: float64
+    x-go-name: SNR
+  collision:
+    type: boolean
+    x-go-name: Collision
+  radioLossReason:
+    $ref: "./SimulationRadioLossReason.yaml"
 
 required:
   - id

@@ -25,6 +25,16 @@ func TestValidateHardwareRejectsUnrepresentableUplinkInterval(t *testing.T) {
 	}
 }
 
+func TestValidateHardwareRejectsInfiniteAntennaRange(t *testing.T) {
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000001")
+	device.AdvancedConfig.AntennaRange = float32(math.Inf(1))
+
+	err := ValidateHardware([]contracts.Device{device}, nil)
+	if err == nil || !strings.Contains(err.Error(), "antenna range") {
+		t.Fatalf("expected antenna range validation error, got %v", err)
+	}
+}
+
 func TestValidateHardwareRejectsInconsistentGateway(t *testing.T) {
 	gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c01")
 	gateway.Type = contracts.Real
@@ -93,7 +103,7 @@ func validDevice(id string) contracts.Device {
 			Delay:            intPtr(1),
 			Duration:         intPtr(1000),
 			ChannelFrequency: 869525000,
-			DataRate:         intPtr(0),
+			DataRate:         intPtr(5),
 			ACKTimeout:       2000,
 		},
 		FrameConfig: contracts.FrameConfig{

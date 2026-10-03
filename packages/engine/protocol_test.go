@@ -18,10 +18,7 @@ func TestPhaseThreeOTAAJoinOpensRX1AndStartsUplinks(t *testing.T) {
 	defer stopEngine(t, engine)
 
 	waitForEventType(t, engine.Events(), contracts.DeviceJoinRequestTransmitted)
-	waitForEventType(t, engine.Events(), contracts.JoinRequestReceived)
-	if err := clock.Advance(time.Second); err != nil {
-		t.Fatalf("advance to RX1: %v", err)
-	}
+	advanceAndWait(t, clock, time.Second, engine.Events(), contracts.JoinRequestReceived)
 	joinAccept := waitForEventType(t, engine.Events(), contracts.JoinAcceptReceived)
 	if joinAccept.RxWindow == nil || *joinAccept.RxWindow != contracts.RX1 {
 		t.Fatalf("expected join accept in RX1, got %+v", joinAccept.RxWindow)
@@ -128,10 +125,10 @@ func newTestEngine(t *testing.T, clock *types.ManualClock, device contracts.Devi
 	return engine
 }
 
-func advanceAndWait(t *testing.T, clock *types.ManualClock, delta time.Duration, events <-chan contracts.SimulationEvent, eventType contracts.SimulationEventType) {
+func advanceAndWait(t *testing.T, clock *types.ManualClock, delta time.Duration, events <-chan contracts.SimulationEvent, eventType contracts.SimulationEventType) contracts.SimulationEvent {
 	t.Helper()
 	if err := clock.Advance(delta); err != nil {
 		t.Fatalf("advance clock: %v", err)
 	}
-	waitForEventType(t, events, eventType)
+	return waitForEventType(t, events, eventType)
 }

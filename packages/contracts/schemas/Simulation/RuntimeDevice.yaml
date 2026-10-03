@@ -32,6 +32,28 @@ properties:
   pendingConfirmedUplink:
     type: boolean
     x-go-name: PendingConfirmedUplink
+  lastRSSI:
+    type: number
+    format: double
+    x-go-type: float64
+    x-go-name: LastRSSI
+  lastSNR:
+    type: number
+    format: double
+    x-go-type: float64
+    x-go-name: LastSNR
+  lastAirtimeMilliseconds:
+    type: integer
+    format: int64
+    x-go-name: LastAirtimeMilliseconds
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  lastChannelFrequency:
+    type: integer
+    format: int64
+    x-go-name: LastChannelFrequency
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
 
 required:
   - id
@@ -42,3 +64,7 @@ required:
   - frameCounterUp
   - frameCounterDown
   - pendingConfirmedUplink
+  - lastRSSI
+  - lastSNR
+  - lastAirtimeMilliseconds
+  - lastChannelFrequency

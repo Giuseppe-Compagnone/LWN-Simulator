@@ -18,6 +18,8 @@ func (e *Engine) processScheduledEventLocked(scheduled types.ScheduledEvent) []c
 		return e.processUplinkLocked(scheduled)
 	case types.ScheduledEventRX1Window, types.ScheduledEventRX2Window:
 		return e.processReceiveWindowLocked(scheduled)
+	case types.ScheduledEventRadioComplete:
+		return e.processRadioTransmissionCompletedLocked(scheduled)
 	default:
 		return []contracts.SimulationEvent{
 			e.newEventLocked(scheduled.Type, scheduled.Message, scheduled.DeviceID, scheduled.GatewayID, scheduled.ID),
@@ -47,15 +49,7 @@ func (e *Engine) processJoinRequestLocked(scheduled types.ScheduledEvent) []cont
 		"OTAA join request transmitted",
 		scheduled.DeviceID, "", scheduled.ID, packetID, -1, scheduled.Attempt, false, nil,
 	)}
-	for _, gateway := range gateways {
-		events = append(events, e.newProtocolEventLocked(
-			contracts.JoinRequestReceived,
-			"virtual gateway received join request",
-			scheduled.DeviceID, gateway.ID, scheduled.ID, packetID, -1, scheduled.Attempt, false, nil,
-		))
-	}
-	events = append(events, e.scheduleWindowLocked(device, scheduled, contracts.RX1, packetID, -1, false))
-	return events
+	return append(events, e.startRadioTransmissionLocked(device, scheduled, packetID, -1, false)...)
 }
 
 func (e *Engine) processUplinkLocked(scheduled types.ScheduledEvent) []contracts.SimulationEvent {
@@ -103,36 +97,11 @@ func (e *Engine) processUplinkLocked(scheduled types.ScheduledEvent) []contracts
 		e.metrics.Retransmissions++
 	}
 
-	gateways := e.coveredGateways(device)
-	if session.PendingUplink != nil {
-		session.PendingUplink.GatewayIDs = gatewayIDs(gateways)
-	}
 	events := []contracts.SimulationEvent{e.newProtocolEventLocked(
 		contracts.DeviceUplinkTransmitted, uplinkMessage(attempt, confirmed),
 		scheduled.DeviceID, "", scheduled.ID, packetID, frameCounter, attempt, confirmed, nil,
 	)}
-	for _, gateway := range gateways {
-		e.metrics.TotalPacketsReceived++
-		events = append(events, e.newProtocolEventLocked(
-			contracts.GatewayPacketReceived, "virtual gateway received uplink",
-			scheduled.DeviceID, gateway.ID, scheduled.ID, packetID, frameCounter, attempt, confirmed, nil,
-		))
-	}
-
-	if !confirmed {
-		if len(gateways) == 0 {
-			e.metrics.DroppedUplinks++
-			events = append(events, e.newPacketEventLocked(contracts.PacketDropped, "uplink dropped because no active virtual gateway covers the device", scheduled.DeviceID, "", scheduled.ID, packetID))
-		} else {
-			e.metrics.SuccessfulUplinks++
-		}
-		e.metrics.PacketSuccessRate = e.packetSuccessRate()
-		events = append(events, e.newPacketEventLocked(contracts.MetricsUpdated, "simulation metrics updated", scheduled.DeviceID, "", scheduled.ID, packetID))
-		return append(events, e.scheduleUplinkLocked(device, scheduled.At)...)
-	}
-
-	// A confirmed uplink is completed only after an ACK in RX1 or RX2.
-	return append(events, e.scheduleWindowLocked(device, scheduled, contracts.RX1, packetID, frameCounter, true))
+	return append(events, e.startRadioTransmissionLocked(device, scheduled, packetID, frameCounter, confirmed)...)
 }
 
 func (e *Engine) processReceiveWindowLocked(scheduled types.ScheduledEvent) []contracts.SimulationEvent {
@@ -282,8 +251,12 @@ func (e *Engine) scheduleWindowLocked(device contracts.Device, source types.Sche
 }
 
 func (e *Engine) scheduleUplinkLocked(device contracts.Device, base time.Duration) []contracts.SimulationEvent {
+	return e.scheduleUplinkAtLocked(device, base+durationSecondsFloat(device.PayloadConfig.UplinkInterval))
+}
+
+func (e *Engine) scheduleUplinkAtLocked(device contracts.Device, at time.Duration) []contracts.SimulationEvent {
 	next := types.ScheduledEvent{
-		ID: uuid.NewString(), At: base + durationSecondsFloat(device.PayloadConfig.UplinkInterval),
+		ID: uuid.NewString(), At: at,
 		Type: contracts.DeviceUplinkTransmitted, Message: "device uplink scheduled", DeviceID: device.ID,
 		Kind: types.ScheduledEventDeviceUplink, Attempt: 1,
 	}

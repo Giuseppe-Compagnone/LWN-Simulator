@@ -75,6 +75,45 @@ properties:
     x-go-name: FrameCounterErrors
     x-oapi-codegen-extra-tags:
       validate: "min=0"
+  totalTransmissions:
+    type: integer
+    format: int64
+    x-go-name: TotalTransmissions
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  collisions:
+    type: integer
+    format: int64
+    x-go-name: Collisions
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  radioPacketLosses:
+    type: integer
+    format: int64
+    x-go-name: RadioPacketLosses
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  lowSnrLosses:
+    type: integer
+    format: int64
+    x-go-name: LowSNRLosses
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  averageRSSI:
+    type: number
+    format: double
+    x-go-type: float64
+    x-go-name: AverageRSSI
+  averageSNR:
+    type: number
+    format: double
+    x-go-type: float64
+    x-go-name: AverageSNR
+  averageAirtimeMilliseconds:
+    type: number
+    format: double
+    x-go-type: float64
+    x-go-name: AverageAirtimeMilliseconds
 
 required:
   - totalUplinks
@@ -89,3 +128,10 @@ required:
   - acknowledgedUplinks
   - retransmissions
   - frameCounterErrors
+  - totalTransmissions
+  - collisions
+  - radioPacketLosses
+  - lowSnrLosses
+  - averageRSSI
+  - averageSNR
+  - averageAirtimeMilliseconds

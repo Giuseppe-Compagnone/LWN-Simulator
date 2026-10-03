@@ -29,7 +29,7 @@ func TestPhaseTwoTransmitsPeriodicUplinksToCoveredVirtualGateways(t *testing.T) 
 	startEngine(t, engine)
 	defer stopEngine(t, engine)
 
-	first := waitForEventType(t, engine.Events(), contracts.GatewayPacketReceived)
+	first := advanceAndWait(t, clock, time.Second, engine.Events(), contracts.GatewayPacketReceived)
 	if first.DeviceID == nil || *first.DeviceID != device.ID {
 		t.Fatalf("expected packet to reference device %s, got %+v", device.ID, first.DeviceID)
 	}
@@ -40,12 +40,16 @@ func TestPhaseTwoTransmitsPeriodicUplinksToCoveredVirtualGateways(t *testing.T) 
 		t.Fatal("expected received packet to have an id")
 	}
 
-	if err := clock.Advance(10 * time.Second); err != nil {
+	if err := clock.Advance(9 * time.Second); err != nil {
 		t.Fatalf("advance clock: %v", err)
 	}
+	waitForEventType(t, engine.Events(), contracts.DeviceUplinkTransmitted)
+	if err := clock.Advance(time.Second); err != nil {
+		t.Fatalf("advance to radio completion: %v", err)
+	}
 	second := waitForEventType(t, engine.Events(), contracts.GatewayPacketReceived)
-	if second.TimestampMilliseconds != 10_000 {
-		t.Fatalf("expected second uplink at 10 seconds, got %dms", second.TimestampMilliseconds)
+	if second.TimestampMilliseconds < 10_000 {
+		t.Fatalf("expected second uplink at or after 10 seconds, got %dms", second.TimestampMilliseconds)
 	}
 
 	metrics := engine.Snapshot().Metrics
@@ -85,7 +89,7 @@ func TestPhaseTwoDropsUplinkOutsideCoverageAndIgnoresRealGateway(t *testing.T) {
 	startEngine(t, engine)
 	defer stopEngine(t, engine)
 
-	dropped := waitForEventType(t, engine.Events(), contracts.PacketDropped)
+	dropped := advanceAndWait(t, clock, time.Second, engine.Events(), contracts.PacketDropped)
 	if dropped.PacketID == nil {
 		t.Fatal("expected dropped packet to have an id")
 	}
@@ -120,7 +124,7 @@ func TestPhaseTwoSchedulesOnlyActiveDevices(t *testing.T) {
 	startEngine(t, engine)
 	defer stopEngine(t, engine)
 
-	event := waitForEventType(t, engine.Events(), contracts.PacketDropped)
+	event := advanceAndWait(t, clock, time.Second, engine.Events(), contracts.PacketDropped)
 	if event.DeviceID == nil || *event.DeviceID != active.ID {
 		t.Fatalf("expected only active device to transmit, got %+v", event.DeviceID)
 	}

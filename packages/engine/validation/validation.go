@@ -99,7 +99,9 @@ func validateDevice(issues *types.ValidationErrors, prefix string, device contra
 	validateFrame(issues, prefix+".frameConfig", device.FrameConfig)
 	validatePayload(issues, prefix+".payloadConfig", device.PayloadConfig)
 
-	if device.AdvancedConfig.AntennaRange <= 0 || math.IsNaN(float64(device.AdvancedConfig.AntennaRange)) {
+	if device.AdvancedConfig.AntennaRange <= 0 ||
+		math.IsNaN(float64(device.AdvancedConfig.AntennaRange)) ||
+		math.IsInf(float64(device.AdvancedConfig.AntennaRange), 0) {
 		issues.Add(prefix+".advancedConfig.antennaRange", "must_be_positive", "antenna range must be greater than zero")
 	}
 
