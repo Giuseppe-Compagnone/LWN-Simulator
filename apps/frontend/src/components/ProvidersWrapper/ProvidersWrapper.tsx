@@ -6,6 +6,7 @@ import {
   AppInfoServiceProvider,
   DeviceServiceProvider,
   GatewayServiceProvider,
+  SimulationServiceProvider,
 } from "@lwn-simulator/sdk";
 import Navbar from "../Navbar";
 import Sidebar from "../Sidebar";
@@ -28,12 +29,14 @@ const ProvidersWrapper = (props: ProvidersWrapperProps) => {
       <AppInfoServiceProvider baseUrl={origin}>
         <DeviceServiceProvider baseUrl={origin}>
           <GatewayServiceProvider baseUrl={origin}>
-            <Navbar />
-            <Sidebar>
-              {props.children}
-              <Footer />
-            </Sidebar>
-            <ToastContainer />
+            <SimulationServiceProvider baseUrl={origin}>
+              <Navbar />
+              <Sidebar>
+                {props.children}
+                <Footer />
+              </Sidebar>
+              <ToastContainer />
+            </SimulationServiceProvider>
           </GatewayServiceProvider>
         </DeviceServiceProvider>
       </AppInfoServiceProvider>

@@ -1272,6 +1272,71 @@ components:
         - Disconnected
         - Reconnecting
         - Error
+    SimulationControlAction:
+      title: SimulationControlAction
+      type: string
+      enum:
+        - start
+        - pause
+        - resume
+        - stop
+      x-enum-varnames:
+        - SimulationStartAction
+        - SimulationPauseAction
+        - SimulationResumeAction
+        - SimulationStopAction
+    SimulationControlRequest:
+      title: SimulationControlRequest
+      type: object
+      properties:
+        action:
+          $ref: '#/components/schemas/SimulationControlAction'
+        speed:
+          type: number
+          x-go-type: float64
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,gt=0
+        seed:
+          type: integer
+          format: int64
+          x-oapi-codegen-extra-tags:
+            validate: omitempty
+      required:
+        - action
+    SimulationWebSocketMessageType:
+      title: SimulationWebSocketMessageType
+      type: string
+      enum:
+        - snapshot
+        - event
+        - error
+      x-enum-varnames:
+        - SimulationSnapshotMessage
+        - SimulationEventMessage
+        - SimulationErrorMessage
+    SimulationWebSocketMessage:
+      title: SimulationWebSocketMessage
+      type: object
+      properties:
+        type:
+          $ref: '#/components/schemas/SimulationWebSocketMessageType'
+        timestampMilliseconds:
+          type: integer
+          format: int64
+          x-go-name: TimestampMilliseconds
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        snapshot:
+          $ref: '#/components/schemas/SimulationSnapshot'
+        event:
+          $ref: '#/components/schemas/SimulationEvent'
+        error:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: omitempty
+      required:
+        - type
+        - timestampMilliseconds
     RX1Config:
       title: RX1Config
       type: object

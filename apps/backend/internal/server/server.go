@@ -8,8 +8,11 @@ import (
 	"lwn-simulator-backend/internal/services"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 
+	"github.com/Giuseppe-Compagnone/lwn-engine/gateway"
+	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -84,11 +87,19 @@ func New(port string) (*gin.Engine, error) {
 	gatewayRepository := repositories.NewGatewayRepository(dataDir)
 	gatewayService := services.NewGatewayService(gatewayRepository)
 
+	udpOptions := gateway.UDPOptions{LocalAddress: os.Getenv("LWN_GATEWAY_UDP_LISTEN_ADDR")}
+	simulationService := services.NewSimulationService(
+		deviceService,
+		gatewayService,
+		types.Options{GatewayAdapterFactory: gateway.NewUDPFactory(udpOptions)},
+	)
+
 	registerMiddleware(r)
 
 	registerRoutes(r, port, Services{
-		Device:  deviceService,
-		Gateway: gatewayService,
+		Device:     deviceService,
+		Gateway:    gatewayService,
+		Simulation: simulationService,
 	})
 
 	if err := registerFrontend(r); err != nil {

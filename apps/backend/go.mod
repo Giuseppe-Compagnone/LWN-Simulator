@@ -1,6 +1,14 @@
 module lwn-simulator-backend
 
-require github.com/Giuseppe-Compagnone/lwn-contracts v1.0.0
+require (
+	github.com/Giuseppe-Compagnone/lwn-contracts v1.0.0
+	github.com/Giuseppe-Compagnone/lwn-engine v1.0.0
+	github.com/gin-contrib/cors v1.7.7
+	github.com/gin-gonic/gin v1.12.0
+	github.com/go-playground/validator/v10 v10.30.3
+	github.com/google/uuid v1.6.0
+	github.com/gorilla/websocket v1.5.3
+)
 
 require (
 	github.com/bytedance/gopkg v0.1.4 // indirect
@@ -8,15 +16,11 @@ require (
 	github.com/bytedance/sonic/loader v0.5.2 // indirect
 	github.com/cloudwego/base64x v0.1.7 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.15 // indirect
-	github.com/gin-contrib/cors v1.7.7 // indirect
 	github.com/gin-contrib/sse v1.1.1 // indirect
-	github.com/gin-gonic/gin v1.12.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
-	github.com/go-playground/validator/v10 v10.30.3 // indirect
 	github.com/goccy/go-json v0.10.6 // indirect
 	github.com/goccy/go-yaml v1.19.2 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.4.0 // indirect
 	github.com/leodido/go-urn v1.5.0 // indirect
@@ -38,5 +42,7 @@ require (
 )
 
 replace github.com/Giuseppe-Compagnone/lwn-contracts => ../../packages/contracts
+
+replace github.com/Giuseppe-Compagnone/lwn-engine => ../../packages/engine
 
 go 1.26.5

@@ -107,3 +107,11 @@ components:
       $ref: "./schemas/Simulation/SimulationRadioLossReason.yaml"
     GatewayConnectionState:
       $ref: "./schemas/Simulation/GatewayConnectionState.yaml"
+    SimulationControlAction:
+      $ref: "./schemas/Simulation/SimulationControlAction.yaml"
+    SimulationControlRequest:
+      $ref: "./schemas/Simulation/SimulationControlRequest.yaml"
+    SimulationWebSocketMessageType:
+      $ref: "./schemas/Simulation/SimulationWebSocketMessageType.yaml"
+    SimulationWebSocketMessage:
+      $ref: "./schemas/Simulation/SimulationWebSocketMessage.yaml"
