@@ -1,4 +1,4 @@
-package engine
+package runtime
 
 import (
 	"math"
@@ -32,6 +32,28 @@ func TestValidateHardwareRejectsInfiniteAntennaRange(t *testing.T) {
 	err := ValidateHardware([]contracts.Device{device}, nil)
 	if err == nil || !strings.Contains(err.Error(), "antenna range") {
 		t.Fatalf("expected antenna range validation error, got %v", err)
+	}
+}
+
+func TestValidateHardwareRejectsInvalidEncodedPayload(t *testing.T) {
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000001")
+	device.PayloadConfig.Base64Encoded = true
+	device.PayloadConfig.Payload = "not-base64"
+
+	err := ValidateHardware([]contracts.Device{device}, nil)
+	if err == nil || !strings.Contains(err.Error(), "valid standard base64") {
+		t.Fatalf("expected base64 validation error, got %v", err)
+	}
+}
+
+func TestValidateHardwareRejectsInvalidUplinkDataRate(t *testing.T) {
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000001")
+	value := 6
+	device.AdvancedConfig.UplinkDataRate = &value
+
+	err := ValidateHardware([]contracts.Device{device}, nil)
+	if err == nil || !strings.Contains(err.Error(), "uplinkDataRate") {
+		t.Fatalf("expected uplink data rate validation error, got %v", err)
 	}
 }
 

@@ -123,6 +123,18 @@ func TestUDPAdapterReportsTimeoutAndReconnectState(t *testing.T) {
 	waitAdapterEvent(t, adapter.Events(), contracts.Reconnecting)
 }
 
+func TestSemtechDataRateParsing(t *testing.T) {
+	if got := parseSpreadingFactor("SF7BW125"); got != 7 {
+		t.Fatalf("expected SF7, got %d", got)
+	}
+	if got := parseBandwidth("SF7BW125"); got != 125000 {
+		t.Fatalf("expected 125kHz bandwidth, got %d", got)
+	}
+	if got := parseSpreadingFactor("FSK"); got != 0 {
+		t.Fatalf("expected invalid spreading factor to return zero, got %d", got)
+	}
+}
+
 func testRealGateway(port int) contracts.Gateway {
 	return contracts.Gateway{
 		ID: "6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c01", Active: true, Name: "Real Test Gateway",

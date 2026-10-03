@@ -1,11 +1,15 @@
-package engine
+package runtime
 
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
+	"github.com/google/uuid"
 )
 
 func (e *Engine) startGatewayAdapters(ctx context.Context) {
@@ -158,8 +162,66 @@ func (e *Engine) handleGatewayPacket(packet types.GatewayPacket) {
 		"",
 		"",
 	)
+	if packet.Frequency > 0 {
+		event.ChannelFrequency = &packet.Frequency
+	}
+	if packet.Bandwidth > 0 {
+		event.Bandwidth = &packet.Bandwidth
+	}
+	if packet.SpreadingFactor > 0 {
+		spreadingFactor := int32(packet.SpreadingFactor)
+		event.SpreadingFactor = &spreadingFactor
+	}
+	if dataRate := parseGatewayDataRate(packet.DataRate); dataRate >= 0 {
+		event.DataRate = &dataRate
+	}
 	e.mu.Unlock()
 	e.publish(event)
+}
+
+func (e *Engine) processVirtualGatewayHeartbeatLocked(scheduled types.ScheduledEvent) []contracts.SimulationEvent {
+	gateway, ok := e.registry.Gateway(scheduled.GatewayID)
+	if !ok || !gateway.Active || gateway.Type != contracts.Virtual || gateway.KeepAlive == nil {
+		return nil
+	}
+	if runtime := e.gatewayRuntime[gateway.ID]; runtime != nil {
+		runtime.State = contracts.Connected
+		runtime.LastHeartbeat = scheduled.At
+	}
+	e.metrics.GatewayHeartbeats++
+	event := e.newGatewayEventLocked(
+		contracts.GatewayHeartbeat,
+		"virtual gateway heartbeat received",
+		gateway.ID,
+		contracts.Connected,
+		nil,
+		"",
+		"",
+	)
+	next := types.ScheduledEvent{
+		ID: uuid.NewString(), At: scheduled.At + time.Duration(*gateway.KeepAlive)*time.Second,
+		Type: contracts.GatewayHeartbeat, Message: "virtual gateway heartbeat scheduled",
+		GatewayID: gateway.ID, Kind: types.ScheduledEventGatewayHeartbeat,
+	}
+	if err := e.scheduler.Schedule(next); err != nil {
+		return []contracts.SimulationEvent{event, e.newEventLocked(contracts.PacketDropped, "virtual gateway heartbeat could not be scheduled", "", gateway.ID, next.ID)}
+	}
+	return []contracts.SimulationEvent{event}
+}
+
+func parseGatewayDataRate(value string) int {
+	if !strings.HasPrefix(value, "SF") {
+		return -1
+	}
+	parts := strings.SplitN(strings.TrimPrefix(value, "SF"), "BW", 2)
+	if len(parts) != 2 {
+		return -1
+	}
+	sf, err := strconv.Atoi(parts[0])
+	if err != nil || sf < 7 || sf > 12 {
+		return -1
+	}
+	return 12 - sf
 }
 
 func (e *Engine) publishGatewayError(gatewayID string, err error, timeout bool) {

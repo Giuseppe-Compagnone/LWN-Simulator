@@ -107,6 +107,16 @@ properties:
     x-go-name: PayloadSize
     x-oapi-codegen-extra-tags:
       validate: "omitempty,min=0"
+  fPort:
+    type: integer
+    x-go-name: FPort
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,min=1,max=223"
+  dataRate:
+    type: integer
+    x-go-name: DataRate
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,min=0,max=15"
   error:
     type: string
     x-go-name: Error

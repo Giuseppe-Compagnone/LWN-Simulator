@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"lwn-simulator-backend/internal/database"
 	"lwn-simulator-backend/internal/frontend"
@@ -9,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/Giuseppe-Compagnone/lwn-engine/gateway"
@@ -92,7 +94,11 @@ func New(port string) (*gin.Engine, error) {
 		deviceService,
 		gatewayService,
 		types.Options{GatewayAdapterFactory: gateway.NewUDPFactory(udpOptions)},
+		services.NewFileSimulationCheckpointStore(filepath.Join(dataDir, "simulation-checkpoint.json")),
 	)
+	if err := simulationService.RestorePersisted(context.Background()); err != nil {
+		return nil, fmt.Errorf("restore persisted simulation: %w", err)
+	}
 
 	registerMiddleware(r)
 

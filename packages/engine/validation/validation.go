@@ -1,6 +1,7 @@
 package validation
 
 import (
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"math"
@@ -33,10 +34,11 @@ func ValidateHardware(devices []contracts.Device, gateways []contracts.Gateway) 
 		validateDevice(issues, prefix, device)
 		registerUnique(issues, ids, prefix+".id", device.ID, "device")
 
-		if _, exists := devEUIs[device.DevEUI]; exists {
+		devEUI := strings.ToUpper(device.DevEUI)
+		if _, exists := devEUIs[devEUI]; exists {
 			issues.Add(prefix+".devEUI", "duplicate", "DevEUI must be unique")
 		}
-		devEUIs[device.DevEUI] = struct{}{}
+		devEUIs[devEUI] = struct{}{}
 	}
 
 	for index, gateway := range gateways {
@@ -44,15 +46,21 @@ func ValidateHardware(devices []contracts.Device, gateways []contracts.Gateway) 
 		validateGateway(issues, prefix, gateway)
 		registerUnique(issues, ids, prefix+".id", gateway.ID, "gateway")
 
-		if _, exists := gatewayEUIs[gateway.GatewayEUI]; exists {
+		gatewayEUI := strings.ToUpper(gateway.GatewayEUI)
+		if _, exists := gatewayEUIs[gatewayEUI]; exists {
 			issues.Add(prefix+".gatewayEUI", "duplicate", "Gateway EUI must be unique")
 		}
-		gatewayEUIs[gateway.GatewayEUI] = struct{}{}
+		gatewayEUIs[gatewayEUI] = struct{}{}
 
-		if _, exists := macAddresses[strings.ToLower(gateway.MacAddress)]; exists {
+		macAddress, err := net.ParseMAC(gateway.MacAddress)
+		canonicalMAC := strings.ToLower(gateway.MacAddress)
+		if err == nil && len(macAddress) == 6 {
+			canonicalMAC = hex.EncodeToString(macAddress)
+		}
+		if _, exists := macAddresses[canonicalMAC]; exists {
 			issues.Add(prefix+".macAddress", "duplicate", "MAC address must be unique")
 		}
-		macAddresses[strings.ToLower(gateway.MacAddress)] = struct{}{}
+		macAddresses[canonicalMAC] = struct{}{}
 	}
 
 	return validationResult(issues)
@@ -103,6 +111,9 @@ func validateDevice(issues *types.ValidationErrors, prefix string, device contra
 		math.IsNaN(float64(device.AdvancedConfig.AntennaRange)) ||
 		math.IsInf(float64(device.AdvancedConfig.AntennaRange), 0) {
 		issues.Add(prefix+".advancedConfig.antennaRange", "must_be_positive", "antenna range must be greater than zero")
+	}
+	if configured := device.AdvancedConfig.UplinkDataRate; configured != nil && (*configured < 0 || *configured > 5) {
+		issues.Add(prefix+".advancedConfig.uplinkDataRate", "out_of_range", "uplink data rate must be between DR0 and DR5")
 	}
 
 	switch device.Activation {
@@ -180,15 +191,15 @@ func validateLocation(issues *types.ValidationErrors, prefix string, location co
 }
 
 func validateRX1(issues *types.ValidationErrors, prefix string, config contracts.RX1Config) {
-	validateNonNegativePointer(issues, prefix+".delay", config.Delay)
-	validateNonNegativePointer(issues, prefix+".duration", config.Duration)
-	validateNonNegativePointer(issues, prefix+".dataRateOffset", config.DataRateOffset)
+	validatePositivePointer(issues, prefix+".delay", config.Delay)
+	validatePositivePointer(issues, prefix+".duration", config.Duration)
+	validateRangePointer(issues, prefix+".dataRateOffset", config.DataRateOffset, 0, 5)
 }
 
 func validateRX2(issues *types.ValidationErrors, prefix string, config contracts.RX2Config) {
-	validateNonNegativePointer(issues, prefix+".delay", config.Delay)
-	validateNonNegativePointer(issues, prefix+".duration", config.Duration)
-	validateNonNegativePointer(issues, prefix+".dataRate", config.DataRate)
+	validatePositivePointer(issues, prefix+".delay", config.Delay)
+	validatePositivePointer(issues, prefix+".duration", config.Duration)
+	validateRangePointer(issues, prefix+".dataRate", config.DataRate, 0, 5)
 	if config.ChannelFrequency <= 0 || math.IsNaN(float64(config.ChannelFrequency)) || math.IsInf(float64(config.ChannelFrequency), 0) {
 		issues.Add(prefix+".channelFrequency", "must_be_positive", "channel frequency must be greater than zero")
 	}
@@ -217,6 +228,11 @@ func validatePayload(issues *types.ValidationErrors, prefix string, config contr
 	}
 	if !config.MType.Valid() {
 		issues.Add(prefix+".MType", "invalid_enum", "message type is not supported")
+	}
+	if config.Base64Encoded {
+		if _, err := base64.StdEncoding.DecodeString(config.Payload); err != nil {
+			issues.Add(prefix+".payload", "invalid_base64", "payload must be valid standard base64 when base64Encoded is true")
+		}
 	}
 }
 
@@ -262,11 +278,33 @@ func validateNonNegativePointer(issues *types.ValidationErrors, field string, va
 	}
 }
 
+func validatePositivePointer(issues *types.ValidationErrors, field string, value *int) {
+	if value == nil {
+		issues.Add(field, "required", "value is required")
+		return
+	}
+	if *value <= 0 {
+		issues.Add(field, "must_be_positive", "value must be greater than zero")
+	}
+}
+
+func validateRangePointer(issues *types.ValidationErrors, field string, value *int, min int, max int) {
+	if value == nil {
+		issues.Add(field, "required", "value is required")
+		return
+	}
+	if *value < min || *value > max {
+		issues.Add(field, "out_of_range", fmt.Sprintf("value must be between %d and %d", min, max))
+	}
+}
+
 func validateOptionalDoublePointer(issues *types.ValidationErrors, field string, value **int) {
 	if value == nil || *value == nil {
 		return
 	}
 	if **value < 0 {
 		issues.Add(field, "must_be_non_negative", "value cannot be negative")
+	} else if uint64(**value) > uint64(^uint32(0)) {
+		issues.Add(field, "out_of_range", "frame counter cannot exceed the LoRaWAN 32-bit range")
 	}
 }

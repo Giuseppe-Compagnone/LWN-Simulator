@@ -8,6 +8,11 @@ properties:
       validate: "required,gt=0"
   ADREnabled:
     type: boolean
+  uplinkDataRate:
+    type: integer
+    description: Initial uplink data rate (DR0..DR5). When omitted, the engine uses the regional default.
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty,min=0,max=5"
 
 required:
   - antennaRange

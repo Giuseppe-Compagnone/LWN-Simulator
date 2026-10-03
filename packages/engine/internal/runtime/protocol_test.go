@@ -1,4 +1,4 @@
-package engine
+package runtime
 
 import (
 	"testing"
@@ -18,7 +18,7 @@ func TestPhaseThreeOTAAJoinOpensRX1AndStartsUplinks(t *testing.T) {
 	defer stopEngine(t, engine)
 
 	waitForEventType(t, engine.Events(), contracts.DeviceJoinRequestTransmitted)
-	advanceAndWait(t, clock, time.Second, engine.Events(), contracts.JoinRequestReceived)
+	advanceAndWait(t, clock, 2*time.Second, engine.Events(), contracts.JoinRequestReceived)
 	joinAccept := waitForEventType(t, engine.Events(), contracts.JoinAcceptReceived)
 	if joinAccept.RxWindow == nil || *joinAccept.RxWindow != contracts.RX1 {
 		t.Fatalf("expected join accept in RX1, got %+v", joinAccept.RxWindow)
@@ -60,7 +60,7 @@ func TestPhaseThreeConfirmedUplinkReceivesACKInRX1(t *testing.T) {
 		t.Fatal("expected confirmed uplink to remain pending before ACK")
 	}
 
-	if err := clock.Advance(time.Second); err != nil {
+	if err := clock.Advance(2 * time.Second); err != nil {
 		t.Fatalf("advance to RX1: %v", err)
 	}
 	ack := waitForEventType(t, engine.Events(), contracts.UplinkACKReceived)
@@ -93,17 +93,17 @@ func TestPhaseThreeConfirmedUplinkRetriesAfterRX2Timeout(t *testing.T) {
 
 	waitForEventType(t, engine.Events(), contracts.DeviceUplinkTransmitted)
 	for attempt := 1; attempt <= 2; attempt++ {
-		advanceAndWait(t, clock, time.Second, engine.Events(), contracts.RX1WindowOpened)
-		advanceAndWait(t, clock, time.Second, engine.Events(), contracts.RX2WindowOpened)
-		advanceAndWait(t, clock, time.Second, engine.Events(), contracts.UplinkRetryScheduled)
+		advanceAndWait(t, clock, 2*time.Second, engine.Events(), contracts.RX1WindowOpened)
+		advanceAndWait(t, clock, 2*time.Second, engine.Events(), contracts.RX2WindowOpened)
+		advanceAndWait(t, clock, 2*time.Second, engine.Events(), contracts.UplinkRetryScheduled)
 		transmitted := waitForEventType(t, engine.Events(), contracts.DeviceUplinkTransmitted)
 		if transmitted.RetryAttempt == nil || int(*transmitted.RetryAttempt) != attempt+1 {
 			t.Fatalf("expected retry attempt %d, got %+v", attempt+1, transmitted.RetryAttempt)
 		}
 	}
 
-	advanceAndWait(t, clock, time.Second, engine.Events(), contracts.RX1WindowOpened)
-	advanceAndWait(t, clock, time.Second, engine.Events(), contracts.RX2WindowOpened)
+	advanceAndWait(t, clock, 2*time.Second, engine.Events(), contracts.RX1WindowOpened)
+	advanceAndWait(t, clock, 2*time.Second, engine.Events(), contracts.RX2WindowOpened)
 	waitForEventType(t, engine.Events(), contracts.PacketDropped)
 
 	metrics := engine.Snapshot().Metrics
@@ -112,6 +112,74 @@ func TestPhaseThreeConfirmedUplinkRetriesAfterRX2Timeout(t *testing.T) {
 	}
 	if metrics.FrameCounterErrors != 0 || metrics.SuccessfulUplinks != 0 {
 		t.Fatalf("unexpected frame counter/success metrics: %+v", metrics)
+	}
+}
+
+func TestDeviceRadioAndReceiveWindowConfigurationIsApplied(t *testing.T) {
+	clock := types.NewManualClock(0)
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000001")
+	configureABP(&device)
+	device.PayloadConfig.MType = contracts.ConfirmedDataUp
+	device.PayloadConfig.Payload = "this payload is intentionally longer than the DR0 regional limit"
+	device.PayloadConfig.OversizedPayloadBehavior = contracts.Truncate
+	device.RX1Config.DataRateOffset = intPtr(2)
+	configuredRate := 0
+	device.AdvancedConfig.UplinkDataRate = &configuredRate
+	gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c01")
+
+	engine := newTestEngine(t, clock, device, gateway)
+	defer stopEngine(t, engine)
+
+	uplink := waitForEventType(t, engine.Events(), contracts.DeviceUplinkTransmitted)
+	if uplink.DataRate == nil || *uplink.DataRate != 0 || uplink.SpreadingFactor == nil || *uplink.SpreadingFactor != 12 {
+		t.Fatalf("expected configured DR0/SF12 uplink, got %+v", uplink)
+	}
+	if uplink.PayloadSize == nil || *uplink.PayloadSize != 51 {
+		t.Fatalf("expected DR0 payload truncation to 51 bytes, got %+v", uplink.PayloadSize)
+	}
+
+	advanceAndWait(t, clock, 4*time.Second, engine.Events(), contracts.RX1WindowOpened)
+	rx1 := waitForEventType(t, engine.Events(), contracts.UplinkACKReceived)
+	if rx1.RxWindow == nil || *rx1.RxWindow != contracts.RX1 {
+		t.Fatalf("expected RX1 ACK, got %+v", rx1.RxWindow)
+	}
+	if rx1.DataRate == nil || *rx1.DataRate != 0 {
+		t.Fatalf("expected RX1 DR0 after offset clamp, got %+v", rx1.DataRate)
+	}
+}
+
+func TestOversizedPayloadFragmentationUsesMultiplePHYFrames(t *testing.T) {
+	clock := types.NewManualClock(0)
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000001")
+	configureABP(&device)
+	device.PayloadConfig.Payload = "this payload is intentionally longer than the regional DR0 maximum payload size"
+	device.PayloadConfig.OversizedPayloadBehavior = contracts.Fragment
+	fragmentRate := 0
+	device.AdvancedConfig.UplinkDataRate = &fragmentRate
+	gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c01")
+
+	engine := newTestEngine(t, clock, device, gateway)
+	defer stopEngine(t, engine)
+	waitForEventType(t, engine.Events(), contracts.DeviceUplinkTransmitted)
+
+	if err := clock.Advance(5 * time.Second); err != nil {
+		t.Fatalf("advance to complete fragmented payload: %v", err)
+	}
+	waitForEventType(t, engine.Events(), contracts.GatewayPacketReceived)
+	waitForEventType(t, engine.Events(), contracts.DeviceUplinkTransmitted)
+	waitForEventType(t, engine.Events(), contracts.GatewayPacketReceived)
+
+	transmissions := make([]contracts.SimulationEvent, 0, 2)
+	for _, event := range engine.EventLog() {
+		if event.Type == contracts.RadioTransmissionStarted && event.PayloadSize != nil {
+			transmissions = append(transmissions, event)
+		}
+	}
+	if len(transmissions) < 2 {
+		t.Fatalf("expected at least two radio frames for fragmented payload, got %d", len(transmissions))
+	}
+	if *transmissions[0].PayloadSize != 51 || *transmissions[1].PayloadSize <= 0 || *transmissions[1].PayloadSize >= 51 {
+		t.Fatalf("unexpected fragment sizes: %+v, %+v", transmissions[0].PayloadSize, transmissions[1].PayloadSize)
 	}
 }
 

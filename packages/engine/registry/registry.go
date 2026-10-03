@@ -109,10 +109,13 @@ func (r *Registry) Snapshot() contracts.SimulationSnapshot {
 			status = contracts.RuntimeStatusActive
 		}
 		runtimeDevices = append(runtimeDevices, contracts.RuntimeDevice{
-			ID:     device.ID,
-			Name:   device.Name,
-			Active: device.Active,
-			Status: status,
+			ID:                     device.ID,
+			Name:                   device.Name,
+			Active:                 device.Active,
+			Status:                 status,
+			CurrentDataRate:        initialDataRate(device),
+			CurrentSpreadingFactor: 12 - initialDataRate(device),
+			LastFPort:              device.FrameConfig.FPort,
 		})
 	}
 
@@ -139,4 +142,18 @@ func (r *Registry) Snapshot() contracts.SimulationSnapshot {
 			ActiveGateways: int64(len(r.ActiveGateways())),
 		},
 	}
+}
+
+func initialDataRate(device contracts.Device) int {
+	if device.AdvancedConfig.UplinkDataRate != nil {
+		value := *device.AdvancedConfig.UplinkDataRate
+		if value < 0 {
+			return 0
+		}
+		if value > 5 {
+			return 5
+		}
+		return value
+	}
+	return 5
 }

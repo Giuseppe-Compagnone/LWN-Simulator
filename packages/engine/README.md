@@ -11,15 +11,23 @@ engine runtime and test clocks.
 
 ## Package layout
 
-- `engine.go`: public lifecycle and traffic orchestration;
-- `protocol.go`: OTAA/ABP sessions, receive windows, ACKs and retries;
-- `radio.go`: airtime, channel selection, link budget and radio outcomes;
+- `engine.go`, `errors.go`, `registry.go`, `scheduler.go`, `validation.go`:
+  small public facades that preserve the stable `engine` import path;
+- `internal/runtime/`: lifecycle and traffic orchestration implementation,
+  including protocol sessions, receive windows, ACKs, retries, airtime,
+  channel selection, link budget and radio outcomes;
 - `gateway/`: real-gateway adapters, currently Semtech UDP;
 - `types/`: runtime abstractions such as clocks, scheduler events and sinks;
 - `scheduler/`: thread-safe priority queue for simulation events;
 - `registry/`: validated device and gateway runtime registry;
 - `validation/`: hardware and simulation configuration validation;
 - `geometry/`: geographic distance and coverage calculations.
+
+Runtime tests live next to the implementation in `internal/runtime/`, while
+package-specific tests remain next to their domain package. This keeps the
+module root focused on its public API and makes the dependency direction
+explicit: the facade delegates to the internal runtime, and the runtime uses
+the reusable domain packages.
 
 The small wrapper files in the root package preserve the public `engine` API
 while keeping each implementation concern isolated in its own package.

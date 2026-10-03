@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"sync"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
@@ -33,9 +34,10 @@ type SimulationSubscription struct {
 }
 
 type SimulationService struct {
-	devices  SimulationDeviceSource
-	gateways SimulationGatewaySource
-	options  types.Options
+	devices         SimulationDeviceSource
+	gateways        SimulationGatewaySource
+	options         types.Options
+	checkpointStore SimulationCheckpointStore
 
 	mu          sync.RWMutex
 	engine      *engine.Engine
@@ -48,13 +50,36 @@ func NewSimulationService(
 	devices SimulationDeviceSource,
 	gateways SimulationGatewaySource,
 	options types.Options,
+	stores ...SimulationCheckpointStore,
 ) *SimulationService {
-	return &SimulationService{
-		devices:     devices,
-		gateways:    gateways,
-		options:     options,
-		subscribers: make(map[uint64]chan SimulationUpdate),
+	var checkpointStore SimulationCheckpointStore
+	if len(stores) > 0 {
+		checkpointStore = stores[0]
 	}
+	return &SimulationService{
+		devices:         devices,
+		gateways:        gateways,
+		options:         options,
+		checkpointStore: checkpointStore,
+		subscribers:     make(map[uint64]chan SimulationUpdate),
+	}
+}
+
+// RestorePersisted resumes a simulation that was active when the backend
+// stopped. A deliberately stopped or failed simulation is not restarted.
+func (s *SimulationService) RestorePersisted(ctx context.Context) error {
+	if s.checkpointStore == nil {
+		return nil
+	}
+	checkpoint, err := s.checkpointStore.Load()
+	if err != nil || checkpoint == nil {
+		return err
+	}
+	if checkpoint.State.Status == contracts.SimulationStatusStopped || checkpoint.State.Status == contracts.SimulationStatusFailed {
+		return s.checkpointStore.Clear()
+	}
+	_, err = s.Start(ctx, checkpoint.Config)
+	return err
 }
 
 func (s *SimulationService) Start(
@@ -93,6 +118,16 @@ func (s *SimulationService) Start(
 
 	options := s.options
 	options.EventSink = s.handleEvent
+	if s.checkpointStore != nil {
+		checkpoint, checkpointErr := s.checkpointStore.Load()
+		if checkpointErr != nil {
+			s.finishStarting()
+			return contracts.SimulationSnapshot{}, checkpointErr
+		}
+		if checkpoint != nil && checkpoint.State.Status != contracts.SimulationStatusStopped && checkpoint.State.Status != contracts.SimulationStatusFailed {
+			options.Checkpoint = checkpoint
+		}
+	}
 	runtime, err := engine.New(config, devices.Devices, gateways.Gateways, options)
 	if err != nil {
 		s.finishStarting()
@@ -145,6 +180,11 @@ func (s *SimulationService) Stop(ctx context.Context) (contracts.SimulationSnaps
 	}
 	if err := runtime.Stop(ctx); err != nil {
 		return contracts.SimulationSnapshot{}, err
+	}
+	if s.checkpointStore != nil {
+		if err := s.checkpointStore.Clear(); err != nil {
+			return contracts.SimulationSnapshot{}, err
+		}
 	}
 	return runtime.Snapshot(), nil
 }
@@ -210,6 +250,11 @@ func (s *SimulationService) handleEvent(event contracts.SimulationEvent) {
 	}
 
 	update := SimulationUpdate{Snapshot: runtime.Snapshot(), Event: event}
+	if s.checkpointStore != nil {
+		if err := s.checkpointStore.Save(runtime.Checkpoint()); err != nil {
+			log.Printf("simulation checkpoint save failed: %v", err)
+		}
+	}
 	for _, channel := range updates {
 		select {
 		case channel <- update:

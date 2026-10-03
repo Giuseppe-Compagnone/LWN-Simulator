@@ -128,6 +128,18 @@ func (s *Scheduler) Len() int {
 	return len(s.queue)
 }
 
+// Events returns a stable copy of all pending events for checkpointing.
+func (s *Scheduler) Events() []types.ScheduledEvent {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	events := make([]types.ScheduledEvent, 0, len(s.queue))
+	for _, item := range s.queue {
+		events = append(events, item.event)
+	}
+	return events
+}
+
 func (s *Scheduler) Clear() {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -1,4 +1,4 @@
-package engine
+package runtime
 
 import (
 	"encoding/base64"
@@ -25,8 +25,14 @@ func (e *Engine) startRadioTransmissionLocked(
 	frameCounter int64,
 	confirmed bool,
 ) []contracts.SimulationEvent {
-	channel := selectRadioChannel(device, frameCounter)
-	airtime := calculateAirtime(device, channel.SpreadingFactor, channel.Bandwidth)
+	session := e.sessions[device.ID]
+	dataRate := currentDeviceDataRate(session, device)
+	if scheduled.DataRate > 0 {
+		dataRate = clampDataRate(scheduled.DataRate)
+	}
+	payloadSize := payloadSizeForFragment(device, dataRate, scheduled.FragmentIndex)
+	channel := selectRadioChannelAtDataRate(device, frameCounter, dataRate)
+	airtime := calculateAirtimeForPayload(payloadSize, channel.SpreadingFactor, channel.Bandwidth)
 	gateways := e.coveredGateways(device)
 	rssi, snr := calculateSignal(device, gateways, channel.Frequency)
 	transmission := &types.RadioTransmission{
@@ -40,6 +46,11 @@ func (e *Engine) startRadioTransmissionLocked(
 		ChannelFrequency: channel.Frequency,
 		Bandwidth:        channel.Bandwidth,
 		SpreadingFactor:  channel.SpreadingFactor,
+		DataRate:         dataRate,
+		FPort:            device.FrameConfig.FPort,
+		PayloadSize:      payloadSize,
+		FragmentIndex:    scheduled.FragmentIndex,
+		FragmentCount:    scheduled.FragmentCount,
 		Airtime:          airtime,
 		RSSI:             rssi,
 		SNR:              snr,
@@ -58,10 +69,14 @@ func (e *Engine) startRadioTransmissionLocked(
 	e.radio[packetID] = transmission
 
 	if session := e.sessions[device.ID]; session != nil {
+		session.CurrentDataRate = dataRate
+		session.CurrentSpreadingFactor = channel.SpreadingFactor
 		session.LastRSSI = rssi
 		session.LastSNR = snr
 		session.LastAirtime = airtime
 		session.LastChannel = channel.Frequency
+		session.LastPayloadSize = payloadSize
+		session.LastFPort = device.FrameConfig.FPort
 	}
 	e.metrics.TotalTransmissions++
 	e.metrics.AverageRSSI = runningAverage(e.metrics.AverageRSSI, e.metrics.TotalTransmissions, rssi)
@@ -150,6 +165,9 @@ func (e *Engine) completeRadioLossLocked(transmission *types.RadioTransmission, 
 		return []contracts.SimulationEvent{e.scheduleWindowLocked(device, radioWindowSource(transmission), contracts.RX1, transmission.PacketID, -1, false)}
 	}
 	if !transmission.Confirmed {
+		if session.PendingUplink != nil && session.PendingUplink.PacketID == transmission.PacketID {
+			session.PendingUplink = nil
+		}
 		e.metrics.DroppedUplinks++
 		e.metrics.PacketSuccessRate = e.packetSuccessRate()
 		events := []contracts.SimulationEvent{
@@ -176,6 +194,7 @@ func (e *Engine) completeRadioSuccessLocked(transmission *types.RadioTransmissio
 	}
 	if session.PendingUplink == nil || session.PendingUplink.PacketID != transmission.PacketID {
 		if !transmission.Confirmed {
+			e.applyADRLocked(device, session)
 			e.metrics.SuccessfulUplinks++
 			e.metrics.PacketSuccessRate = e.packetSuccessRate()
 			events := []contracts.SimulationEvent{e.newPacketEventLocked(contracts.MetricsUpdated, "simulation metrics updated", transmission.DeviceID, "", scheduledID, transmission.PacketID)}
@@ -187,6 +206,24 @@ func (e *Engine) completeRadioSuccessLocked(transmission *types.RadioTransmissio
 	if transmission.Confirmed {
 		return []contracts.SimulationEvent{e.scheduleWindowLocked(device, radioWindowSource(transmission), contracts.RX1, transmission.PacketID, transmission.FrameCounter, true)}
 	}
+	if session.PendingUplink.FragmentIndex+1 < session.PendingUplink.FragmentCount {
+		session.PendingUplink.FragmentIndex++
+		session.PendingUplink.GatewayIDs = nil
+		next := types.ScheduledEvent{
+			ID: uuid.NewString(), At: transmission.EndAt, Type: contracts.DeviceUplinkTransmitted,
+			Message: "next application payload fragment scheduled", DeviceID: device.ID,
+			Kind: types.ScheduledEventDeviceUplink, Attempt: 1, PacketID: transmission.PacketID,
+			FrameCounter: transmission.FrameCounter, Confirmed: false,
+			FragmentIndex: session.PendingUplink.FragmentIndex, FragmentCount: session.PendingUplink.FragmentCount,
+		}
+		if err := e.scheduler.Schedule(next); err != nil {
+			session.PendingUplink = nil
+			return []contracts.SimulationEvent{e.newEventLocked(contracts.PacketDropped, "next payload fragment could not be scheduled", device.ID, "", next.ID)}
+		}
+		return []contracts.SimulationEvent{e.newEventLocked(contracts.DeviceUplinkScheduled, "next application payload fragment scheduled", device.ID, "", next.ID)}
+	}
+	session.PendingUplink = nil
+	e.applyADRLocked(device, session)
 	e.metrics.SuccessfulUplinks++
 	e.metrics.PacketSuccessRate = e.packetSuccessRate()
 	events := []contracts.SimulationEvent{e.newPacketEventLocked(contracts.MetricsUpdated, "simulation metrics updated", transmission.DeviceID, "", scheduledID, transmission.PacketID)}
@@ -209,9 +246,15 @@ func (e *Engine) newRadioEventLocked(eventType contracts.SimulationEventType, me
 	airtimeMilliseconds := transmission.Airtime.Milliseconds()
 	rssi := transmission.RSSI
 	snr := transmission.SNR
+	dataRate := transmission.DataRate
+	fPort := transmission.FPort
+	payloadSize := int64(transmission.PayloadSize)
 	event.ChannelFrequency = &channelFrequency
 	event.Bandwidth = &bandwidth
 	event.SpreadingFactor = &spreadingFactor
+	event.DataRate = &dataRate
+	event.FPort = &fPort
+	event.PayloadSize = &payloadSize
 	event.AirtimeMilliseconds = &airtimeMilliseconds
 	event.RSSI = &rssi
 	event.SNR = &snr
@@ -231,11 +274,12 @@ func (e *Engine) radioLossReason(transmission *types.RadioTransmission) (contrac
 	if transmission.Collision {
 		return contracts.Collision, true
 	}
-	if transmission.SNR < -20 {
+	minimumSNR := minimumRequiredSNR(transmission.SpreadingFactor)
+	if transmission.SNR < minimumSNR {
 		return contracts.LowSNR, true
 	}
-	if transmission.SNR < -10 {
-		probability := math.Min(0.8, (-10-transmission.SNR)/20)
+	if transmission.SNR < minimumSNR+6 {
+		probability := math.Min(0.8, (minimumSNR+6-transmission.SNR)/12)
 		if e.rng.Float64() < probability {
 			return contracts.RandomLoss, true
 		}
@@ -263,13 +307,18 @@ func gatewayEventType(transmission *types.RadioTransmission) contracts.Simulatio
 
 func radioWindowSource(transmission *types.RadioTransmission) types.ScheduledEvent {
 	return types.ScheduledEvent{
-		At: transmission.StartAt, DeviceID: transmission.DeviceID, PacketID: transmission.PacketID,
+		At: transmission.EndAt, DeviceID: transmission.DeviceID, PacketID: transmission.PacketID,
 		FrameCounter: transmission.FrameCounter, Attempt: transmission.Attempt, Confirmed: transmission.Confirmed,
+		ChannelFrequency: transmission.ChannelFrequency, WindowBaseAt: transmission.EndAt,
 	}
 }
 
 func selectRadioChannel(device contracts.Device, frameCounter int64) types.RadioChannel {
-	channels := regionalChannels(device.LocationConfig.Region, spreadingFactor(device))
+	return selectRadioChannelAtDataRate(device, frameCounter, defaultUplinkDataRate(device.LocationConfig.Region))
+}
+
+func selectRadioChannelAtDataRate(device contracts.Device, frameCounter int64, dataRate int) types.RadioChannel {
+	channels := regionalChannels(device.LocationConfig.Region, dataRate)
 	index := int(frameCounter)
 	if index < 0 {
 		index = 0
@@ -277,7 +326,7 @@ func selectRadioChannel(device contracts.Device, frameCounter int64) types.Radio
 	return channels[index%len(channels)]
 }
 
-func regionalChannels(region contracts.DeviceRegion, sf int) []types.RadioChannel {
+func regionalChannels(region contracts.DeviceRegion, dataRate int) []types.RadioChannel {
 	frequencies := []int64{868_100_000, 868_300_000, 868_500_000}
 	switch region {
 	case contracts.EU433:
@@ -299,32 +348,97 @@ func regionalChannels(region contracts.DeviceRegion, sf int) []types.RadioChanne
 	}
 	channels := make([]types.RadioChannel, len(frequencies))
 	for index, frequency := range frequencies {
-		channels[index] = types.RadioChannel{Frequency: frequency, Bandwidth: radioBandwidthHz, SpreadingFactor: sf}
+		channels[index] = types.RadioChannel{Frequency: frequency, Bandwidth: radioBandwidthHz, DataRate: clampDataRate(dataRate), SpreadingFactor: spreadingFactorForDataRate(dataRate)}
 	}
 	return channels
 }
 
-func spreadingFactor(device contracts.Device) int {
-	dataRate := 0
-	if device.RX2Config.DataRate != nil {
-		dataRate = *device.RX2Config.DataRate
-	}
+func defaultUplinkDataRate(region contracts.DeviceRegion) int {
+	_ = region
+	return 5
+}
+
+func clampDataRate(dataRate int) int {
 	if dataRate < 0 {
-		dataRate = 0
+		return 0
 	}
 	if dataRate > 5 {
-		dataRate = 5
+		return 5
 	}
-	return 12 - dataRate
+	return dataRate
+}
+
+func spreadingFactorForDataRate(dataRate int) int {
+	return 12 - clampDataRate(dataRate)
+}
+
+func currentDeviceDataRate(session *types.DeviceSession, device contracts.Device) int {
+	if session != nil && session.CurrentDataRate >= 0 && session.CurrentDataRate <= 5 {
+		return session.CurrentDataRate
+	}
+	if configured := device.AdvancedConfig.UplinkDataRate; configured != nil {
+		return clampDataRate(*configured)
+	}
+	return defaultUplinkDataRate(device.LocationConfig.Region)
+}
+
+func effectivePayloadSize(device contracts.Device, dataRate int) int {
+	return payloadSizeForFragment(device, dataRate, 0)
+}
+
+func payloadFragmentCount(device contracts.Device, dataRate int) int {
+	payloadSize := len(payloadBytes(device))
+	maximum := maximumPayloadSize(device.LocationConfig.Region, dataRate)
+	if payloadSize <= maximum || device.PayloadConfig.OversizedPayloadBehavior != contracts.Fragment {
+		return 1
+	}
+	return (payloadSize + maximum - 1) / maximum
+}
+
+func payloadSizeForFragment(device contracts.Device, dataRate, fragmentIndex int) int {
+	payloadSize := len(payloadBytes(device))
+	maximum := maximumPayloadSize(device.LocationConfig.Region, dataRate)
+	if payloadSize <= maximum {
+		return payloadSize
+	}
+	if device.PayloadConfig.OversizedPayloadBehavior != contracts.Fragment {
+		return maximum
+	}
+	start := fragmentIndex * maximum
+	if start >= payloadSize {
+		return 0
+	}
+	remaining := payloadSize - start
+	if remaining > maximum {
+		return maximum
+	}
+	return remaining
+}
+
+func payloadBytes(device contracts.Device) []byte {
+	if device.PayloadConfig.Base64Encoded {
+		decoded, err := base64.StdEncoding.DecodeString(device.PayloadConfig.Payload)
+		if err == nil {
+			return decoded
+		}
+		return nil
+	}
+	return []byte(device.PayloadConfig.Payload)
+}
+
+func maximumPayloadSize(region contracts.DeviceRegion, dataRate int) int {
+	dataRate = clampDataRate(dataRate)
+	if region == contracts.US915 || region == contracts.AU915 {
+		return []int{11, 53, 125, 242, 242, 242}[dataRate]
+	}
+	return []int{51, 51, 115, 242, 242, 242}[dataRate]
 }
 
 func calculateAirtime(device contracts.Device, sf int, bandwidth int64) time.Duration {
-	payloadSize := len([]byte(device.PayloadConfig.Payload))
-	if device.PayloadConfig.Base64Encoded {
-		if decoded, err := base64.StdEncoding.DecodeString(device.PayloadConfig.Payload); err == nil {
-			payloadSize = len(decoded)
-		}
-	}
+	return calculateAirtimeForPayload(len(payloadBytes(device)), sf, bandwidth)
+}
+
+func calculateAirtimeForPayload(payloadSize, sf int, bandwidth int64) time.Duration {
 	payloadSize += 13
 	symbolDuration := math.Pow(2, float64(sf)) / float64(bandwidth)
 	denominator := 4 * float64(sf-2)
@@ -345,6 +459,8 @@ func calculateSignal(device contracts.Device, gateways []contracts.Gateway, freq
 	for _, gateway := range gateways {
 		gatewayLatitude, gatewayLongitude := gatewayCoordinates(gateway)
 		distance := geometry.DistanceMeters(latitude, longitude, gatewayLatitude, gatewayLongitude)
+		verticalDistance := float64(pointerValue(device.LocationConfig.Altitude)) - float64(pointerValue(gateway.Altitude))
+		distance = math.Sqrt(distance*distance + verticalDistance*verticalDistance)
 		if distance < minimumDistance {
 			minimumDistance = distance
 		}
@@ -353,6 +469,14 @@ func calculateSignal(device contracts.Device, gateways []contracts.Gateway, freq
 	pathLoss := 32.44 + 20*math.Log10(float64(frequency)/1_000_000) + 20*math.Log10(distanceKilometers)
 	rssi := radioTransmitPowerDBm - pathLoss
 	return rssi, rssi - radioNoiseFloorDBm
+}
+
+func minimumRequiredSNR(spreadingFactor int) float64 {
+	thresholds := map[int]float64{7: -7.5, 8: -10, 9: -12.5, 10: -15, 11: -17.5, 12: -20}
+	if threshold, ok := thresholds[spreadingFactor]; ok {
+		return threshold
+	}
+	return -20
 }
 
 func runningAverage(previous float64, count int64, value float64) float64 {

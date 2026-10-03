@@ -210,6 +210,11 @@ components:
             validate: required,gt=0
         ADREnabled:
           type: boolean
+        uplinkDataRate:
+          type: integer
+          description: Initial uplink data rate (DR0..DR5). When omitted, the engine uses the regional default.
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=0,max=5
       required:
         - antennaRange
         - ADREnabled
@@ -791,6 +796,26 @@ components:
           x-go-name: LastChannelFrequency
           x-oapi-codegen-extra-tags:
             validate: min=0
+        currentDataRate:
+          type: integer
+          x-go-name: CurrentDataRate
+          x-oapi-codegen-extra-tags:
+            validate: min=0,max=15
+        currentSpreadingFactor:
+          type: integer
+          x-go-name: CurrentSpreadingFactor
+          x-oapi-codegen-extra-tags:
+            validate: min=7,max=12
+        lastPayloadSize:
+          type: integer
+          x-go-name: LastPayloadSize
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        lastFPort:
+          type: integer
+          x-go-name: LastFPort
+          x-oapi-codegen-extra-tags:
+            validate: min=1,max=223
       required:
         - id
         - name
@@ -804,6 +829,10 @@ components:
         - lastSNR
         - lastAirtimeMilliseconds
         - lastChannelFrequency
+        - currentDataRate
+        - currentSpreadingFactor
+        - lastPayloadSize
+        - lastFPort
     RuntimeGateway:
       title: RuntimeGateway
       type: object
@@ -1020,6 +1049,16 @@ components:
           x-go-name: PayloadSize
           x-oapi-codegen-extra-tags:
             validate: omitempty,min=0
+        fPort:
+          type: integer
+          x-go-name: FPort
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=1,max=223
+        dataRate:
+          type: integer
+          x-go-name: DataRate
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=0,max=15
         error:
           type: string
           x-go-name: Error

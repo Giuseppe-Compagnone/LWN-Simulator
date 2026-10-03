@@ -555,11 +555,13 @@ func (adapter *udpAdapter) handlePushData(ctx context.Context, body []byte) erro
 			return fmt.Errorf("decode gateway payload: %w", err)
 		}
 		packet := types.GatewayPacket{
-			GatewayID:  adapter.gatewayID,
-			Payload:    decoded,
-			Frequency:  int64(math.Round(received.Frequency * 1_000_000)),
-			DataRate:   received.DataRate,
-			ReceivedAt: time.Now(),
+			GatewayID:       adapter.gatewayID,
+			Payload:         decoded,
+			Frequency:       int64(math.Round(received.Frequency * 1_000_000)),
+			Bandwidth:       parseBandwidth(received.DataRate),
+			SpreadingFactor: parseSpreadingFactor(received.DataRate),
+			DataRate:        received.DataRate,
+			ReceivedAt:      time.Now(),
 		}
 		select {
 		case adapter.packets <- packet:
@@ -568,6 +570,29 @@ func (adapter *udpAdapter) handlePushData(ctx context.Context, body []byte) erro
 		}
 	}
 	return adapter.emitHeartbeat(ctx)
+}
+
+func parseSpreadingFactor(dataRate string) int {
+	if !strings.HasPrefix(dataRate, "SF") {
+		return 0
+	}
+	value, err := strconv.Atoi(strings.TrimPrefix(strings.Split(dataRate, "BW")[0], "SF"))
+	if err != nil || value < 7 || value > 12 {
+		return 0
+	}
+	return value
+}
+
+func parseBandwidth(dataRate string) int64 {
+	parts := strings.Split(dataRate, "BW")
+	if len(parts) != 2 {
+		return 0
+	}
+	value, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil || value <= 0 {
+		return 0
+	}
+	return value * 1000
 }
 
 func (adapter *udpAdapter) handleTXAck(body []byte) error {
