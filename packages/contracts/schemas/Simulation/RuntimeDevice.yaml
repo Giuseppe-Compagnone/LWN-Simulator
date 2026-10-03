@@ -74,6 +74,27 @@ properties:
     x-go-name: LastFPort
     x-oapi-codegen-extra-tags:
       validate: "min=1,max=223"
+  classBSynchronized:
+    type: boolean
+    x-go-name: ClassBSynchronized
+  lastBeaconTimestampMilliseconds:
+    type: integer
+    format: int64
+    x-go-name: LastBeaconTimestampMilliseconds
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  nextPingSlotTimestampMilliseconds:
+    type: integer
+    format: int64
+    x-go-name: NextPingSlotTimestampMilliseconds
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  classBMissedBeacons:
+    type: integer
+    format: int64
+    x-go-name: ClassBMissedBeacons
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
 
 required:
   - id
@@ -92,3 +113,7 @@ required:
   - currentSpreadingFactor
   - lastPayloadSize
   - lastFPort
+  - classBSynchronized
+  - lastBeaconTimestampMilliseconds
+  - nextPingSlotTimestampMilliseconds
+  - classBMissedBeacons

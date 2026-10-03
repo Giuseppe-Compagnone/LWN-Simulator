@@ -690,6 +690,14 @@ components:
         - gateway-packet-ingress
         - gateway-packet-egress
         - gateway-network-error
+        - gateway-beacon-scheduled
+        - gateway-beacon-transmitted
+        - device-beacon-synchronized
+        - device-beacon-missed
+        - class-b-ping-slot-scheduled
+        - class-b-ping-slot-opened
+        - class-b-downlink-scheduled
+        - class-b-downlink-transmitted
       x-enum-varnames:
         - SimulationStarted
         - SimulationPaused
@@ -727,6 +735,14 @@ components:
         - GatewayPacketIngress
         - GatewayPacketEgress
         - GatewayNetworkError
+        - GatewayBeaconScheduled
+        - GatewayBeaconTransmitted
+        - DeviceBeaconSynchronized
+        - DeviceBeaconMissed
+        - ClassBPingSlotScheduled
+        - ClassBPingSlotOpened
+        - ClassBDownlinkScheduled
+        - ClassBDownlinkTransmitted
     RuntimeStatus:
       title: RuntimeStatus
       type: string
@@ -816,6 +832,27 @@ components:
           x-go-name: LastFPort
           x-oapi-codegen-extra-tags:
             validate: min=1,max=223
+        classBSynchronized:
+          type: boolean
+          x-go-name: ClassBSynchronized
+        lastBeaconTimestampMilliseconds:
+          type: integer
+          format: int64
+          x-go-name: LastBeaconTimestampMilliseconds
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        nextPingSlotTimestampMilliseconds:
+          type: integer
+          format: int64
+          x-go-name: NextPingSlotTimestampMilliseconds
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        classBMissedBeacons:
+          type: integer
+          format: int64
+          x-go-name: ClassBMissedBeacons
+          x-oapi-codegen-extra-tags:
+            validate: min=0
       required:
         - id
         - name
@@ -833,6 +870,10 @@ components:
         - currentSpreadingFactor
         - lastPayloadSize
         - lastFPort
+        - classBSynchronized
+        - lastBeaconTimestampMilliseconds
+        - nextPingSlotTimestampMilliseconds
+        - classBMissedBeacons
     RuntimeGateway:
       title: RuntimeGateway
       type: object
@@ -1247,6 +1288,36 @@ components:
           x-go-name: GatewayReconnects
           x-oapi-codegen-extra-tags:
             validate: min=0
+        classBBeacons:
+          type: integer
+          format: int64
+          x-go-name: ClassBBeacons
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        classBSynchronizations:
+          type: integer
+          format: int64
+          x-go-name: ClassBSynchronizations
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        classBMissedBeacons:
+          type: integer
+          format: int64
+          x-go-name: ClassBMissedBeacons
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        classBPingSlots:
+          type: integer
+          format: int64
+          x-go-name: ClassBPingSlots
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        classBDownlinks:
+          type: integer
+          format: int64
+          x-go-name: ClassBDownlinks
+          x-oapi-codegen-extra-tags:
+            validate: min=0
       required:
         - totalUplinks
         - successfulUplinks
@@ -1274,6 +1345,11 @@ components:
         - gatewayNetworkErrors
         - gatewayTimeouts
         - gatewayReconnects
+        - classBBeacons
+        - classBSynchronizations
+        - classBMissedBeacons
+        - classBPingSlots
+        - classBDownlinks
     SimulationRxWindow:
       title: SimulationRxWindow
       type: string

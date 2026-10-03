@@ -154,6 +154,7 @@ func (e *Engine) restoreCheckpoint(checkpoint *types.EngineCheckpoint) error {
 				pending.GatewayIDs = append([]string(nil), pending.GatewayIDs...)
 				copySession.PendingJoinRequest = &pending
 			}
+			copySession.PendingClassBDownlinks = cloneClassBDownlinks(session.PendingClassBDownlinks)
 			e.sessions[deviceID] = &copySession
 		}
 	}
@@ -221,6 +222,10 @@ func (e *Engine) Start(ctx context.Context) error {
 		))
 	}
 	if !e.restored {
+		for _, gateway := range e.registry.ActiveVirtualGateways() {
+			beacon := e.scheduleClassBBeaconLocked(gateway.ID, 0)
+			events = append(events, beacon)
+		}
 		for _, gateway := range e.registry.ActiveVirtualGateways() {
 			if gateway.KeepAlive == nil {
 				continue
@@ -416,6 +421,93 @@ func (e *Engine) Cancel(eventID string) error {
 	return nil
 }
 
+// QueueClassBDownlink queues an application downlink for the device's next
+// available Class B ping slot. The payload remains queued while the device is
+// acquiring or recovering beacon synchronization.
+func (e *Engine) QueueClassBDownlink(downlink types.ClassBDownlink) (string, error) {
+	if downlink.DeviceID == "" {
+		return "", fmt.Errorf("class B downlink device id is required")
+	}
+	if len(downlink.Payload) == 0 {
+		return "", fmt.Errorf("class B downlink payload cannot be empty")
+	}
+
+	e.mu.Lock()
+
+	device, session, ok := e.deviceSessionLocked(downlink.DeviceID)
+	if !ok {
+		e.mu.Unlock()
+		return "", fmt.Errorf("class B downlink device %s is not registered", downlink.DeviceID)
+	}
+	if device.Class != contracts.ClassB {
+		e.mu.Unlock()
+		return "", fmt.Errorf("device %s is not a Class B device", downlink.DeviceID)
+	}
+	if !device.Active {
+		e.mu.Unlock()
+		return "", fmt.Errorf("device %s is inactive", downlink.DeviceID)
+	}
+	if e.state.Status != contracts.SimulationStatusRunning && e.state.Status != contracts.SimulationStatusPaused {
+		e.mu.Unlock()
+		return "", fmt.Errorf("%w: cannot queue Class B downlink from %q", ErrInvalidTransition, e.state.Status)
+	}
+	if downlink.FPort == 0 {
+		downlink.FPort = device.FrameConfig.FPort
+	}
+	if downlink.FPort < 1 || downlink.FPort > 223 {
+		e.mu.Unlock()
+		return "", fmt.Errorf("class B downlink FPort must be between 1 and 223")
+	}
+	if downlink.DataRate < -1 || downlink.DataRate > 5 {
+		e.mu.Unlock()
+		return "", fmt.Errorf("class B downlink data rate must be between -1 and 5")
+	}
+	if downlink.ID != "" {
+		if _, err := uuid.Parse(downlink.ID); err != nil {
+			e.mu.Unlock()
+			return "", fmt.Errorf("class B downlink id must be a valid UUID: %w", err)
+		}
+	}
+	dataRate := downlink.DataRate
+	if dataRate < 0 {
+		dataRate = currentDeviceDataRate(session, device)
+	}
+	if len(downlink.Payload) > maximumPayloadSize(device.LocationConfig.Region, dataRate) {
+		e.mu.Unlock()
+		return "", fmt.Errorf("class B downlink payload exceeds the regional maximum for data rate %d", dataRate)
+	}
+	if downlink.ID == "" {
+		downlink.ID = uuid.NewString()
+	}
+	downlink.Payload = append([]byte(nil), downlink.Payload...)
+	session.PendingClassBDownlinks = append(session.PendingClassBDownlinks, downlink)
+	event := e.newClassBDownlinkEventLocked(
+		contracts.ClassBDownlinkScheduled,
+		"Class B downlink queued for the next ping slot",
+		device,
+		session,
+		downlink,
+		"",
+	)
+
+	// The normal ping-slot chain is created by beacon synchronization. If a
+	// caller queues after synchronization but the chain was interrupted, make
+	// sure the next slot is restored immediately.
+	if session.ClassBSynchronized && session.ClassBNextPingEventID == "" {
+		scheduleEvent := e.scheduleClassBPingSlotLocked(device, session, e.eventTimestampLocked()+types.ClassBPingSlotPeriod)
+		if scheduleEvent != nil {
+			deferredScheduleEvent := *scheduleEvent
+			e.mu.Unlock()
+			e.publish(deferredScheduleEvent)
+			e.publish(event)
+			return downlink.ID, nil
+		}
+	}
+	e.mu.Unlock()
+	e.publish(event)
+	return downlink.ID, nil
+}
+
 func (e *Engine) Snapshot() contracts.SimulationSnapshot {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
@@ -437,6 +529,10 @@ func (e *Engine) Snapshot() contracts.SimulationSnapshot {
 			snapshot.Devices[index].CurrentSpreadingFactor = session.CurrentSpreadingFactor
 			snapshot.Devices[index].LastPayloadSize = session.LastPayloadSize
 			snapshot.Devices[index].LastFPort = session.LastFPort
+			snapshot.Devices[index].ClassBSynchronized = session.ClassBSynchronized
+			snapshot.Devices[index].LastBeaconTimestampMilliseconds = session.LastBeaconAt.Milliseconds()
+			snapshot.Devices[index].NextPingSlotTimestampMilliseconds = session.NextPingSlotAt.Milliseconds()
+			snapshot.Devices[index].ClassBMissedBeacons = session.ClassBMissedBeacons
 		}
 	}
 	for index, gateway := range e.registry.Gateways() {
@@ -491,6 +587,7 @@ func (e *Engine) Checkpoint() types.EngineCheckpoint {
 			pending.GatewayIDs = append([]string(nil), pending.GatewayIDs...)
 			copySession.PendingJoinRequest = &pending
 		}
+		copySession.PendingClassBDownlinks = cloneClassBDownlinks(session.PendingClassBDownlinks)
 		checkpoint.Sessions[deviceID] = copySession
 	}
 	for packetID, transmission := range e.radio {
@@ -641,6 +738,18 @@ func newDeviceSession(device contracts.Device) *types.DeviceSession {
 		session.SecurityFingerprint = securityFingerprint(device.DevEUI, device.OOTAConfig.JoinEUI, device.OOTAConfig.AppKey)
 	}
 	return session
+}
+
+func cloneClassBDownlinks(downlinks []types.ClassBDownlink) []types.ClassBDownlink {
+	if len(downlinks) == 0 {
+		return nil
+	}
+	cloned := make([]types.ClassBDownlink, len(downlinks))
+	for index, downlink := range downlinks {
+		cloned[index] = downlink
+		cloned[index].Payload = append([]byte(nil), downlink.Payload...)
+	}
+	return cloned
 }
 
 func securityFingerprint(values ...string) string {

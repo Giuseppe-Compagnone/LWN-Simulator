@@ -22,6 +22,12 @@ func (e *Engine) processScheduledEventLocked(scheduled types.ScheduledEvent) []c
 		return e.processRadioTransmissionCompletedLocked(scheduled)
 	case types.ScheduledEventGatewayHeartbeat:
 		return e.processVirtualGatewayHeartbeatLocked(scheduled)
+	case types.ScheduledEventGatewayBeacon:
+		return e.processGatewayBeaconLocked(scheduled)
+	case types.ScheduledEventClassBBeaconTimeout:
+		return e.processClassBBeaconTimeoutLocked(scheduled)
+	case types.ScheduledEventClassBPingSlot:
+		return e.processClassBPingSlotLocked(scheduled)
 	default:
 		return []contracts.SimulationEvent{
 			e.newEventLocked(scheduled.Type, scheduled.Message, scheduled.DeviceID, scheduled.GatewayID, scheduled.ID),

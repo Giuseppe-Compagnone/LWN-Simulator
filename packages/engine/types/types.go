@@ -287,13 +287,24 @@ type ScheduledEvent struct {
 type ScheduledEventKind string
 
 const (
-	ScheduledEventGeneric          ScheduledEventKind = "generic"
-	ScheduledEventDeviceUplink     ScheduledEventKind = "device-uplink"
-	ScheduledEventJoinRequest      ScheduledEventKind = "join-request"
-	ScheduledEventRX1Window        ScheduledEventKind = "rx1-window"
-	ScheduledEventRX2Window        ScheduledEventKind = "rx2-window"
-	ScheduledEventRadioComplete    ScheduledEventKind = "radio-transmission-complete"
-	ScheduledEventGatewayHeartbeat ScheduledEventKind = "virtual-gateway-heartbeat"
+	ScheduledEventGeneric             ScheduledEventKind = "generic"
+	ScheduledEventDeviceUplink        ScheduledEventKind = "device-uplink"
+	ScheduledEventJoinRequest         ScheduledEventKind = "join-request"
+	ScheduledEventRX1Window           ScheduledEventKind = "rx1-window"
+	ScheduledEventRX2Window           ScheduledEventKind = "rx2-window"
+	ScheduledEventRadioComplete       ScheduledEventKind = "radio-transmission-complete"
+	ScheduledEventGatewayHeartbeat    ScheduledEventKind = "virtual-gateway-heartbeat"
+	ScheduledEventGatewayBeacon       ScheduledEventKind = "gateway-beacon"
+	ScheduledEventClassBBeaconTimeout ScheduledEventKind = "class-b-beacon-timeout"
+	ScheduledEventClassBPingSlot      ScheduledEventKind = "class-b-ping-slot"
+)
+
+// Class B follows the LoRaWAN beacon cadence. The one-second ping-slot period
+// is the default periodicity used by the simulator when a device does not
+// expose a network-specific ping-slot periodicity.
+const (
+	ClassBBeaconPeriod   = 128 * time.Second
+	ClassBPingSlotPeriod = time.Second
 )
 
 type DeviceSession struct {
@@ -313,6 +324,24 @@ type DeviceSession struct {
 	LastChannel            int64
 	LastPayloadSize        int
 	LastFPort              int
+	ClassBSynchronized     bool
+	LastBeaconAt           time.Duration
+	NextPingSlotAt         time.Duration
+	ClassBMissedBeacons    int64
+	ClassBGatewayID        string
+	ClassBNextPingEventID  string
+	ClassBBeaconTimeoutID  string
+	PendingClassBDownlinks []ClassBDownlink
+}
+
+// ClassBDownlink is queued for delivery in the next available Class B ping
+// slot. An empty ID is replaced by the engine with a generated identifier.
+type ClassBDownlink struct {
+	ID       string
+	DeviceID string
+	Payload  []byte
+	FPort    int
+	DataRate int
 }
 
 type PendingUplink struct {

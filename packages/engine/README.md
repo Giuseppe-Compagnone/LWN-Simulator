@@ -54,6 +54,9 @@ The foundation currently provides:
 - radio-level metrics and link metadata in the event stream and runtime snapshot;
 - real-gateway transport hooks with a shared Semtech UDP listener, heartbeat
   monitoring, packet ingress/egress, timeout detection and reconnect backoff;
+- Class B beacon synchronization for virtual gateways, deterministic ping-slot
+  scheduling, queued downlinks, synchronization loss detection and runtime
+  metrics/events;
 - deterministic tests, including race detection.
 
 At the beginning of a run, every active device gets an uplink scheduled at
@@ -97,6 +100,26 @@ Confirmed uplinks keep the same frame counter and packet identity across
 retransmissions, and stop after the device's configured retransmission limit.
 RX1/RX2 delays use seconds, while RX2 duration uses milliseconds, matching the
 device configuration model.
+
+Class B devices synchronize with the beacon emitted by the nearest covered
+active virtual gateway. Beacons follow the LoRaWAN 128-second cadence. The
+engine uses a one-second ping-slot cadence as its deterministic simulation
+default, so a synchronized device has a continuously scheduled next ping slot
+and can receive one queued downlink per slot. A downlink queued through
+`Engine.QueueClassBDownlink` remains durable while the device is waiting for a
+beacon or recovering synchronization; it is removed only after transmission.
+The queue validates the device class, FPort, data rate, UUID and regional
+payload limit. The runtime snapshot exposes synchronization state, last beacon,
+next ping slot and missed-beacon count. The event log records beacon schedule
+and transmission, synchronization, missed beacons, ping-slot schedule/open,
+downlink queue and downlink transmission events. If the next beacon is not
+received within two beacon periods, the device loses synchronization and its
+pending downlinks remain queued for the next successful synchronization.
+
+Class B is intentionally limited to virtual gateways in this phase. Real
+gateways use the transport adapter path and will receive Class B scheduling
+once the gateway downlink path is extended with the corresponding network
+server timing model.
 
 Frontend streaming builds on top of this foundation in the following roadmap
 phase.

@@ -156,6 +156,36 @@ properties:
     x-go-name: GatewayReconnects
     x-oapi-codegen-extra-tags:
       validate: "min=0"
+  classBBeacons:
+    type: integer
+    format: int64
+    x-go-name: ClassBBeacons
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  classBSynchronizations:
+    type: integer
+    format: int64
+    x-go-name: ClassBSynchronizations
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  classBMissedBeacons:
+    type: integer
+    format: int64
+    x-go-name: ClassBMissedBeacons
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  classBPingSlots:
+    type: integer
+    format: int64
+    x-go-name: ClassBPingSlots
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  classBDownlinks:
+    type: integer
+    format: int64
+    x-go-name: ClassBDownlinks
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
 
 required:
   - totalUplinks
@@ -184,3 +214,8 @@ required:
   - gatewayNetworkErrors
   - gatewayTimeouts
   - gatewayReconnects
+  - classBBeacons
+  - classBSynchronizations
+  - classBMissedBeacons
+  - classBPingSlots
+  - classBDownlinks
