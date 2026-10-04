@@ -1,13 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  SimulationActionResponse,
   SimulationConfig,
+  SimulationDownlinkRequest,
   SimulationEvent,
+  SimulationEventsResponse,
+  SimulationMACCommandRequest,
   SimulationSnapshot,
+  SimulationStatus,
+  SimulationUplinkRequest,
   SimulationWebSocketMessage,
   SimulationWebSocketMessageType,
 } from "@lwn-simulator/contracts";
 import SimulationServiceContext from "./SimulationServiceContext";
 import {
+  GetSimulationEventsOptions,
   SimulationConnectionState,
   SimulationServiceContent,
   SimulationServiceProviderProps,
@@ -28,11 +35,35 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shouldReconnectRef = useRef(false);
   const snapshotRef = useRef<SimulationSnapshot | null>(null);
+  const eventsRef = useRef<Array<SimulationEvent>>([]);
 
   const updateSnapshot = useCallback((next: SimulationSnapshot) => {
     snapshotRef.current = next;
     setSnapshot(next);
   }, []);
+
+  const updateEvents = useCallback((next: Array<SimulationEvent>) => {
+    eventsRef.current = next;
+    setEvents(next);
+  }, []);
+
+  const getEvents = useCallback(
+    async (
+      options: GetSimulationEventsOptions = {},
+    ): Promise<SimulationEventsResponse> => {
+      const lastEvent = eventsRef.current.at(-1);
+      const response = await service.getEvents({
+        afterSequence: options.afterSequence ?? lastEvent?.sequence ?? 0,
+        limit: options.limit ?? 100,
+      });
+      updateEvents(
+        SimulationService.mergeEvents(eventsRef.current, response.events),
+      );
+      setError(null);
+      return response;
+    },
+    [service, updateEvents],
+  );
 
   const disconnect = useCallback(() => {
     shouldReconnectRef.current = false;
@@ -58,6 +89,13 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
     socket.onopen = () => {
       setError(null);
       setConnectionState("connected");
+      void getEvents().catch((eventsError: unknown) => {
+        setError(
+          eventsError instanceof Error
+            ? eventsError
+            : new Error("Unable to recover simulation events"),
+        );
+      });
     };
     socket.onmessage = (message) => {
       try {
@@ -73,8 +111,11 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
           update.type === SimulationWebSocketMessageType.Event &&
           update.event
         ) {
-          setEvents((previous) =>
-            SimulationService.appendEvent(previous, update.event as SimulationEvent),
+          updateEvents(
+            SimulationService.appendEvent(
+              eventsRef.current,
+              update.event as SimulationEvent,
+            ),
           );
         }
       } catch (parseError) {
@@ -100,33 +141,37 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
         reconnectTimerRef.current = setTimeout(connect, 1000);
       }
     };
-  }, [connectionState, service, updateSnapshot]);
+  }, [connectionState, getEvents, service, updateEvents, updateSnapshot]);
 
   const start = useCallback(
     async (config: SimulationConfig) => {
       const next = await service.start(config);
-      setEvents([]);
+      updateEvents([]);
+      setError(null);
       updateSnapshot(next);
       connect();
       return next;
     },
-    [connect, service, updateSnapshot],
+    [connect, service, updateEvents, updateSnapshot],
   );
 
   const pause = useCallback(async () => {
     const next = await service.pause();
+    setError(null);
     updateSnapshot(next);
     return next;
   }, [service, updateSnapshot]);
 
   const resume = useCallback(async () => {
     const next = await service.resume();
+    setError(null);
     updateSnapshot(next);
     return next;
   }, [service, updateSnapshot]);
 
   const stop = useCallback(async () => {
     const next = await service.stop();
+    setError(null);
     updateSnapshot(next);
     disconnect();
     return next;
@@ -135,8 +180,54 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
   const getSnapshot = useCallback(async () => {
     const next = await service.getSnapshot();
     updateSnapshot(next);
+    setError(null);
+    if (
+      next.state.status === SimulationStatus.Running ||
+      next.state.status === SimulationStatus.Paused
+    ) {
+      connect();
+    }
     return next;
-  }, [service, updateSnapshot]);
+  }, [connect, service, updateSnapshot]);
+
+  const queueUplink = useCallback(
+    async (
+      req: SimulationUplinkRequest,
+    ): Promise<SimulationActionResponse> => {
+      const response = await service.queueUplink(req);
+      setError(null);
+      return response;
+    },
+    [service],
+  );
+
+  const queueDownlink = useCallback(
+    async (
+      req: SimulationDownlinkRequest,
+    ): Promise<SimulationActionResponse> => {
+      const response = await service.queueDownlink(req);
+      setError(null);
+      return response;
+    },
+    [service],
+  );
+
+  const queueMACCommand = useCallback(
+    async (
+      req: SimulationMACCommandRequest,
+    ): Promise<SimulationActionResponse> => {
+      const response = await service.queueMACCommand(req);
+      setError(null);
+      return response;
+    },
+    [service],
+  );
+
+  const getMetrics = useCallback(async (): Promise<string> => {
+    const response = await service.getMetrics();
+    setError(null);
+    return response;
+  }, [service]);
 
   useEffect(() => disconnect, [disconnect]);
 
@@ -147,6 +238,11 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
       resume,
       stop,
       getSnapshot,
+      queueUplink,
+      queueDownlink,
+      queueMACCommand,
+      getEvents,
+      getMetrics,
       connect,
       disconnect,
       snapshot,
@@ -160,6 +256,11 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
       resume,
       stop,
       getSnapshot,
+      queueUplink,
+      queueDownlink,
+      queueMACCommand,
+      getEvents,
+      getMetrics,
       connect,
       disconnect,
       snapshot,

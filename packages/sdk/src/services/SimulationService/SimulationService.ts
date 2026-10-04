@@ -1,9 +1,15 @@
 import {
+  SimulationActionResponse,
   SimulationConfig,
+  SimulationDownlinkRequest,
   SimulationEvent,
+  SimulationEventsResponse,
+  SimulationMACCommandRequest,
   SimulationSnapshot,
+  SimulationUplinkRequest,
 } from "@lwn-simulator/contracts";
 import { ApiCaller, BaseService } from "../../models";
+import { GetSimulationEventsOptions } from "./SimulationService.types";
 
 export class SimulationService extends BaseService {
   private readonly baseUrl: string;
@@ -28,6 +34,31 @@ export class SimulationService extends BaseService {
   public getSnapshot = async (): Promise<SimulationSnapshot> =>
     this.apiCaller.get<SimulationSnapshot>("/snapshot");
 
+  public queueUplink = async (
+    req: SimulationUplinkRequest,
+  ): Promise<SimulationActionResponse> =>
+    this.apiCaller.post<SimulationActionResponse>("/uplinks", req);
+
+  public queueDownlink = async (
+    req: SimulationDownlinkRequest,
+  ): Promise<SimulationActionResponse> =>
+    this.apiCaller.post<SimulationActionResponse>("/downlinks", req);
+
+  public queueMACCommand = async (
+    req: SimulationMACCommandRequest,
+  ): Promise<SimulationActionResponse> =>
+    this.apiCaller.post<SimulationActionResponse>("/mac-commands", req);
+
+  public getEvents = async (
+    options: GetSimulationEventsOptions = {},
+  ): Promise<SimulationEventsResponse> =>
+    this.apiCaller.get<SimulationEventsResponse>("/events", {
+      params: options,
+    });
+
+  public getMetrics = async (): Promise<string> =>
+    this.apiCaller.get<string>("/metrics", { responseType: "text" });
+
   public getWebSocketUrl = (): string => {
     const url = new URL(ApiCaller.joinUrl(this.baseUrl, "/simulation/ws"));
     url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
@@ -37,8 +68,24 @@ export class SimulationService extends BaseService {
   public static appendEvent(
     events: Array<SimulationEvent>,
     event: SimulationEvent,
-    limit = 100,
+    limit = 1000,
   ): Array<SimulationEvent> {
-    return [...events, event].slice(-limit);
+    return SimulationService.mergeEvents(events, [event], limit);
+  }
+
+  public static mergeEvents(
+    current: Array<SimulationEvent>,
+    incoming: Array<SimulationEvent>,
+    limit = 1000,
+  ): Array<SimulationEvent> {
+    const eventsByID = new Map<string, SimulationEvent>();
+
+    for (const event of [...current, ...incoming]) {
+      eventsByID.set(event.id, event);
+    }
+
+    return [...eventsByID.values()]
+      .sort((left, right) => left.sequence - right.sequence)
+      .slice(-limit);
   }
 }
