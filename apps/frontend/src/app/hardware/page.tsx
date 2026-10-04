@@ -1,7 +1,7 @@
-import { PageLoader } from "@/components";
+import { redirect } from "next/navigation";
 
 const HardwarePage = () => {
-  return <PageLoader href="/hardware/devices" />;
+  redirect("/hardware/devices");
 };
 
 export default HardwarePage;

@@ -5,7 +5,7 @@ import Map, { Layer, MapRef, Marker, Popup, Source } from "react-map-gl/maplibre
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Theme, useOutsideAlerter, useThemeService } from "@lwn-simulator/ui-components";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DeviceMarker, GatewayMarker } from "./components";
+import { DeviceMarker, GatewayMarker, LinkMarker } from "./components";
 
 const DEFAULT_POSITION = { longitude: 15.083, latitude: 37.5079, zoom: 12 };
 
@@ -67,6 +67,15 @@ const SensorMap = (props: SensorMapProps) => {
         dragRotate={false}
         touchZoomRotate={false}
       >
+        {props.links?.map((link) => (
+          <LinkMarker
+            key={link.id}
+            id={link.id}
+            from={link.from}
+            to={link.to}
+          />
+        ))}
+
         {props.devices?.map((device) => (
           <DeviceMarker
             key={device.id}

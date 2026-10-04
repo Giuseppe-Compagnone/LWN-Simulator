@@ -7,9 +7,10 @@ import { Theme, useThemeService } from "@lwn-simulator/ui-components";
 const LinkMarker = (props: LinkMarkerProps) => {
   // Hooks
   const themeService = useThemeService();
+  const markerID = props.id ?? "marker-line";
   return (
     <Source
-      id="marker-line"
+      id={`marker-line-${markerID}`}
       type="geojson"
       data={{
         type: "Feature" as const,
@@ -24,7 +25,7 @@ const LinkMarker = (props: LinkMarkerProps) => {
       }}
     >
       <Layer
-        id="marker-line-layer"
+        id={`marker-line-layer-${markerID}`}
         type="line"
         paint={{
           "line-color":

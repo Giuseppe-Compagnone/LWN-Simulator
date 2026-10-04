@@ -8,12 +8,16 @@ import {
   NotificationHandler,
   Spinner,
 } from "@lwn-simulator/ui-components";
-import { SimulationStatus } from "@lwn-simulator/contracts";
+import {
+  SimulationEventType,
+  SimulationStatus,
+} from "@lwn-simulator/contracts";
 import { useDeviceService, useGatewayService, useSimulationService } from "@lwn-simulator/sdk";
 import {
   SensorMap,
   SimulationCommandPanel,
   SimulationSparkline,
+  SensorMapLink,
   useSensorMap,
 } from "@/components";
 import { useEffect, useMemo, useState } from "react";
@@ -30,10 +34,24 @@ const formatDuration = (milliseconds: number): string => {
 
 const formatNumber = (value: number): string => new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
 
+const communicationEventTypes = new Set<SimulationEventType>([
+  SimulationEventType.GatewayPacketReceived,
+  SimulationEventType.JoinRequestReceived,
+  SimulationEventType.DeviceUplinkTransmitted,
+  SimulationEventType.DeviceDownlinkTransmitted,
+  SimulationEventType.GatewayPacketIngress,
+  SimulationEventType.GatewayPacketEgress,
+  SimulationEventType.ClassBDownlinkTransmitted,
+]);
+
+const communicationLinkLifetimeMilliseconds = 2000;
+
 const SimulationDashboardPage = () => {
   const simulation = useSimulationService();
-  const devices = useDeviceService().devices ?? [];
-  const gateways = useGatewayService().gateways ?? [];
+  const deviceService = useDeviceService();
+  const gatewayService = useGatewayService();
+  const devices = useMemo(() => deviceService.devices ?? [], [deviceService.devices]);
+  const gateways = useMemo(() => gatewayService.gateways ?? [], [gatewayService.gateways]);
   const mapLogic = useSensorMap({});
   const [speed, setSpeed] = useState("1");
   const [seed, setSeed] = useState("");
@@ -49,8 +67,54 @@ const SimulationDashboardPage = () => {
   const isRunning = status === SimulationStatus.Running;
   const isPaused = status === SimulationStatus.Paused;
   const packetRate = snapshot?.metrics.packetSuccessRate ?? 0;
-  const recentRates = useMemo(() => simulation.events.filter((event) => event.type === "metrics-updated").map(() => packetRate * 100).slice(-24), [packetRate, simulation.events]);
-  const visibleEvents = [...simulation.events].reverse().slice(0, 14);
+  const simulationEvents = simulation.events;
+  const recentRates = useMemo(() => simulationEvents.filter((event) => event.type === "metrics-updated").map(() => packetRate * 100).slice(-24), [packetRate, simulationEvents]);
+  const visibleEvents = [...simulationEvents].reverse().slice(0, 14);
+  const mapLinks = useMemo<Array<SensorMapLink>>(() => {
+    const devicesByID = new Map(devices.map((device) => [device.id, device]));
+    const gatewaysByID = new Map(gateways.map((gateway) => [gateway.id, gateway]));
+    const latestTimestamp = simulationEvents.at(-1)?.timestampMilliseconds ?? 0;
+    const latestEventsByLink = new Map<string, (typeof simulationEvents)[number]>();
+
+    for (const event of simulationEvents) {
+      if (
+        !communicationEventTypes.has(event.type) ||
+        !event.deviceID ||
+        !event.gatewayID ||
+        !devicesByID.has(event.deviceID) ||
+        !gatewaysByID.has(event.gatewayID)
+      ) {
+        continue;
+      }
+
+      const linkID = `${event.deviceID}:${event.gatewayID}`;
+      const previous = latestEventsByLink.get(linkID);
+      if (!previous || previous.sequence < event.sequence) {
+        latestEventsByLink.set(linkID, event);
+      }
+    }
+
+    return [...latestEventsByLink.entries()]
+      .filter(([, event]) => {
+        const elapsed = latestTimestamp - event.timestampMilliseconds;
+        return elapsed >= 0 && elapsed <= communicationLinkLifetimeMilliseconds;
+      })
+      .map(([id, event]) => {
+        const device = devicesByID.get(event.deviceID!);
+        const gateway = gatewaysByID.get(event.gatewayID!);
+        return {
+          id,
+          from: {
+            latitude: device!.locationConfig.latitude,
+            longitude: device!.locationConfig.longitude,
+          },
+          to: {
+            latitude: gateway!.latitude,
+            longitude: gateway!.longitude,
+          },
+        };
+      });
+  }, [devices, gateways, simulationEvents]);
 
   const runControl = async (
     action: () => Promise<unknown>,
@@ -125,7 +189,7 @@ const SimulationDashboardPage = () => {
       <section className="simulation-dashboard__main-grid">
         <Card className="simulation-dashboard__map" layout={CardLayout.Padded}>
           <div className="simulation-dashboard__section-heading"><div><span className="simulation-dashboard__kicker">LIVE TOPOLOGY</span><h2>Propagation map</h2></div><span>{devices.length} devices · {gateways.length} gateways</span></div>
-          <div className="simulation-dashboard__map-canvas"><SensorMap logic={mapLogic} devices={devices} gateways={gateways} /></div>
+          <div className="simulation-dashboard__map-canvas"><SensorMap logic={mapLogic} devices={devices} gateways={gateways} links={mapLinks} /></div>
         </Card>
         <Card className="simulation-dashboard__events" layout={CardLayout.Padded}>
           <div className="simulation-dashboard__section-heading"><div><span className="simulation-dashboard__kicker">REAL-TIME EVENT STREAM</span><h2>Engine activity</h2></div><span>{simulation.events.length} events</span></div>

@@ -3,6 +3,5 @@ export * from "./Footer";
 export * from "./Sidebar";
 export * from "./ProvidersWrapper";
 export * from "./SensorMap";
-export * from "./PageLoader";
 export * from "./SimulationSparkline";
 export * from "./SimulationCommandPanel";
