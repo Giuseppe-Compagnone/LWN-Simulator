@@ -60,6 +60,9 @@ func writeServiceError(c *gin.Context, err error) {
 	message := "internal server error"
 
 	switch {
+	case errors.Is(err, apperrors.ErrInvalid):
+		status = http.StatusBadRequest
+		message = err.Error()
 	case errors.Is(err, apperrors.ErrNotFound):
 		status = http.StatusNotFound
 		message = err.Error()

@@ -96,6 +96,8 @@ func New(port string) (*gin.Engine, error) {
 		types.Options{GatewayAdapterFactory: gateway.NewUDPFactory(udpOptions)},
 		services.NewFileSimulationCheckpointStore(filepath.Join(dataDir, "simulation-checkpoint.json")),
 	)
+	deviceService.SetRuntimeSynchronizer(simulationService)
+	gatewayService.SetRuntimeSynchronizer(simulationService)
 	if err := simulationService.RestorePersisted(context.Background()); err != nil {
 		return nil, fmt.Errorf("restore persisted simulation: %w", err)
 	}

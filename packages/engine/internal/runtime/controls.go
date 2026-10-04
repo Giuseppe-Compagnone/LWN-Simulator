@@ -17,7 +17,7 @@ func (e *Engine) QueueUplink(deviceID string) (string, error) {
 	device, session, ok := e.deviceSessionLocked(deviceID)
 	if !ok {
 		e.mu.Unlock()
-		return "", fmt.Errorf("device %s is not registered", deviceID)
+		return "", fmt.Errorf("%w: %s", ErrDeviceNotFound, deviceID)
 	}
 	if !device.Active {
 		e.mu.Unlock()
@@ -43,6 +43,166 @@ func (e *Engine) QueueUplink(deviceID string) (string, error) {
 	return event.ID, nil
 }
 
+// RegisterDevice adds a device to an active runtime without rebuilding the
+// simulation. Its first protocol transaction is scheduled immediately when
+// the device is active.
+func (e *Engine) RegisterDevice(device contracts.Device) error {
+	e.mu.Lock()
+	if !runtimeControlStatus(e.state.Status) {
+		status := e.state.Status
+		e.mu.Unlock()
+		return fmt.Errorf("%w: cannot register device from %q", ErrInvalidTransition, status)
+	}
+	if _, exists := e.registry.Device(device.ID); exists {
+		e.mu.Unlock()
+		return fmt.Errorf("device %s is already registered", device.ID)
+	}
+	devices := append(e.registry.Devices(), device)
+	registry, err := NewRegistry(devices, e.registry.Gateways())
+	if err != nil {
+		e.mu.Unlock()
+		return fmt.Errorf("validate registered device: %w", err)
+	}
+	e.registry = registry
+	e.sessions[device.ID] = newDeviceSession(device)
+	e.state.DeviceCount = len(devices)
+	e.metrics.ActiveDevices = int64(len(registry.ActiveDevices()))
+
+	var scheduledID string
+	if device.Active {
+		event := initialDeviceEvent(device, e.sessions[device.ID], e.eventTimestampLocked())
+		if err := e.scheduler.Schedule(event); err != nil {
+			e.mu.Unlock()
+			return fmt.Errorf("schedule registered device: %w", err)
+		}
+		scheduledID = event.ID
+	}
+	logged := e.newEventLocked(contracts.DeviceRegistered, "device added to runtime registry", device.ID, "", scheduledID)
+	e.mu.Unlock()
+	e.signalWake()
+	e.publish(logged)
+	return nil
+}
+
+// RemoveDevice removes a device and all of its pending protocol and radio
+// work from an active runtime.
+func (e *Engine) RemoveDevice(deviceID string) error {
+	e.mu.Lock()
+	if !runtimeControlStatus(e.state.Status) {
+		status := e.state.Status
+		e.mu.Unlock()
+		return fmt.Errorf("%w: cannot remove device from %q", ErrInvalidTransition, status)
+	}
+	if _, exists := e.registry.Device(deviceID); !exists {
+		e.mu.Unlock()
+		return fmt.Errorf("%w: %s", ErrDeviceNotFound, deviceID)
+	}
+	devices := e.registry.Devices()
+	filtered := make([]contracts.Device, 0, len(devices)-1)
+	for _, device := range devices {
+		if device.ID != deviceID {
+			filtered = append(filtered, device)
+		}
+	}
+	registry, err := NewRegistry(filtered, e.registry.Gateways())
+	if err != nil {
+		e.mu.Unlock()
+		return fmt.Errorf("validate runtime after device removal: %w", err)
+	}
+	e.cancelDeviceRuntimeLocked(deviceID)
+	delete(e.sessions, deviceID)
+	e.registry = registry
+	e.state.DeviceCount = len(filtered)
+	e.metrics.ActiveDevices = int64(len(registry.ActiveDevices()))
+	logged := e.newEventLocked(contracts.DeviceRemoved, "device removed from runtime registry", deviceID, "", "")
+	e.mu.Unlock()
+	e.signalWake()
+	e.publish(logged)
+	return nil
+}
+
+// RegisterGateway adds a virtual or real gateway to an active runtime and
+// starts its heartbeat, beacon and transport work as appropriate.
+func (e *Engine) RegisterGateway(gateway contracts.Gateway) error {
+	e.mu.Lock()
+	if !runtimeControlStatus(e.state.Status) {
+		status := e.state.Status
+		e.mu.Unlock()
+		return fmt.Errorf("%w: cannot register gateway from %q", ErrInvalidTransition, status)
+	}
+	if _, exists := e.registry.Gateway(gateway.ID); exists {
+		e.mu.Unlock()
+		return fmt.Errorf("gateway %s is already registered", gateway.ID)
+	}
+	gateways := append(e.registry.Gateways(), gateway)
+	registry, err := NewRegistry(e.registry.Devices(), gateways)
+	if err != nil {
+		e.mu.Unlock()
+		return fmt.Errorf("validate registered gateway: %w", err)
+	}
+	e.registry = registry
+	state := contracts.Connected
+	if gateway.Type == contracts.Real || !gateway.Active {
+		state = contracts.Disconnected
+	}
+	e.gatewayRuntime[gateway.ID] = &types.GatewayRuntime{State: state}
+	e.state.GatewayCount = len(gateways)
+	e.metrics.ActiveGateways = int64(len(registry.ActiveGateways()))
+	if gateway.Active {
+		e.scheduleGatewayRuntimeLocked(gateway)
+	}
+	runContext := e.runContext
+	logged := e.newEventLocked(contracts.GatewayRegistered, "gateway added to runtime registry", "", gateway.ID, "")
+	e.mu.Unlock()
+	if gateway.Active && gateway.Type == contracts.Real && runContext != nil {
+		e.startGatewayAdapter(runContext, gateway)
+	}
+	e.signalWake()
+	e.publish(logged)
+	return nil
+}
+
+// RemoveGateway stops its adapter and removes all scheduled gateway work.
+func (e *Engine) RemoveGateway(gatewayID string) error {
+	e.mu.Lock()
+	if !runtimeControlStatus(e.state.Status) {
+		status := e.state.Status
+		e.mu.Unlock()
+		return fmt.Errorf("%w: cannot remove gateway from %q", ErrInvalidTransition, status)
+	}
+	if _, exists := e.registry.Gateway(gatewayID); !exists {
+		e.mu.Unlock()
+		return fmt.Errorf("%w: %s", ErrGatewayNotFound, gatewayID)
+	}
+	gateways := e.registry.Gateways()
+	filtered := make([]contracts.Gateway, 0, len(gateways)-1)
+	for _, gateway := range gateways {
+		if gateway.ID != gatewayID {
+			filtered = append(filtered, gateway)
+		}
+	}
+	registry, err := NewRegistry(e.registry.Devices(), filtered)
+	if err != nil {
+		e.mu.Unlock()
+		return fmt.Errorf("validate runtime after gateway removal: %w", err)
+	}
+	e.cancelGatewayRuntimeLocked(gatewayID)
+	adapter := e.gatewayAdapters[gatewayID]
+	delete(e.gatewayAdapters, gatewayID)
+	delete(e.gatewayRuntime, gatewayID)
+	e.registry = registry
+	e.state.GatewayCount = len(filtered)
+	e.metrics.ActiveGateways = int64(len(registry.ActiveGateways()))
+	logged := e.newEventLocked(contracts.GatewayRemoved, "gateway removed from runtime registry", "", gatewayID, "")
+	e.mu.Unlock()
+	if adapter != nil {
+		_ = adapter.Close()
+	}
+	e.signalWake()
+	e.publish(logged)
+	return nil
+}
+
 // UpdateDevice replaces a registered device while preserving its protocol
 // session when identity and activation credentials have not changed.
 func (e *Engine) UpdateDevice(updated contracts.Device) error {
@@ -50,7 +210,7 @@ func (e *Engine) UpdateDevice(updated contracts.Device) error {
 	current, exists := e.registry.Device(updated.ID)
 	if !exists {
 		e.mu.Unlock()
-		return fmt.Errorf("device %s is not registered", updated.ID)
+		return fmt.Errorf("%w: %s", ErrDeviceNotFound, updated.ID)
 	}
 	devices := e.registry.Devices()
 	for index := range devices {
@@ -101,7 +261,7 @@ func (e *Engine) UpdateGateway(updated contracts.Gateway) error {
 	current, exists := e.registry.Gateway(updated.ID)
 	if !exists {
 		e.mu.Unlock()
-		return fmt.Errorf("gateway %s is not registered", updated.ID)
+		return fmt.Errorf("%w: %s", ErrGatewayNotFound, updated.ID)
 	}
 	gateways := e.registry.Gateways()
 	for index := range gateways {
@@ -194,7 +354,16 @@ func (e *Engine) cancelGatewayRuntimeLocked(gatewayID string) {
 		}
 	}
 	for _, session := range e.sessions {
-		if session == nil || session.ClassBGatewayID != gatewayID {
+		if session == nil {
+			continue
+		}
+		if session.PendingUplink != nil {
+			session.PendingUplink.GatewayIDs = removeGatewayID(session.PendingUplink.GatewayIDs, gatewayID)
+		}
+		if session.PendingJoinRequest != nil {
+			session.PendingJoinRequest.GatewayIDs = removeGatewayID(session.PendingJoinRequest.GatewayIDs, gatewayID)
+		}
+		if session.ClassBGatewayID != gatewayID {
 			continue
 		}
 		session.ClassBSynchronized = false
@@ -202,6 +371,21 @@ func (e *Engine) cancelGatewayRuntimeLocked(gatewayID string) {
 		session.ClassBNextPingEventID = ""
 		session.ClassBBeaconTimeoutID = ""
 	}
+	for _, transmission := range e.radio {
+		if transmission != nil {
+			transmission.GatewayIDs = removeGatewayID(transmission.GatewayIDs, gatewayID)
+		}
+	}
+}
+
+func removeGatewayID(gatewayIDs []string, removed string) []string {
+	filtered := gatewayIDs[:0]
+	for _, gatewayID := range gatewayIDs {
+		if gatewayID != removed {
+			filtered = append(filtered, gatewayID)
+		}
+	}
+	return filtered
 }
 
 func (e *Engine) scheduleGatewayRuntimeLocked(gateway contracts.Gateway) {

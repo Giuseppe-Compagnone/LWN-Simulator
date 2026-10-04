@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/websocket"
 	"lwn-simulator-backend/internal/services"
+	"lwn-simulator-backend/internal/telemetry"
 )
 
 type SimulationService interface {
@@ -20,6 +22,10 @@ type SimulationService interface {
 	Resume() (contracts.SimulationSnapshot, error)
 	Stop(context.Context) (contracts.SimulationSnapshot, error)
 	Snapshot() (contracts.SimulationSnapshot, error)
+	QueueUplink(contracts.SimulationUplinkRequest) (contracts.SimulationActionResponse, error)
+	QueueDownlink(contracts.SimulationDownlinkRequest) (contracts.SimulationActionResponse, error)
+	QueueMACCommand(contracts.SimulationMACCommandRequest) (contracts.SimulationActionResponse, error)
+	Events(int64, int) (contracts.SimulationEventsResponse, error)
 	Subscribe() (services.SimulationSubscription, error)
 }
 
@@ -89,6 +95,59 @@ func (h *SimulationHandler) Snapshot(c *gin.Context) {
 	c.JSON(http.StatusOK, res)
 }
 
+func (h *SimulationHandler) QueueUplink(c *gin.Context) {
+	var req contracts.SimulationUplinkRequest
+	if !bindJSONAndValidate(c, h.validator, &req) {
+		return
+	}
+	response, err := h.service.QueueUplink(req)
+	h.writeAcceptedAction(c, response, err)
+}
+
+func (h *SimulationHandler) QueueDownlink(c *gin.Context) {
+	var req contracts.SimulationDownlinkRequest
+	if !bindJSONAndValidate(c, h.validator, &req) {
+		return
+	}
+	response, err := h.service.QueueDownlink(req)
+	h.writeAcceptedAction(c, response, err)
+}
+
+func (h *SimulationHandler) QueueMACCommand(c *gin.Context) {
+	var req contracts.SimulationMACCommandRequest
+	if !bindJSONAndValidate(c, h.validator, &req) {
+		return
+	}
+	response, err := h.service.QueueMACCommand(req)
+	h.writeAcceptedAction(c, response, err)
+}
+
+func (h *SimulationHandler) Events(c *gin.Context) {
+	afterSequence, ok := parseNonNegativeQuery(c, "afterSequence", 0)
+	if !ok {
+		return
+	}
+	limit, ok := parseNonNegativeQuery(c, "limit", 0)
+	if !ok {
+		return
+	}
+	res, err := h.service.Events(afterSequence, int(limit))
+	if err != nil {
+		writeServiceError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, res)
+}
+
+func (h *SimulationHandler) Metrics(c *gin.Context) {
+	snapshot, err := h.service.Snapshot()
+	if err != nil {
+		writeServiceError(c, err)
+		return
+	}
+	c.Data(http.StatusOK, "text/plain; version=0.0.4; charset=utf-8", telemetry.Prometheus(snapshot))
+}
+
 func (h *SimulationHandler) WebSocket(c *gin.Context) {
 	connection, err := h.upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
@@ -149,6 +208,31 @@ func (h *SimulationHandler) control(
 		return
 	}
 	c.JSON(http.StatusOK, res)
+}
+
+func (h *SimulationHandler) writeAcceptedAction(
+	c *gin.Context,
+	response contracts.SimulationActionResponse,
+	err error,
+) {
+	if err != nil {
+		writeServiceError(c, err)
+		return
+	}
+	c.JSON(http.StatusAccepted, response)
+}
+
+func parseNonNegativeQuery(c *gin.Context, name string, fallback int64) (int64, bool) {
+	raw := c.Query(name)
+	if raw == "" {
+		return fallback, true
+	}
+	value, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || value < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": name + " must be a non-negative integer"})
+		return 0, false
+	}
+	return value, true
 }
 
 func writeWebSocketMessage(connection *websocket.Conn, message contracts.SimulationWebSocketMessage) error {

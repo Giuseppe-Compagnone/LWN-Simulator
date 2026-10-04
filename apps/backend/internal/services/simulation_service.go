@@ -39,6 +39,7 @@ type SimulationService struct {
 	options         types.Options
 	checkpointStore SimulationCheckpointStore
 
+	operationMu sync.Mutex
 	mu          sync.RWMutex
 	engine      *engine.Engine
 	starting    bool
@@ -89,6 +90,8 @@ func (s *SimulationService) Start(
 	if ctx == nil {
 		return contracts.SimulationSnapshot{}, fmt.Errorf("start context cannot be nil")
 	}
+	s.operationMu.Lock()
+	defer s.operationMu.Unlock()
 
 	s.mu.Lock()
 	if s.starting {
@@ -152,6 +155,8 @@ func (s *SimulationService) Start(
 }
 
 func (s *SimulationService) Pause() (contracts.SimulationSnapshot, error) {
+	s.operationMu.Lock()
+	defer s.operationMu.Unlock()
 	runtime, err := s.currentEngine()
 	if err != nil {
 		return contracts.SimulationSnapshot{}, err
@@ -163,6 +168,8 @@ func (s *SimulationService) Pause() (contracts.SimulationSnapshot, error) {
 }
 
 func (s *SimulationService) Resume() (contracts.SimulationSnapshot, error) {
+	s.operationMu.Lock()
+	defer s.operationMu.Unlock()
 	runtime, err := s.currentEngine()
 	if err != nil {
 		return contracts.SimulationSnapshot{}, err
@@ -174,6 +181,8 @@ func (s *SimulationService) Resume() (contracts.SimulationSnapshot, error) {
 }
 
 func (s *SimulationService) Stop(ctx context.Context) (contracts.SimulationSnapshot, error) {
+	s.operationMu.Lock()
+	defer s.operationMu.Unlock()
 	runtime, err := s.currentEngine()
 	if err != nil {
 		return contracts.SimulationSnapshot{}, err

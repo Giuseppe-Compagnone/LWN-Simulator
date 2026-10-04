@@ -109,3 +109,73 @@ func TestUpdateDeviceResetsSessionWhenCredentialsChange(t *testing.T) {
 		t.Fatal("credential update did not reset protocol session")
 	}
 }
+
+func TestRuntimeControlsRegisterAndRemoveHardware(t *testing.T) {
+	clock := types.NewManualClock(0)
+	engine, err := New(contracts.SimulationConfig{Speed: 1}, nil, nil, types.Options{Clock: clock})
+	if err != nil {
+		t.Fatalf("create engine: %v", err)
+	}
+	if err := engine.Start(t.Context()); err != nil {
+		t.Fatalf("start engine: %v", err)
+	}
+	defer stopEngine(t, engine)
+
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000099")
+	configureABP(&device)
+	gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c99")
+	if err := engine.RegisterDevice(device); err != nil {
+		t.Fatalf("register device: %v", err)
+	}
+	if err := engine.RegisterGateway(gateway); err != nil {
+		t.Fatalf("register gateway: %v", err)
+	}
+	snapshot := engine.Snapshot()
+	if snapshot.State.DeviceCount != 1 || snapshot.State.GatewayCount != 1 {
+		t.Fatalf("unexpected registered counts: %+v", snapshot.State)
+	}
+	if snapshot.Metrics.ActiveDevices != 1 || snapshot.Metrics.ActiveGateways != 1 {
+		t.Fatalf("unexpected active counts: %+v", snapshot.Metrics)
+	}
+
+	if err := engine.Pause(); err != nil {
+		t.Fatalf("pause engine: %v", err)
+	}
+	engine.mu.Lock()
+	engine.radio["packet-in-flight"] = &types.RadioTransmission{PacketID: "packet-in-flight", GatewayIDs: []string{gateway.ID}}
+	engine.sessions[device.ID].PendingUplink = &types.PendingUplink{PacketID: "packet-in-flight", GatewayIDs: []string{gateway.ID}}
+	engine.mu.Unlock()
+	if err := engine.RemoveGateway(gateway.ID); err != nil {
+		t.Fatalf("remove gateway: %v", err)
+	}
+	engine.mu.RLock()
+	if transmission := engine.radio["packet-in-flight"]; transmission != nil && len(transmission.GatewayIDs) != 0 {
+		t.Fatalf("gateway removal left in-flight delivery path: %+v", transmission.GatewayIDs)
+	}
+	engine.mu.RUnlock()
+	if err := engine.RemoveDevice(device.ID); err != nil {
+		t.Fatalf("remove device: %v", err)
+	}
+	snapshot = engine.Snapshot()
+	if snapshot.State.DeviceCount != 0 || snapshot.State.GatewayCount != 0 {
+		t.Fatalf("unexpected removed counts: %+v", snapshot.State)
+	}
+	for _, scheduled := range engine.scheduler.Events() {
+		if scheduled.DeviceID == device.ID || scheduled.GatewayID == gateway.ID {
+			t.Fatalf("hardware removal left scheduled work: %+v", scheduled)
+		}
+	}
+	log := engine.EventLog()
+	if !containsEventType(log, contracts.DeviceRemoved) || !containsEventType(log, contracts.GatewayRemoved) {
+		t.Fatalf("hardware removal events missing: %+v", log)
+	}
+}
+
+func containsEventType(events []contracts.SimulationEvent, eventType contracts.SimulationEventType) bool {
+	for _, event := range events {
+		if event.Type == eventType {
+			return true
+		}
+	}
+	return false
+}

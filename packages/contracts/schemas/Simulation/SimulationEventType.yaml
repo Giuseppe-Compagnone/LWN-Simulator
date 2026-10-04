@@ -9,7 +9,9 @@ enum:
   - simulation-recovered
   - simulation-failed
   - device-registered
+  - device-removed
   - gateway-registered
+  - gateway-removed
   - scheduler-event-scheduled
   - scheduler-event-cancelled
   - device-uplink-scheduled
@@ -58,7 +60,9 @@ x-enum-varnames:
   - SimulationRecovered
   - SimulationFailed
   - DeviceRegistered
+  - DeviceRemoved
   - GatewayRegistered
+  - GatewayRemoved
   - SchedulerEventScheduled
   - SchedulerEventCancelled
   - DeviceUplinkScheduled

@@ -2,12 +2,37 @@ package services
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 )
+
+type memoryCheckpointStore struct {
+	checkpoint *types.EngineCheckpoint
+	loadErr    error
+	saveErr    error
+	clearErr   error
+	cleared    bool
+}
+
+func (store *memoryCheckpointStore) Load() (*types.EngineCheckpoint, error) {
+	return store.checkpoint, store.loadErr
+}
+
+func (store *memoryCheckpointStore) Save(checkpoint types.EngineCheckpoint) error {
+	copy := checkpoint
+	store.checkpoint = &copy
+	return store.saveErr
+}
+
+func (store *memoryCheckpointStore) Clear() error {
+	store.cleared = true
+	store.checkpoint = nil
+	return store.clearErr
+}
 
 type simulationDeviceSource struct{}
 
@@ -80,4 +105,42 @@ func receiveSimulationUpdate(t *testing.T, updates <-chan SimulationUpdate) Simu
 		t.Fatal("timed out waiting for simulation update")
 		return SimulationUpdate{}
 	}
+}
+
+func TestSimulationServiceRestoresAndClearsPersistedLifecycle(t *testing.T) {
+	t.Run("restores active checkpoint", func(t *testing.T) {
+		store := &memoryCheckpointStore{checkpoint: &types.EngineCheckpoint{
+			Config: contracts.SimulationConfig{Speed: 2},
+			State:  contracts.SimulationState{Status: contracts.SimulationStatusRunning, Speed: 2, ElapsedMilliseconds: 2500},
+		}}
+		service := NewSimulationService(simulationDeviceSource{}, simulationGatewaySource{}, types.Options{}, store)
+		if err := service.RestorePersisted(t.Context()); err != nil {
+			t.Fatalf("restore simulation: %v", err)
+		}
+		snapshot, err := service.Snapshot()
+		if err != nil || snapshot.State.Status != contracts.SimulationStatusRunning || snapshot.State.ElapsedMilliseconds < 2500 {
+			t.Fatalf("unexpected restored snapshot: %+v, %v", snapshot.State, err)
+		}
+		if _, err := service.Stop(context.Background()); err != nil {
+			t.Fatalf("stop restored simulation: %v", err)
+		}
+	})
+
+	t.Run("clears terminal checkpoint", func(t *testing.T) {
+		store := &memoryCheckpointStore{checkpoint: &types.EngineCheckpoint{
+			Config: contracts.SimulationConfig{Speed: 1},
+			State:  contracts.SimulationState{Status: contracts.SimulationStatusStopped, Speed: 1},
+		}}
+		service := NewSimulationService(simulationDeviceSource{}, simulationGatewaySource{}, types.Options{}, store)
+		if err := service.RestorePersisted(t.Context()); err != nil || !store.cleared {
+			t.Fatalf("terminal checkpoint was not cleared: cleared=%v err=%v", store.cleared, err)
+		}
+	})
+
+	t.Run("propagates checkpoint load error", func(t *testing.T) {
+		service := NewSimulationService(simulationDeviceSource{}, simulationGatewaySource{}, types.Options{}, &memoryCheckpointStore{loadErr: errors.New("read failed")})
+		if err := service.RestorePersisted(t.Context()); err == nil {
+			t.Fatal("checkpoint load error should be returned")
+		}
+	})
 }

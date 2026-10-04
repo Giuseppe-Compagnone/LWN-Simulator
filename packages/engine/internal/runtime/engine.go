@@ -481,7 +481,7 @@ func (e *Engine) QueueDownlink(downlink types.Downlink) (string, error) {
 	device, session, ok := e.deviceSessionLocked(downlink.DeviceID)
 	if !ok {
 		e.mu.Unlock()
-		return "", fmt.Errorf("class B downlink device %s is not registered", downlink.DeviceID)
+		return "", fmt.Errorf("%w: %s", ErrDeviceNotFound, downlink.DeviceID)
 	}
 	if device.Class != contracts.ClassA && device.Class != contracts.ClassB && device.Class != contracts.ClassC {
 		e.mu.Unlock()

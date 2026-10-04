@@ -115,3 +115,17 @@ components:
       $ref: "./schemas/Simulation/SimulationWebSocketMessageType.yaml"
     SimulationWebSocketMessage:
       $ref: "./schemas/Simulation/SimulationWebSocketMessage.yaml"
+    SimulationMACCommandType:
+      $ref: "./schemas/Simulation/SimulationMACCommandType.yaml"
+    SimulationMACCommand:
+      $ref: "./schemas/Simulation/SimulationMACCommand.yaml"
+    SimulationUplinkRequest:
+      $ref: "./schemas/Simulation/SimulationUplinkRequest.yaml"
+    SimulationDownlinkRequest:
+      $ref: "./schemas/Simulation/SimulationDownlinkRequest.yaml"
+    SimulationMACCommandRequest:
+      $ref: "./schemas/Simulation/SimulationMACCommandRequest.yaml"
+    SimulationActionResponse:
+      $ref: "./schemas/Simulation/SimulationActionResponse.yaml"
+    SimulationEventsResponse:
+      $ref: "./schemas/Simulation/SimulationEventsResponse.yaml"

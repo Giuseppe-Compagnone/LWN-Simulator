@@ -7,5 +7,7 @@ var (
 	ErrEngineStopped               = runtime.ErrEngineStopped
 	ErrEngineNotRunning            = runtime.ErrEngineNotRunning
 	ErrEventNotFound               = runtime.ErrEventNotFound
+	ErrDeviceNotFound              = runtime.ErrDeviceNotFound
+	ErrGatewayNotFound             = runtime.ErrGatewayNotFound
 	ErrGatewayTransportUnavailable = runtime.ErrGatewayTransportUnavailable
 )

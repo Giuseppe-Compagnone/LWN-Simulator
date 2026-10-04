@@ -54,5 +54,10 @@ func registerRoutes(r *gin.Engine, port string, services Services) {
 	simulation.POST("/resume", simulationHandler.Resume)
 	simulation.POST("/stop", simulationHandler.Stop)
 	simulation.GET("/snapshot", simulationHandler.Snapshot)
+	simulation.GET("/events", simulationHandler.Events)
+	simulation.GET("/metrics", simulationHandler.Metrics)
+	simulation.POST("/uplinks", simulationHandler.QueueUplink)
+	simulation.POST("/downlinks", simulationHandler.QueueDownlink)
+	simulation.POST("/mac-commands", simulationHandler.QueueMACCommand)
 	simulation.GET("/ws", simulationHandler.WebSocket)
 }
