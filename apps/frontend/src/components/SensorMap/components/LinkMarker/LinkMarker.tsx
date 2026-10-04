@@ -25,14 +25,25 @@ const LinkMarker = (props: LinkMarkerProps) => {
       }}
     >
       <Layer
+        id={`marker-line-glow-${markerID}`}
+        type="line"
+        paint={{
+          "line-color":
+            themeService.theme === Theme.Dark ? "#38bdf8" : "#005cff",
+          "line-width": 8,
+          "line-opacity": 0.3,
+          "line-blur": 2,
+        }}
+      />
+      <Layer
         id={`marker-line-layer-${markerID}`}
         type="line"
         paint={{
           "line-color":
             themeService.theme === Theme.Dark ? "#38bdf8" : "#005cff",
-          "line-width": 3,
-          "line-opacity": 0.8,
-          "line-dasharray": [2, 2],
+          "line-width": 4,
+          "line-opacity": 1,
+          "line-dasharray": [2, 1.5],
         }}
       />
     </Source>

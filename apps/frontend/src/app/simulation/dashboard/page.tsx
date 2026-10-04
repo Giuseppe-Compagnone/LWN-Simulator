@@ -9,6 +9,7 @@ import {
   Spinner,
 } from "@lwn-simulator/ui-components";
 import {
+  GatewayType,
   SimulationEventType,
   SimulationStatus,
 } from "@lwn-simulator/contracts";
@@ -34,6 +35,25 @@ const formatDuration = (milliseconds: number): string => {
 
 const formatNumber = (value: number): string => new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
 
+const distanceMeters = (
+  latitudeA: number,
+  longitudeA: number,
+  latitudeB: number,
+  longitudeB: number,
+): number => {
+  const earthRadiusMeters = 6_371_000;
+  const toRadians = (degrees: number): number => degrees * Math.PI / 180;
+  const latitudeDelta = toRadians(latitudeB - latitudeA);
+  const longitudeDelta = toRadians(longitudeB - longitudeA);
+  const latitudeARadians = toRadians(latitudeA);
+  const latitudeBRadians = toRadians(latitudeB);
+  const haversine = Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(latitudeARadians) * Math.cos(latitudeBRadians) *
+    Math.sin(longitudeDelta / 2) ** 2;
+
+  return 2 * earthRadiusMeters * Math.asin(Math.sqrt(Math.min(1, Math.max(0, haversine))));
+};
+
 const communicationEventTypes = new Set<SimulationEventType>([
   SimulationEventType.GatewayPacketReceived,
   SimulationEventType.JoinRequestReceived,
@@ -44,7 +64,9 @@ const communicationEventTypes = new Set<SimulationEventType>([
   SimulationEventType.ClassBDownlinkTransmitted,
 ]);
 
-const communicationLinkLifetimeMilliseconds = 2000;
+const radioTransmissionEventTypes = new Set<SimulationEventType>([
+  SimulationEventType.RadioTransmissionStarted,
+]);
 
 const SimulationDashboardPage = () => {
   const simulation = useSimulationService();
@@ -57,10 +79,13 @@ const SimulationDashboardPage = () => {
   const [seed, setSeed] = useState("");
   const [controlError, setControlError] = useState<string | null>(null);
   const getSnapshot = simulation.getSnapshot;
+  const getEvents = simulation.getEvents;
 
   useEffect(() => {
-    void getSnapshot().catch(() => undefined);
-  }, [getSnapshot]);
+    void getSnapshot()
+      .then(() => getEvents({ afterSequence: 0, limit: 1000 }))
+      .catch(() => undefined);
+  }, [getEvents, getSnapshot]);
 
   const snapshot = simulation.snapshot;
   const status = snapshot?.state.status ?? SimulationStatus.Idle;
@@ -73,47 +98,65 @@ const SimulationDashboardPage = () => {
   const mapLinks = useMemo<Array<SensorMapLink>>(() => {
     const devicesByID = new Map(devices.map((device) => [device.id, device]));
     const gatewaysByID = new Map(gateways.map((gateway) => [gateway.id, gateway]));
-    const latestTimestamp = simulationEvents.at(-1)?.timestampMilliseconds ?? 0;
-    const latestEventsByLink = new Map<string, (typeof simulationEvents)[number]>();
+    const latestLinks = new Map<string, SensorMapLink & { sequence: number }>();
+
+    const registerLink = (
+      device: (typeof devices)[number],
+      gateway: (typeof gateways)[number],
+      sequence: number,
+    ) => {
+      const id = `${device.id}:${gateway.id}`;
+      const previous = latestLinks.get(id);
+      if (previous && previous.sequence >= sequence) return;
+
+      latestLinks.set(id, {
+        id,
+        sequence,
+        from: {
+          latitude: device.locationConfig.latitude,
+          longitude: device.locationConfig.longitude,
+        },
+        to: {
+          latitude: gateway.latitude,
+          longitude: gateway.longitude,
+        },
+      });
+    };
 
     for (const event of simulationEvents) {
-      if (
-        !communicationEventTypes.has(event.type) ||
-        !event.deviceID ||
-        !event.gatewayID ||
-        !devicesByID.has(event.deviceID) ||
-        !gatewaysByID.has(event.gatewayID)
-      ) {
+      if (!event.deviceID) continue;
+
+      const device = devicesByID.get(event.deviceID);
+      if (!device) continue;
+
+      if (communicationEventTypes.has(event.type) && event.gatewayID) {
+        const gateway = gatewaysByID.get(event.gatewayID);
+        if (gateway) registerLink(device, gateway, event.sequence);
         continue;
       }
 
-      const linkID = `${event.deviceID}:${event.gatewayID}`;
-      const previous = latestEventsByLink.get(linkID);
-      if (!previous || previous.sequence < event.sequence) {
-        latestEventsByLink.set(linkID, event);
+      if (!radioTransmissionEventTypes.has(event.type)) continue;
+
+      for (const gateway of gateways) {
+        if (!gateway.active || gateway.type !== GatewayType.Virtual) continue;
+
+        const distance = distanceMeters(
+          device.locationConfig.latitude,
+          device.locationConfig.longitude,
+          gateway.latitude,
+          gateway.longitude,
+        );
+        if (distance <= device.advancedConfig.antennaRange) {
+          registerLink(device, gateway, event.sequence);
+        }
       }
     }
 
-    return [...latestEventsByLink.entries()]
-      .filter(([, event]) => {
-        const elapsed = latestTimestamp - event.timestampMilliseconds;
-        return elapsed >= 0 && elapsed <= communicationLinkLifetimeMilliseconds;
-      })
-      .map(([id, event]) => {
-        const device = devicesByID.get(event.deviceID!);
-        const gateway = gatewaysByID.get(event.gatewayID!);
-        return {
-          id,
-          from: {
-            latitude: device!.locationConfig.latitude,
-            longitude: device!.locationConfig.longitude,
-          },
-          to: {
-            latitude: gateway!.latitude,
-            longitude: gateway!.longitude,
-          },
-        };
-      });
+    return [...latestLinks.values()].map((link) => ({
+      id: link.id,
+      from: link.from,
+      to: link.to,
+    }));
   }, [devices, gateways, simulationEvents]);
 
   const runControl = async (
