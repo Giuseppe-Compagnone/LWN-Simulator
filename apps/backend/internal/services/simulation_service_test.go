@@ -96,6 +96,33 @@ func TestSimulationServiceLifecycleAndSingleSession(t *testing.T) {
 	}
 }
 
+func TestSimulationServiceOutlivesStartRequestContext(t *testing.T) {
+	service := NewSimulationService(
+		simulationDeviceSource{},
+		simulationGatewaySource{},
+		types.Options{EventBuffer: 32},
+	)
+
+	requestContext, cancelRequest := context.WithCancel(context.Background())
+	if _, err := service.Start(requestContext, contracts.SimulationConfig{Speed: 1}); err != nil {
+		t.Fatalf("start simulation: %v", err)
+	}
+	cancelRequest()
+
+	time.Sleep(20 * time.Millisecond)
+	snapshot, err := service.Snapshot()
+	if err != nil {
+		t.Fatalf("snapshot after request cancellation: %v", err)
+	}
+	if snapshot.State.Status != contracts.SimulationStatusRunning {
+		t.Fatalf("simulation stopped with request context: %s", snapshot.State.Status)
+	}
+
+	if _, err := service.Stop(context.Background()); err != nil {
+		t.Fatalf("stop simulation: %v", err)
+	}
+}
+
 func receiveSimulationUpdate(t *testing.T, updates <-chan SimulationUpdate) SimulationUpdate {
 	t.Helper()
 	select {

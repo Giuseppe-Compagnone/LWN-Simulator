@@ -142,7 +142,9 @@ func (s *SimulationService) Start(
 	s.starting = false
 	s.mu.Unlock()
 
-	if err := runtime.Start(ctx); err != nil {
+	// The service owns the simulation lifecycle. In particular, an HTTP request
+	// context must not stop the engine as soon as the start response is sent.
+	if err := runtime.Start(context.WithoutCancel(ctx)); err != nil {
 		s.mu.Lock()
 		if s.engine == runtime {
 			s.engine = nil

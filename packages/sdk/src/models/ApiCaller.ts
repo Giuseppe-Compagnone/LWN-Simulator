@@ -17,13 +17,28 @@ export class ApiCaller {
   }
 
   private async request<T>(config: AxiosRequestConfig): Promise<T> {
-    const response = await axios<T>({
-      ...config,
-      baseURL: ApiCaller.joinUrl(this.baseUrl, this.serviceName),
-      timeout: 10000,
-    });
+    try {
+      const response = await axios<T>({
+        ...config,
+        baseURL: ApiCaller.joinUrl(this.baseUrl, this.serviceName),
+        timeout: 10000,
+      });
 
-    return response.data;
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const response = error.response?.data;
+        if (
+          response &&
+          typeof response === "object" &&
+          "error" in response &&
+          typeof response.error === "string"
+        ) {
+          throw new Error(response.error, { cause: error });
+        }
+      }
+      throw error;
+    }
   }
 
   public get<T>(path: string, config?: AxiosRequestConfig): Promise<T> {

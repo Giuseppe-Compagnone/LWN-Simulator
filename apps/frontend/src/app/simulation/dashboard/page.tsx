@@ -1,9 +1,21 @@
 "use client";
 
-import { Button, ButtonType, Card, CardLayout, Spinner } from "@lwn-simulator/ui-components";
+import {
+  Button,
+  ButtonType,
+  Card,
+  CardLayout,
+  NotificationHandler,
+  Spinner,
+} from "@lwn-simulator/ui-components";
 import { SimulationStatus } from "@lwn-simulator/contracts";
 import { useDeviceService, useGatewayService, useSimulationService } from "@lwn-simulator/sdk";
-import { SensorMap, SimulationSparkline, useSensorMap } from "@/components";
+import {
+  SensorMap,
+  SimulationCommandPanel,
+  SimulationSparkline,
+  useSensorMap,
+} from "@/components";
 import { useEffect, useMemo, useState } from "react";
 
 const formatEventType = (value: string): string => value.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
@@ -40,16 +52,31 @@ const SimulationDashboardPage = () => {
   const recentRates = useMemo(() => simulation.events.filter((event) => event.type === "metrics-updated").map(() => packetRate * 100).slice(-24), [packetRate, simulation.events]);
   const visibleEvents = [...simulation.events].reverse().slice(0, 14);
 
-  const runControl = async (action: () => Promise<unknown>) => {
+  const runControl = async (
+    action: () => Promise<unknown>,
+    successMessage: string,
+  ) => {
     setControlError(null);
     try {
       await action();
+      NotificationHandler.instance.success(successMessage);
     } catch (error) {
-      setControlError(error instanceof Error ? error.message : "Simulation action failed");
+      const message =
+        error instanceof Error ? error.message : "Simulation action failed";
+      setControlError(message);
+      NotificationHandler.instance.error(message);
     }
   };
 
-  const start = () => runControl(() => simulation.start({ speed: Number(speed), ...(seed.trim() ? { seed: Number(seed) } : {}) }));
+  const start = () =>
+    runControl(
+      () =>
+        simulation.start({
+          speed: Number(speed),
+          ...(seed.trim() ? { seed: Number(seed) } : {}),
+        }),
+      "Simulation started",
+    );
 
   return (
     <main className="simulation-dashboard page">
@@ -72,9 +99,9 @@ const SimulationDashboardPage = () => {
         </div>
         <div className="simulation-dashboard__control-actions">
           {(status === SimulationStatus.Idle || status === SimulationStatus.Stopped || status === SimulationStatus.Failed) && <Button value="Start simulation" onClick={start} />}
-          {isRunning && <Button value="Pause" type={ButtonType.Outlined} onClick={() => runControl(simulation.pause)} />}
-          {isPaused && <Button value="Resume" onClick={() => runControl(simulation.resume)} />}
-          {(isRunning || isPaused) && <Button value="Stop" type={ButtonType.Outlined} onClick={() => runControl(simulation.stop)} />}
+          {isRunning && <Button value="Pause" type={ButtonType.Outlined} onClick={() => runControl(simulation.pause, "Simulation paused")} />}
+          {isPaused && <Button value="Resume" onClick={() => runControl(simulation.resume, "Simulation resumed")} />}
+          {(isRunning || isPaused) && <Button value="Stop" type={ButtonType.Outlined} onClick={() => runControl(simulation.stop, "Simulation stopped")} />}
         </div>
       </Card>
 
@@ -86,6 +113,14 @@ const SimulationDashboardPage = () => {
         <Card className="simulation-dashboard__metric" layout={CardLayout.Padded}><span className="simulation-dashboard__kicker">RADIO HEALTH</span><strong>{snapshot ? `${formatNumber(snapshot.metrics.averageSNR)} dB` : "—"}</strong><small>{snapshot ? `${formatNumber(snapshot.metrics.averageRSSI)} dBm average RSSI` : "Awaiting telemetry"}</small></Card>
         <Card className="simulation-dashboard__metric" layout={CardLayout.Padded}><span className="simulation-dashboard__kicker">NETWORK RUNTIME</span><strong>{snapshot ? `${snapshot.metrics.activeDevices} / ${snapshot.metrics.activeGateways}` : "—"}</strong><small>active devices / gateways</small></Card>
       </section>
+
+      <SimulationCommandPanel
+        devices={devices}
+        enabled={isRunning || isPaused}
+        onQueueUplink={simulation.queueUplink}
+        onQueueDownlink={simulation.queueDownlink}
+        onQueueMACCommand={simulation.queueMACCommand}
+      />
 
       <section className="simulation-dashboard__main-grid">
         <Card className="simulation-dashboard__map" layout={CardLayout.Padded}>
