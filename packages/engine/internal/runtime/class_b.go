@@ -8,6 +8,7 @@ import (
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/Giuseppe-Compagnone/lwn-engine/geometry"
+	"github.com/Giuseppe-Compagnone/lwn-engine/regional"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 	"github.com/google/uuid"
 )
@@ -16,8 +17,6 @@ const (
 	classBRealGatewayInitialDelay = time.Second
 	classBRealGatewayTimingLead   = 100 * time.Millisecond
 	classBBeaconFrequency         = int64(869525000)
-	classBBeaconBandwidth         = int64(125000)
-	classBBeaconSpreadingFactor   = 9
 	classBBeaconPower             = 14
 )
 
@@ -79,7 +78,7 @@ func (e *Engine) processGatewayBeaconLocked(scheduled types.ScheduledEvent) []co
 			scheduled.ID,
 		))
 
-		if pingEvent := e.scheduleClassBPingSlotLocked(device, session, scheduled.At+types.ClassBPingSlotPeriod); pingEvent != nil {
+		if pingEvent := e.scheduleClassBPingSlotLocked(device, session, scheduled.At+classBPingSlotPeriod(session)); pingEvent != nil {
 			events = append(events, *pingEvent)
 		}
 		timeoutID := uuid.NewString()
@@ -136,7 +135,7 @@ func (e *Engine) processClassBPingSlotLocked(scheduled types.ScheduledEvent) []c
 	}
 	gateway, gatewayExists := e.registry.Gateway(scheduled.GatewayID)
 	if !gatewayExists || (gateway.Type == contracts.Real && !e.realGatewayReadyLocked(gateway.ID)) {
-		if next := e.scheduleClassBPingSlotLocked(device, session, scheduled.At+types.ClassBPingSlotPeriod); next != nil {
+		if next := e.scheduleClassBPingSlotLocked(device, session, scheduled.At+classBPingSlotPeriod(session)); next != nil {
 			return []contracts.SimulationEvent{*next}
 		}
 		return nil
@@ -169,9 +168,10 @@ func (e *Engine) processClassBPingSlotLocked(scheduled types.ScheduledEvent) []c
 			downlink,
 			scheduled.ID,
 		))
+		events = append(events, e.applyDownlinkEffectsLocked(device, session, downlink, scheduled.At)...)
 	}
 
-	if next := e.scheduleClassBPingSlotLocked(device, session, scheduled.At+types.ClassBPingSlotPeriod); next != nil {
+	if next := e.scheduleClassBPingSlotLocked(device, session, scheduled.At+classBPingSlotPeriod(session)); next != nil {
 		events = append(events, *next)
 	}
 	return events
@@ -283,14 +283,14 @@ func (e *Engine) newClassBDownlinkEventLocked(
 	fPort := downlink.FPort
 	dataRate := downlink.DataRate
 	if dataRate < 0 {
-		dataRate = session.CurrentDataRate
+		dataRate = session.PingSlotDataRate
 	}
-	frequency := int64(device.RX2Config.ChannelFrequency)
+	frequency := session.PingSlotFrequency
 	event.PayloadSize = &payloadSize
 	event.FPort = &fPort
 	event.DataRate = &dataRate
 	event.ChannelFrequency = &frequency
-	event.Confirmed = pointerTo(false)
+	event.Confirmed = pointerTo(downlink.Confirmed)
 	frameCounter := session.FrameCounterDown
 	event.FrameCounter = &frameCounter
 	e.eventLog[len(e.eventLog)-1] = event
@@ -299,15 +299,34 @@ func (e *Engine) newClassBDownlinkEventLocked(
 
 func (e *Engine) queueClassBBeaconLocked(gateway contracts.Gateway) {
 	target := time.Now().Add(classBRealGatewayTimingLead)
+	frequency := classBBeaconFrequency
+	dataRate := 3
+	for _, device := range e.registry.ActiveDevices() {
+		if device.Class == contracts.ClassB && deviceIsCoveredByGateway(device, gateway) {
+			plan := regional.MustPlan(device.LocationConfig.Region)
+			frequency = plan.BeaconFrequency
+			dataRate = plan.BeaconDataRate
+			break
+		}
+	}
+	profile := regional.Profile(contracts.EU868, dataRate)
+	// Beacon DR8 is a 500 kHz profile in US/AU. Resolve it against the first
+	// covered device's region when one is available.
+	for _, device := range e.registry.ActiveDevices() {
+		if device.Class == contracts.ClassB && deviceIsCoveredByGateway(device, gateway) {
+			profile = regional.Profile(device.LocationConfig.Region, dataRate)
+			break
+		}
+	}
 	e.gatewayPackets = append(e.gatewayPackets, types.GatewayPacket{
 		GatewayID:       gateway.ID,
 		Kind:            types.GatewayPacketClassBBeacon,
 		Payload:         classBBeaconPayload(target, gateway),
-		Frequency:       classBBeaconFrequency,
-		Bandwidth:       classBBeaconBandwidth,
-		SpreadingFactor: classBBeaconSpreadingFactor,
+		Frequency:       frequency,
+		Bandwidth:       profile.Bandwidth,
+		SpreadingFactor: profile.SpreadingFactor,
 		Power:           classBBeaconPower,
-		DataRate:        "SF9BW125",
+		DataRate:        fmt.Sprintf("SF%dBW%d", profile.SpreadingFactor, profile.Bandwidth/1000),
 		TransmitAt:      target,
 	})
 }
@@ -318,13 +337,17 @@ func (e *Engine) queueClassBDownlinkLocked(
 	session *types.DeviceSession,
 	downlink types.ClassBDownlink,
 ) {
+	dataRate := downlink.DataRate
+	if dataRate < 0 {
+		dataRate = session.PingSlotDataRate
+	}
 	e.queueDataDownlinkLocked(
 		gateway,
 		device,
 		session,
 		downlink,
-		int64(device.RX2Config.ChannelFrequency),
-		downlink.DataRate,
+		session.PingSlotFrequency,
+		dataRate,
 		0,
 	)
 }

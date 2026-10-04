@@ -269,6 +269,8 @@ type Options struct {
 // restart can continue from the same simulation timeline.
 type EngineCheckpoint struct {
 	Config         contracts.SimulationConfig
+	Devices        []contracts.Device
+	Gateways       []contracts.Gateway
 	State          contracts.SimulationState
 	Metrics        contracts.SimulationMetrics
 	Sessions       map[string]DeviceSession
@@ -297,6 +299,7 @@ type ScheduledEvent struct {
 	WindowBaseAt     time.Duration
 	FragmentIndex    int
 	FragmentCount    int
+	FPendingPoll     bool
 }
 
 type ScheduledEventKind string
@@ -355,16 +358,80 @@ type DeviceSession struct {
 	NwkSKey                   []byte
 	AppSKey                   []byte
 	DevNonce                  uint16
+	CurrentTxPower            int
+	UnconfirmedRepetitions    int
+	MaximumDutyCycle          float64
+	RX1DataRateOffset         int
+	RX2DataRate               int
+	RX2Frequency              int64
+	ReceiveDelay              time.Duration
+	UplinkDwellTime           bool
+	DownlinkDwellTime         bool
+	MaximumEIRP               int
+	PingSlotDataRate          int
+	PingSlotFrequency         int64
+	PingSlotPeriodicity       int
+	BeaconFrequency           int64
+	AdditionalChannels        []RadioChannel
 }
 
 // Downlink is queued for delivery according to the device class. An empty ID
 // is replaced by the engine with a generated identifier.
 type Downlink struct {
-	ID       string
-	DeviceID string
-	Payload  []byte
-	FPort    int
-	DataRate int
+	ID          string
+	DeviceID    string
+	Payload     []byte
+	FPort       int
+	DataRate    int
+	Confirmed   bool
+	FPending    bool
+	ACK         bool
+	MACCommands []MACCommand
+}
+
+type MACCommandType string
+
+const (
+	MACLinkCheckAns       MACCommandType = "link-check-ans"
+	MACLinkADRReq         MACCommandType = "link-adr-req"
+	MACDutyCycleReq       MACCommandType = "duty-cycle-req"
+	MACRXParamSetupReq    MACCommandType = "rx-param-setup-req"
+	MACDevStatusReq       MACCommandType = "dev-status-req"
+	MACNewChannelReq      MACCommandType = "new-channel-req"
+	MACRXTimingSetupReq   MACCommandType = "rx-timing-setup-req"
+	MACTXParamSetupReq    MACCommandType = "tx-param-setup-req"
+	MACDLChannelReq       MACCommandType = "dl-channel-req"
+	MACDeviceTimeAns      MACCommandType = "device-time-ans"
+	MACPingSlotInfoAns    MACCommandType = "ping-slot-info-ans"
+	MACPingSlotChannelReq MACCommandType = "ping-slot-channel-req"
+	MACBeaconFreqReq      MACCommandType = "beacon-freq-req"
+)
+
+// MACCommand contains the semantic values of a LoRaWAN 1.0.x MAC command.
+// Only fields used by the selected command are considered. Pointer fields
+// distinguish an explicit zero from an omitted value.
+type MACCommand struct {
+	Type                 MACCommandType
+	DataRate             *int
+	TxPower              *int
+	NbTrans              *int
+	ChannelMask          *uint16
+	ChannelMaskControl   *int
+	MaxDutyCycleExponent *int
+	RX1DataRateOffset    *int
+	Frequency            *int64
+	ChannelIndex         *int
+	MinimumDataRate      *int
+	MaximumDataRate      *int
+	Delay                *time.Duration
+	UplinkDwellTime      *bool
+	DownlinkDwellTime    *bool
+	MaximumEIRP          *int
+	Margin               *int
+	GatewayCount         *int
+	BatteryLevel         *int
+	PingSlotPeriodicity  *int
+	DeviceTime           *time.Time
 }
 
 // ClassBDownlink is kept as a semantic alias for callers that use the
@@ -383,6 +450,7 @@ type PendingUplink struct {
 	DataRate       int
 	FragmentIndex  int
 	FragmentCount  int
+	AnySuccessful  bool
 }
 
 type PendingJoinRequest struct {
@@ -397,6 +465,40 @@ type RadioChannel struct {
 	Bandwidth       int64
 	SpreadingFactor int
 	DataRate        int
+}
+
+// DataRateProfile describes the radio modulation used by a regional data
+// rate. Keeping this in the public types package lets backend and frontend
+// adapters expose the same engine vocabulary without depending on runtime
+// internals.
+type DataRateProfile struct {
+	DataRate        int
+	SpreadingFactor int
+	Bandwidth       int64
+	MaximumPayload  int
+}
+
+type RegionalChannelGroup struct {
+	InitialFrequency int64
+	FrequencyStep    int64
+	ChannelCount     int
+	MinimumDataRate  int
+	MaximumDataRate  int
+}
+
+type RegionalPlan struct {
+	Region            contracts.DeviceRegion
+	DefaultDataRate   int
+	MinimumDataRate   int
+	MaximumDataRate   int
+	RX2Frequency      int64
+	RX2DataRate       int
+	BeaconFrequency   int64
+	BeaconDataRate    int
+	PingSlotFrequency int64
+	PingSlotDataRate  int
+	UplinkChannels    []RegionalChannelGroup
+	DataRates         map[int]DataRateProfile
 }
 
 type RadioTransmission struct {
@@ -420,6 +522,7 @@ type RadioTransmission struct {
 	SNR              float64
 	GatewayIDs       []string
 	Collision        bool
+	FPendingPoll     bool
 }
 
 type ValidationIssue struct {

@@ -7,6 +7,7 @@ import (
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/Giuseppe-Compagnone/lwn-engine/geometry"
+	"github.com/Giuseppe-Compagnone/lwn-engine/regional"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 	"github.com/google/uuid"
 )
@@ -28,13 +29,17 @@ func (e *Engine) startRadioTransmissionLocked(
 	session := e.sessions[device.ID]
 	dataRate := currentDeviceDataRate(session, device)
 	if scheduled.DataRate > 0 {
-		dataRate = clampDataRate(scheduled.DataRate)
+		dataRate = regional.ClampDataRate(device.LocationConfig.Region, scheduled.DataRate)
 	}
 	payloadSize := payloadSizeForFragment(device, dataRate, scheduled.FragmentIndex)
-	channel := selectRadioChannelAtDataRate(device, frameCounter, dataRate)
+	channel := selectRadioChannelAtDataRate(device, session, frameCounter, dataRate)
 	airtime := calculateAirtimeForPayload(payloadSize, channel.SpreadingFactor, channel.Bandwidth)
 	gateways := e.coveredGateways(device)
-	rssi, snr := calculateSignal(device, gateways, channel.Frequency)
+	transmitPower := radioTransmitPowerDBm
+	if session != nil {
+		transmitPower = float64(session.CurrentTxPower)
+	}
+	rssi, snr := calculateSignal(device, gateways, channel.Frequency, transmitPower)
 	transmission := &types.RadioTransmission{
 		PacketID:         packetID,
 		DeviceID:         device.ID,
@@ -51,6 +56,7 @@ func (e *Engine) startRadioTransmissionLocked(
 		PayloadSize:      payloadSize,
 		FragmentIndex:    scheduled.FragmentIndex,
 		FragmentCount:    scheduled.FragmentCount,
+		FPendingPoll:     scheduled.FPendingPoll,
 		Airtime:          airtime,
 		RSSI:             rssi,
 		SNR:              snr,
@@ -165,7 +171,17 @@ func (e *Engine) completeRadioLossLocked(transmission *types.RadioTransmission, 
 		return []contracts.SimulationEvent{e.scheduleWindowLocked(device, radioWindowSource(transmission), contracts.RX1, transmission.PacketID, -1, false)}
 	}
 	if !transmission.Confirmed {
-		if session.PendingUplink != nil && session.PendingUplink.PacketID == transmission.PacketID {
+		if pending := session.PendingUplink; pending != nil && pending.PacketID == transmission.PacketID {
+			if pending.Attempt < session.UnconfirmedRepetitions {
+				return e.scheduleUnconfirmedRepetitionLocked(device, pending, transmission.EndAt)
+			}
+			if pending.AnySuccessful {
+				session.PendingUplink = nil
+				e.applyADRLocked(device, session)
+				e.metrics.SuccessfulUplinks++
+				e.metrics.PacketSuccessRate = e.packetSuccessRate()
+				return append([]contracts.SimulationEvent{e.newPacketEventLocked(contracts.MetricsUpdated, "simulation metrics updated", transmission.DeviceID, "", scheduledID, transmission.PacketID)}, e.scheduleNextUplinkAfterTransmissionLocked(device, transmission)...)
+			}
 			session.PendingUplink = nil
 		}
 		e.metrics.DroppedUplinks++
@@ -209,8 +225,13 @@ func (e *Engine) completeRadioSuccessLocked(transmission *types.RadioTransmissio
 	if transmission.Confirmed {
 		return []contracts.SimulationEvent{e.scheduleWindowLocked(device, radioWindowSource(transmission), contracts.RX1, transmission.PacketID, transmission.FrameCounter, true)}
 	}
+	session.PendingUplink.AnySuccessful = true
+	if session.PendingUplink.Attempt < session.UnconfirmedRepetitions {
+		return e.scheduleUnconfirmedRepetitionLocked(device, session.PendingUplink, transmission.EndAt)
+	}
 	if session.PendingUplink.FragmentIndex+1 < session.PendingUplink.FragmentCount {
 		session.PendingUplink.FragmentIndex++
+		session.PendingUplink.AnySuccessful = false
 		session.PendingUplink.GatewayIDs = nil
 		next := types.ScheduledEvent{
 			ID: uuid.NewString(), At: transmission.EndAt, Type: contracts.DeviceUplinkTransmitted,
@@ -233,8 +254,42 @@ func (e *Engine) completeRadioSuccessLocked(transmission *types.RadioTransmissio
 	return append(events, e.scheduleNextUplinkAfterTransmissionLocked(device, transmission)...)
 }
 
+func (e *Engine) scheduleUnconfirmedRepetitionLocked(device contracts.Device, pending *types.PendingUplink, at time.Duration) []contracts.SimulationEvent {
+	pending.Attempt++
+	pending.GatewayIDs = nil
+	repetition := types.ScheduledEvent{
+		ID: uuid.NewString(), At: at, Type: contracts.DeviceUplinkTransmitted,
+		Message: "unconfirmed uplink repetition scheduled", DeviceID: device.ID,
+		Kind: types.ScheduledEventDeviceUplink, Attempt: pending.Attempt,
+		PacketID: pending.PacketID, FrameCounter: pending.FrameCounter,
+		FragmentIndex: pending.FragmentIndex, FragmentCount: pending.FragmentCount,
+	}
+	if err := e.scheduler.Schedule(repetition); err != nil {
+		session := e.sessions[device.ID]
+		if session != nil {
+			session.PendingUplink = nil
+		}
+		e.metrics.DroppedUplinks++
+		e.metrics.PacketSuccessRate = e.packetSuccessRate()
+		return []contracts.SimulationEvent{e.newPacketEventLocked(contracts.PacketDropped, "unconfirmed uplink repetition could not be scheduled", device.ID, "", repetition.ID, pending.PacketID)}
+	}
+	return []contracts.SimulationEvent{e.newProtocolEventLocked(
+		contracts.UplinkRetryScheduled, "unconfirmed uplink repetition scheduled", device.ID,
+		"", repetition.ID, pending.PacketID, pending.FrameCounter, pending.Attempt, false, nil,
+	)}
+}
+
 func (e *Engine) scheduleNextUplinkAfterTransmissionLocked(device contracts.Device, transmission *types.RadioTransmission) []contracts.SimulationEvent {
+	if transmission.FPendingPoll {
+		return nil
+	}
 	nextAt := transmission.StartAt + durationSecondsFloat(device.PayloadConfig.UplinkInterval)
+	if session := e.sessions[device.ID]; session != nil && session.MaximumDutyCycle > 0 && session.MaximumDutyCycle < 1 {
+		dutyCycleAt := transmission.EndAt + time.Duration(float64(transmission.Airtime)*(1/session.MaximumDutyCycle-1))
+		if dutyCycleAt > nextAt {
+			nextAt = dutyCycleAt
+		}
+	}
 	if nextAt < transmission.EndAt {
 		nextAt = transmission.EndAt
 	}
@@ -317,11 +372,18 @@ func radioWindowSource(transmission *types.RadioTransmission) types.ScheduledEve
 }
 
 func selectRadioChannel(device contracts.Device, frameCounter int64) types.RadioChannel {
-	return selectRadioChannelAtDataRate(device, frameCounter, defaultUplinkDataRate(device.LocationConfig.Region))
+	return selectRadioChannelAtDataRate(device, nil, frameCounter, defaultUplinkDataRate(device.LocationConfig.Region))
 }
 
-func selectRadioChannelAtDataRate(device contracts.Device, frameCounter int64, dataRate int) types.RadioChannel {
+func selectRadioChannelAtDataRate(device contracts.Device, session *types.DeviceSession, frameCounter int64, dataRate int) types.RadioChannel {
 	channels := regionalChannels(device.LocationConfig.Region, dataRate)
+	if session != nil {
+		for _, channel := range session.AdditionalChannels {
+			if channel.DataRate == dataRate {
+				channels = append(channels, channel)
+			}
+		}
+	}
 	index := int(frameCounter)
 	if index < 0 {
 		index = 0
@@ -330,57 +392,23 @@ func selectRadioChannelAtDataRate(device contracts.Device, frameCounter int64, d
 }
 
 func regionalChannels(region contracts.DeviceRegion, dataRate int) []types.RadioChannel {
-	frequencies := []int64{868_100_000, 868_300_000, 868_500_000}
-	switch region {
-	case contracts.EU433:
-		frequencies = []int64{433_175_000, 433_375_000, 433_575_000}
-	case contracts.AS923:
-		frequencies = []int64{923_200_000, 923_400_000, 923_600_000}
-	case contracts.AU915:
-		frequencies = []int64{915_200_000, 915_400_000, 915_600_000, 915_800_000}
-	case contracts.US915:
-		frequencies = []int64{902_300_000, 902_500_000, 902_700_000, 902_900_000}
-	case contracts.CN470, contracts.CN779:
-		frequencies = []int64{470_300_000, 470_500_000, 779_500_000}
-	case contracts.IN865:
-		frequencies = []int64{865_062_500, 865_402_500, 865_985_000}
-	case contracts.KR920:
-		frequencies = []int64{920_900_000, 921_100_000, 921_300_000}
-	case contracts.RU864:
-		frequencies = []int64{868_900_000, 869_100_000, 869_300_000}
-	}
-	channels := make([]types.RadioChannel, len(frequencies))
-	for index, frequency := range frequencies {
-		channels[index] = types.RadioChannel{Frequency: frequency, Bandwidth: radioBandwidthHz, DataRate: clampDataRate(dataRate), SpreadingFactor: spreadingFactorForDataRate(dataRate)}
-	}
-	return channels
+	return regional.UplinkChannels(region, dataRate)
 }
 
 func defaultUplinkDataRate(region contracts.DeviceRegion) int {
-	_ = region
-	return 5
+	return regional.MustPlan(region).DefaultDataRate
 }
 
-func clampDataRate(dataRate int) int {
-	if dataRate < 0 {
-		return 0
-	}
-	if dataRate > 5 {
-		return 5
-	}
-	return dataRate
-}
-
-func spreadingFactorForDataRate(dataRate int) int {
-	return 12 - clampDataRate(dataRate)
+func spreadingFactorForDataRate(region contracts.DeviceRegion, dataRate int) int {
+	return regional.Profile(region, dataRate).SpreadingFactor
 }
 
 func currentDeviceDataRate(session *types.DeviceSession, device contracts.Device) int {
-	if session != nil && session.CurrentDataRate >= 0 && session.CurrentDataRate <= 5 {
+	if session != nil && regional.SupportsUplinkDataRate(device.LocationConfig.Region, session.CurrentDataRate) {
 		return session.CurrentDataRate
 	}
 	if configured := device.AdvancedConfig.UplinkDataRate; configured != nil {
-		return clampDataRate(*configured)
+		return regional.ClampDataRate(device.LocationConfig.Region, *configured)
 	}
 	return defaultUplinkDataRate(device.LocationConfig.Region)
 }
@@ -430,11 +458,7 @@ func payloadBytes(device contracts.Device) []byte {
 }
 
 func maximumPayloadSize(region contracts.DeviceRegion, dataRate int) int {
-	dataRate = clampDataRate(dataRate)
-	if region == contracts.US915 || region == contracts.AU915 {
-		return []int{11, 53, 125, 242, 242, 242}[dataRate]
-	}
-	return []int{51, 51, 115, 242, 242, 242}[dataRate]
+	return regional.Profile(region, dataRate).MaximumPayload
 }
 
 func calculateAirtime(device contracts.Device, sf int, bandwidth int64) time.Duration {
@@ -444,7 +468,11 @@ func calculateAirtime(device contracts.Device, sf int, bandwidth int64) time.Dur
 func calculateAirtimeForPayload(payloadSize, sf int, bandwidth int64) time.Duration {
 	payloadSize += 13
 	symbolDuration := math.Pow(2, float64(sf)) / float64(bandwidth)
-	denominator := 4 * float64(sf-2)
+	lowDataRateOptimization := 0
+	if bandwidth == 125_000 && sf >= 11 {
+		lowDataRateOptimization = 1
+	}
+	denominator := 4 * float64(sf-2*lowDataRateOptimization)
 	payloadSymbols := 8.0
 	if denominator > 0 {
 		payloadSymbols += math.Max(math.Ceil((8*float64(payloadSize)-4*float64(sf)+28+16)/(denominator))*float64(radioCodingRate+4), 0)
@@ -453,7 +481,7 @@ func calculateAirtimeForPayload(payloadSize, sf int, bandwidth int64) time.Durat
 	return time.Duration(math.Max(1, math.Ceil(seconds*float64(time.Second))))
 }
 
-func calculateSignal(device contracts.Device, gateways []contracts.Gateway, frequency int64) (float64, float64) {
+func calculateSignal(device contracts.Device, gateways []contracts.Gateway, frequency int64, transmitPower float64) (float64, float64) {
 	if len(gateways) == 0 {
 		return -120, -30
 	}
@@ -470,7 +498,7 @@ func calculateSignal(device contracts.Device, gateways []contracts.Gateway, freq
 	}
 	distanceKilometers := math.Max(minimumDistance/1000, 0.001)
 	pathLoss := 32.44 + 20*math.Log10(float64(frequency)/1_000_000) + 20*math.Log10(distanceKilometers)
-	rssi := radioTransmitPowerDBm - pathLoss
+	rssi := transmitPower - pathLoss
 	return rssi, rssi - radioNoiseFloorDBm
 }
 

@@ -6,6 +6,7 @@ import (
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/Giuseppe-Compagnone/lwn-engine/geometry"
+	"github.com/Giuseppe-Compagnone/lwn-engine/regional"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 	"github.com/google/uuid"
 )
@@ -107,7 +108,7 @@ func (e *Engine) processUplinkLocked(scheduled types.ScheduledEvent) []contracts
 		}
 		packetID = uuid.NewString()
 		e.metrics.TotalUplinks++
-		if confirmed || fragmentCount > 1 {
+		if confirmed || fragmentCount > 1 || session.UnconfirmedRepetitions > 1 {
 			session.PendingUplink = &types.PendingUplink{
 				PacketID: packetID, FrameCounter: frameCounter, Attempt: attempt,
 				Confirmed: confirmed, TransmissionAt: scheduled.At, FPort: device.FrameConfig.FPort,
@@ -122,7 +123,7 @@ func (e *Engine) processUplinkLocked(scheduled types.ScheduledEvent) []contracts
 			return []contracts.SimulationEvent{e.newProtocolEventLocked(
 				contracts.FrameCounterRejected,
 				"uplink retransmission rejected because its session is no longer pending",
-				scheduled.DeviceID, "", scheduled.ID, packetID, frameCounter, attempt, true, nil,
+				scheduled.DeviceID, "", scheduled.ID, packetID, frameCounter, attempt, confirmed, nil,
 			)}
 		}
 		packetID = pending.PacketID
@@ -141,7 +142,7 @@ func (e *Engine) processUplinkLocked(scheduled types.ScheduledEvent) []contracts
 		contracts.DeviceUplinkTransmitted, uplinkMessage(attempt, confirmed),
 		scheduled.DeviceID, "", scheduled.ID, packetID, frameCounter, attempt, confirmed, nil,
 	)}
-	e.decorateDeviceEventLocked(&events[0], session, device.FrameConfig.FPort, dataRate, payloadSize)
+	e.decorateDeviceEventLocked(&events[0], session, device.LocationConfig.Region, device.FrameConfig.FPort, dataRate, payloadSize)
 	e.eventLog[len(e.eventLog)-1] = events[0]
 	scheduled.FragmentIndex = fragmentIndex
 	scheduled.FragmentCount = fragmentCount
@@ -180,8 +181,8 @@ func (e *Engine) processReceiveWindowLocked(scheduled types.ScheduledEvent) []co
 	// RX2 opportunity even if no ACK is required.
 	if session.PendingUplink == nil && len(session.PendingClassADownlinks) > 0 {
 		if !windowExpired {
-			if downlinkEvent, delivered := e.transmitQueuedClassADownlinkLocked(device, session, scheduled); delivered {
-				return append(events, downlinkEvent)
+			if downlinkEvents, delivered := e.transmitQueuedClassADownlinkLocked(device, session, scheduled); delivered {
+				return append(events, downlinkEvents...)
 			}
 		}
 		if window == contracts.RX1 {
@@ -250,8 +251,8 @@ func (e *Engine) processReceiveWindowLocked(scheduled types.ScheduledEvent) []co
 			}
 			return append(events, e.newEventLocked(contracts.DeviceUplinkScheduled, "next application payload fragment scheduled", device.ID, "", next.ID))
 		}
-		if downlinkEvent, delivered := e.transmitQueuedClassADownlinkLocked(device, session, scheduled); delivered {
-			events = append(events, downlinkEvent)
+		if downlinkEvents, delivered := e.transmitQueuedClassADownlinkLocked(device, session, scheduled); delivered {
+			events = append(events, downlinkEvents...)
 		}
 		session.PendingUplink = nil
 		e.metrics.SuccessfulUplinks++
@@ -303,12 +304,16 @@ func (e *Engine) applyADRLocked(device contracts.Device, session *types.DeviceSe
 	if !device.AdvancedConfig.ADREnabled || session == nil {
 		return
 	}
-	if session.LastSNR > 10 && session.CurrentDataRate < 5 {
-		session.CurrentDataRate++
+	plan := regional.MustPlan(device.LocationConfig.Region)
+	if session.LastSNR > 10 && session.CurrentDataRate < plan.MaximumDataRate {
+		candidate := session.CurrentDataRate + 1
+		if regional.SupportsUplinkDataRate(device.LocationConfig.Region, candidate) {
+			session.CurrentDataRate = candidate
+		}
 	} else if session.LastSNR < -5 && session.CurrentDataRate > 0 {
 		session.CurrentDataRate--
 	}
-	session.CurrentSpreadingFactor = spreadingFactorForDataRate(session.CurrentDataRate)
+	session.CurrentSpreadingFactor = spreadingFactorForDataRate(device.LocationConfig.Region, session.CurrentDataRate)
 }
 
 func (e *Engine) deviceSessionLocked(id string) (contracts.Device, *types.DeviceSession, bool) {
@@ -339,16 +344,31 @@ func gatewayIDs(gateways []contracts.Gateway) []string {
 
 func (e *Engine) scheduleWindowLocked(device contracts.Device, source types.ScheduledEvent, window contracts.SimulationRxWindow, packetID string, frameCounter int64, confirmed bool) contracts.SimulationEvent {
 	delay := durationSeconds(device.RX1Config.Delay)
+	session := e.sessions[device.ID]
+	if session != nil && session.ReceiveDelay > 0 {
+		delay = session.ReceiveDelay
+	}
 	kind := types.ScheduledEventRX1Window
 	dataRate := currentDeviceDataRate(e.sessions[device.ID], device)
 	frequency := source.ChannelFrequency
 	if window == contracts.RX2 {
 		delay = durationSeconds(device.RX2Config.Delay)
+		if session != nil && session.ReceiveDelay > 0 {
+			delay = session.ReceiveDelay + time.Second
+		}
 		kind = types.ScheduledEventRX2Window
 		dataRate = intValue(device.RX2Config.DataRate)
 		frequency = int64(device.RX2Config.ChannelFrequency)
+		if session != nil {
+			dataRate = session.RX2DataRate
+			frequency = session.RX2Frequency
+		}
 	} else {
-		dataRate = clampDataRate(dataRate - intValue(device.RX1Config.DataRateOffset))
+		offset := intValue(device.RX1Config.DataRateOffset)
+		if session != nil {
+			offset = session.RX1DataRateOffset
+		}
+		dataRate = regional.ClampDataRate(device.LocationConfig.Region, dataRate-offset)
 	}
 	baseAt := source.At
 	if source.WindowBaseAt > 0 {
@@ -421,7 +441,7 @@ func (e *Engine) newProtocolEventLocked(eventType contracts.SimulationEventType,
 	return event
 }
 
-func (e *Engine) decorateDeviceEventLocked(event *contracts.SimulationEvent, session *types.DeviceSession, fPort, dataRate, payloadSize int) {
+func (e *Engine) decorateDeviceEventLocked(event *contracts.SimulationEvent, session *types.DeviceSession, region contracts.DeviceRegion, fPort, dataRate, payloadSize int) {
 	port := fPort
 	rate := dataRate
 	size := int64(payloadSize)
@@ -429,7 +449,7 @@ func (e *Engine) decorateDeviceEventLocked(event *contracts.SimulationEvent, ses
 	event.DataRate = &rate
 	event.PayloadSize = &size
 	if session != nil {
-		event.SpreadingFactor = int32Pointer(spreadingFactorForDataRate(session.CurrentDataRate))
+		event.SpreadingFactor = int32Pointer(spreadingFactorForDataRate(region, session.CurrentDataRate))
 	}
 }
 
@@ -470,6 +490,9 @@ func windowEventType(window contracts.SimulationRxWindow) contracts.SimulationEv
 func uplinkMessage(attempt int, confirmed bool) string {
 	if confirmed && attempt > 1 {
 		return "confirmed device uplink retransmitted"
+	}
+	if !confirmed && attempt > 1 {
+		return "unconfirmed device uplink repeated"
 	}
 	return "device uplink transmitted"
 }

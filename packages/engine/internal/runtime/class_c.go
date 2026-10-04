@@ -54,12 +54,13 @@ func (e *Engine) processClassCDownlinkLocked(scheduled types.ScheduledEvent) []c
 	session.FrameCounterDown++
 	gateway := gateways[0]
 	if gateway.Type == contracts.Real {
-		e.queueDataDownlinkLocked(gateway, device, session, downlink, int64(device.RX2Config.ChannelFrequency), downlink.DataRate, scheduled.At)
+		e.queueDataDownlinkLocked(gateway, device, session, downlink, session.RX2Frequency, downlink.DataRate, scheduled.At)
 	}
 	event := e.newDownlinkEventLocked(contracts.DeviceDownlinkTransmitted, "Class C downlink transmitted", device, session, downlink, scheduled.ID)
 	event.GatewayID = &gateway.ID
 	e.eventLog[len(e.eventLog)-1] = event
 	events := []contracts.SimulationEvent{event}
+	events = append(events, e.applyDownlinkEffectsLocked(device, session, downlink, scheduled.At)...)
 	if len(session.PendingClassCDownlinks) > 0 {
 		if next := e.scheduleClassCDownlinkLocked(device, session, scheduled.At); next != nil {
 			events = append(events, *next)

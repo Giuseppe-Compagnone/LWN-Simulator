@@ -10,6 +10,7 @@ import (
 	"time"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
+	"github.com/Giuseppe-Compagnone/lwn-engine/regional"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 	"github.com/google/uuid"
 )
@@ -103,7 +104,7 @@ func validateDevice(issues *types.ValidationErrors, prefix string, device contra
 	}
 	validateLocation(issues, prefix+".locationConfig", device.LocationConfig)
 	validateRX1(issues, prefix+".RX1Config", device.RX1Config)
-	validateRX2(issues, prefix+".RX2Config", device.RX2Config)
+	validateRX2(issues, prefix+".RX2Config", device.RX2Config, device.LocationConfig.Region)
 	validateFrame(issues, prefix+".frameConfig", device.FrameConfig)
 	validatePayload(issues, prefix+".payloadConfig", device.PayloadConfig)
 
@@ -112,8 +113,11 @@ func validateDevice(issues *types.ValidationErrors, prefix string, device contra
 		math.IsInf(float64(device.AdvancedConfig.AntennaRange), 0) {
 		issues.Add(prefix+".advancedConfig.antennaRange", "must_be_positive", "antenna range must be greater than zero")
 	}
-	if configured := device.AdvancedConfig.UplinkDataRate; configured != nil && (*configured < 0 || *configured > 5) {
-		issues.Add(prefix+".advancedConfig.uplinkDataRate", "out_of_range", "uplink data rate must be between DR0 and DR5")
+	plan, hasPlan := regional.Plan(device.LocationConfig.Region)
+	if configured := device.AdvancedConfig.UplinkDataRate; configured != nil && hasPlan {
+		if !regional.SupportsUplinkDataRate(device.LocationConfig.Region, *configured) {
+			issues.Add(prefix+".advancedConfig.uplinkDataRate", "out_of_range", fmt.Sprintf("uplink data rate must be supported by %s (DR%d-DR%d)", device.LocationConfig.Region, plan.MinimumDataRate, plan.MaximumDataRate))
+		}
 	}
 
 	switch device.Activation {
@@ -196,10 +200,17 @@ func validateRX1(issues *types.ValidationErrors, prefix string, config contracts
 	validateRangePointer(issues, prefix+".dataRateOffset", config.DataRateOffset, 0, 5)
 }
 
-func validateRX2(issues *types.ValidationErrors, prefix string, config contracts.RX2Config) {
+func validateRX2(issues *types.ValidationErrors, prefix string, config contracts.RX2Config, region contracts.DeviceRegion) {
 	validatePositivePointer(issues, prefix+".delay", config.Delay)
 	validatePositivePointer(issues, prefix+".duration", config.Duration)
-	validateRangePointer(issues, prefix+".dataRate", config.DataRate, 0, 5)
+	if config.DataRate != nil {
+		plan, ok := regional.Plan(region)
+		if ok {
+			if _, supported := plan.DataRates[*config.DataRate]; !supported {
+				issues.Add(prefix+".dataRate", "out_of_range", fmt.Sprintf("RX2 data rate DR%d is not supported by %s", *config.DataRate, region))
+			}
+		}
+	}
 	if config.ChannelFrequency <= 0 || math.IsNaN(float64(config.ChannelFrequency)) || math.IsInf(float64(config.ChannelFrequency), 0) {
 		issues.Add(prefix+".channelFrequency", "must_be_positive", "channel frequency must be greater than zero")
 	}

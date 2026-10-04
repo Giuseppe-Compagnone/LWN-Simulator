@@ -26,6 +26,11 @@ var ErrInvalidFrame = errors.New("invalid LoRaWAN frame")
 type Packet struct {
 	MType      byte
 	Confirmed  bool
+	ACK        bool
+	FPending   bool
+	ADR        bool
+	ADRACKReq  bool
+	FOpts      []byte
 	DevAddr    uint32
 	FCnt       uint32
 	FPort      *byte
@@ -41,7 +46,7 @@ type JoinAcceptOptions struct {
 	AppNonce          uint32
 	NetID             uint32
 	DevAddr           uint32
-	RX1DataRate       int
+	RX2DataRate       int
 	RX1DataRateOffset int
 	RXDelay           int
 	AppKey            []byte
@@ -86,6 +91,13 @@ func parseData(packet Packet, raw []byte) (Packet, error) {
 	packet.DevAddr = binary.LittleEndian.Uint32(raw[1:5])
 	fCtrl := raw[5]
 	fOptsLength := int(fCtrl & 0x0f)
+	packet.ADR = fCtrl&0x80 != 0
+	packet.ACK = fCtrl&0x20 != 0
+	if packet.MType == MTypeUnconfirmedDataDown || packet.MType == MTypeConfirmedDataDown {
+		packet.FPending = fCtrl&0x10 != 0
+	} else {
+		packet.ADRACKReq = fCtrl&0x40 != 0
+	}
 	// The fixed FHDR occupies seven bytes after MHDR; raw indexes therefore
 	// start at eight when the FOpts field is empty.
 	fhdrLength := 8 + fOptsLength
@@ -93,6 +105,7 @@ func parseData(packet Packet, raw []byte) (Packet, error) {
 		return Packet{}, fmt.Errorf("%w: invalid frame options length", ErrInvalidFrame)
 	}
 	packet.FCnt = uint32(binary.LittleEndian.Uint16(raw[6:8]))
+	packet.FOpts = append([]byte(nil), raw[8:fhdrLength]...)
 	if fhdrLength+4 == len(raw) {
 		return packet, nil
 	}
@@ -109,6 +122,10 @@ type DataFrameOptions struct {
 	Payload   []byte
 	Confirmed bool
 	ACK       bool
+	FPending  bool
+	ADR       bool
+	ADRACKReq bool
+	FOpts     []byte
 	Direction byte
 	NwkSKey   []byte
 	AppSKey   []byte
@@ -124,6 +141,15 @@ func BuildDataFrame(options DataFrameOptions) ([]byte, error) {
 	if options.FPort != nil && (*options.FPort == 0 || *options.FPort > 223) {
 		return nil, fmt.Errorf("%w: FPort must be between 1 and 223", ErrInvalidFrame)
 	}
+	if len(options.FOpts) > 15 {
+		return nil, fmt.Errorf("%w: FOpts cannot exceed 15 bytes", ErrInvalidFrame)
+	}
+	if options.FPending && options.Direction != 1 {
+		return nil, fmt.Errorf("%w: FPending is only valid on downlinks", ErrInvalidFrame)
+	}
+	if options.ADRACKReq && options.Direction != 0 {
+		return nil, fmt.Errorf("%w: ADRACKReq is only valid on uplinks", ErrInvalidFrame)
+	}
 	mType := MTypeUnconfirmedDataDown
 	if options.Direction == 0 {
 		mType = MTypeUnconfirmedDataUp
@@ -135,11 +161,21 @@ func BuildDataFrame(options DataFrameOptions) ([]byte, error) {
 	devAddr := make([]byte, 4)
 	binary.LittleEndian.PutUint32(devAddr, options.DevAddr)
 	frame = append(frame, devAddr...)
-	fCtrl := byte(0)
+	fCtrl := byte(len(options.FOpts))
+	if options.ADR {
+		fCtrl |= 0x80
+	}
+	if options.ADRACKReq {
+		fCtrl |= 0x40
+	}
 	if options.ACK {
-		fCtrl = 0x20
+		fCtrl |= 0x20
+	}
+	if options.FPending {
+		fCtrl |= 0x10
 	}
 	frame = append(frame, fCtrl, byte(options.FCnt), byte(options.FCnt>>8))
+	frame = append(frame, options.FOpts...)
 	if options.FPort != nil || len(options.Payload) > 0 {
 		if options.FPort == nil {
 			return nil, fmt.Errorf("%w: payload requires FPort", ErrInvalidFrame)
@@ -167,7 +203,7 @@ func BuildJoinAccept(options JoinAcceptOptions) ([]byte, error) {
 	if len(options.AppKey) != 16 || options.AppNonce > 0xffffff || options.NetID > 0xffffff {
 		return nil, fmt.Errorf("%w: invalid join accept input", ErrInvalidFrame)
 	}
-	if options.RX1DataRate < 0 || options.RX1DataRate > 15 || options.RX1DataRateOffset < 0 || options.RX1DataRateOffset > 7 || options.RXDelay < 0 || options.RXDelay > 255 {
+	if options.RX2DataRate < 0 || options.RX2DataRate > 15 || options.RX1DataRateOffset < 0 || options.RX1DataRateOffset > 7 || options.RXDelay < 0 || options.RXDelay > 255 {
 		return nil, fmt.Errorf("%w: invalid join accept radio settings", ErrInvalidFrame)
 	}
 	payload := make([]byte, 0, 12)
@@ -176,7 +212,7 @@ func BuildJoinAccept(options JoinAcceptOptions) ([]byte, error) {
 	devAddr := make([]byte, 4)
 	binary.LittleEndian.PutUint32(devAddr, options.DevAddr)
 	payload = append(payload, devAddr...)
-	payload = append(payload, byte(options.RX1DataRateOffset<<4|options.RX1DataRate), byte(options.RXDelay))
+	payload = append(payload, byte(options.RX1DataRateOffset<<4|options.RX2DataRate), byte(options.RXDelay))
 
 	mhdr := []byte{MTypeJoinAccept << 5}
 	mac, err := cmac(options.AppKey, append(append([]byte(nil), mhdr...), payload...))

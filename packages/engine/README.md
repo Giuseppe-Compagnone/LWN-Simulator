@@ -17,6 +17,8 @@ engine runtime and test clocks.
   including protocol sessions, receive windows, ACKs, retries, airtime,
   channel selection, link budget and radio outcomes;
 - `gateway/`: real-gateway adapters, currently Semtech UDP;
+- `lorawan/`: LoRaWAN 1.0.x frame security, parsing and MAC-command encoding;
+- `regional/`: regional channel plans, modulation profiles and payload limits;
 - `types/`: runtime abstractions such as clocks, scheduler events and sinks;
 - `scheduler/`: thread-safe priority queue for simulation events;
 - `registry/`: validated device and gateway runtime registry;
@@ -48,7 +50,7 @@ The foundation currently provides:
 - OTAA join sessions and immediate ABP sessions;
 - LoRaWAN data-frame construction/parsing with AES-128 payload protection and MIC validation at the gateway boundary;
 - RX1/RX2 receive windows for confirmed traffic;
-- ACK handling, frame counters and bounded retransmissions;
+- ACK handling, frame counters, confirmed retries and unconfirmed `NbTrans` repetitions;
 - Class A and Class C application downlink queues, in addition to Class B ping-slot downlinks;
 - radio transmissions with deterministic airtime and regional channel selection;
 - log-distance RSSI/SNR estimates, overlapping-transmission collision detection
@@ -58,6 +60,13 @@ The foundation currently provides:
   monitoring, packet ingress/egress, timeout detection and reconnect backoff;
 - real-gateway uplink routing for ABP/OTAA data frames, confirmed-uplink ACKs
   and TX_ACK-correlated retry retention;
+- confirmed/unconfirmed downlinks, `FPending`, piggybacked ACKs and Class A
+  downlinks through real gateways;
+- LoRaWAN 1.0.x MAC commands in FOpts, including ADR, duty-cycle, RX/channel,
+  device status/time and Class B configuration commands;
+- runtime device/gateway updates and manual uplink injection;
+- checkpoints containing mutable hardware as well as protocol, scheduler,
+  radio, gateway-packet, metric and event-log state;
 - Class B beacon synchronization for virtual gateways, deterministic ping-slot
   scheduling, queued downlinks, synchronization loss detection and runtime
   metrics/events;
@@ -66,10 +75,10 @@ The foundation currently provides:
 At the beginning of a run, every active device gets an uplink scheduled at
 simulation time zero. Subsequent uplinks follow the device's
 `payloadConfig.uplinkInterval`, expressed in seconds. The packet first occupies
-the selected regional channel for its calculated airtime. The current channel
-plan is intentionally small and deterministic: it provides the primary
-simulation channels for each supported region without attempting to model
-every regulatory channel.
+the selected regional channel for its calculated airtime. The regional planner
+covers EU868, US915, CN779, EU433, AU915, CN470, AS923, KR920, IN865 and RU864.
+Each plan owns its complete uplink channel groups, valid data rates,
+SF/bandwidth mapping, RX2 and Class B defaults, and payload limits.
 
 At transmission completion, a packet is delivered to each active virtual
 gateway whose location is within the device's `advancedConfig.antennaRange`,
@@ -102,13 +111,16 @@ ABP devices are ready to transmit when the simulation starts. OTAA devices
 first send a join request and become ready after a join accept in RX1 or RX2.
 Confirmed uplinks keep the same frame counter and packet identity across
 retransmissions, and stop after the device's configured retransmission limit.
+Unconfirmed repetitions configured by `LinkADRReq.NbTrans` retain one frame
+counter and complete successfully when at least one copy reaches a gateway.
 RX1/RX2 delays use seconds, while RX2 duration uses milliseconds, matching the
 device configuration model.
 
 Class B devices synchronize with the beacon emitted by the nearest covered
 active virtual gateway. Beacons follow the LoRaWAN 128-second cadence. The
-engine uses a one-second ping-slot cadence as its deterministic simulation
-default, so a synchronized device has a continuously scheduled next ping slot
+engine uses a one-second ping-slot cadence as its default and applies a
+network-provided Class B periodicity when configured, so a synchronized device
+has a continuously scheduled next ping slot
 and can receive one queued downlink per slot. A downlink queued through
 `Engine.QueueClassBDownlink` remains durable while the device is waiting for a
 beacon or recovering synchronization; it is removed only after transmission.
@@ -132,10 +144,20 @@ reports a transport or TX_ACK failure. The
 Semtech UDP adapter encodes these as timed `PULL_RESP` packets (`imme: false`,
 `time: ...`) instead of immediate transmissions, allowing ChirpStack Gateway
 Bridge and compatible packet-forwarders to schedule them on the gateway. The
-beacon payload follows the LoRaWAN Class B 17-byte format and currently uses
-the EU868 beacon radio defaults, matching the simulator's primary region.
-Gateway-specific regional beacon plans can be added when the gateway contract
-exposes its region.
+beacon payload follows the LoRaWAN Class B 17-byte format. Frequency, data rate
+and bandwidth come from the covered Class B devices' regional plan; EU868 is
+the deterministic fallback when no Class B device is covered.
 
-Frontend streaming builds on top of this foundation in the following roadmap
-phase.
+## Runtime interaction API
+
+- `QueueUplink(deviceID)` injects a manual uplink, or an OTAA join when needed.
+- `QueueDownlink(downlink)` routes application data and MAC commands according
+  to Class A, B or C and supports `Confirmed` and `FPending`.
+- `QueueMACCommand(deviceID, command)` queues a MAC-only downlink.
+- `UpdateDevice(device)` applies active state, payload/MType, location, class
+  and configuration changes. Sessions reset only when identity or activation
+  credentials change.
+- `UpdateGateway(gateway)` applies active state, location, keep-alive and real
+  endpoint changes, restarting a real adapter only when necessary.
+
+See [COMPATIBILITY.md](./COMPATIBILITY.md) for the maintained v1-to-v2 mapping.

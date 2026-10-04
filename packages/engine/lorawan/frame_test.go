@@ -59,7 +59,7 @@ func TestBuildJoinAcceptCreatesEncryptedPayload(t *testing.T) {
 		AppNonce:          1,
 		NetID:             2,
 		DevAddr:           0x26011bda,
-		RX1DataRate:       5,
+		RX2DataRate:       5,
 		RX1DataRateOffset: 1,
 		RXDelay:           1,
 		AppKey:            make([]byte, 16),
@@ -111,7 +111,7 @@ func TestLoRaWANCodecRejectsMalformedInputs(t *testing.T) {
 	if _, err := BuildDataFrame(DataFrameOptions{Direction: 2, NwkSKey: key, AppSKey: key}); err == nil {
 		t.Fatal("expected invalid direction to be rejected")
 	}
-	if _, err := BuildJoinAccept(JoinAcceptOptions{AppKey: key, RX1DataRate: 16}); err == nil {
+	if _, err := BuildJoinAccept(JoinAcceptOptions{AppKey: key, RX2DataRate: 16}); err == nil {
 		t.Fatal("expected invalid Join-Accept settings to be rejected")
 	}
 	if _, err := DecodeHex("not-hex"); err == nil || !strings.Contains(err.Error(), "decode") {
@@ -119,6 +119,29 @@ func TestLoRaWANCodecRejectsMalformedInputs(t *testing.T) {
 	}
 	if _, _, err := DeriveSessionKeys(key[:1], 0, 0, 0); err == nil {
 		t.Fatal("expected invalid session-key input to be rejected")
+	}
+}
+
+func TestDataFrameRoundTripPreservesDownlinkControlFlagsAndFOpts(t *testing.T) {
+	key := []byte("0123456789abcdef")
+	port := byte(10)
+	frame, err := BuildDataFrame(DataFrameOptions{
+		DevAddr: 0x26011bda, FCnt: 12, FPort: &port, Payload: []byte("payload"),
+		Confirmed: true, ACK: true, FPending: true, ADR: true,
+		FOpts: []byte{0x06}, Direction: 1, NwkSKey: key, AppSKey: key,
+	})
+	if err != nil {
+		t.Fatalf("build data frame: %v", err)
+	}
+	packet, err := Parse(frame)
+	if err != nil {
+		t.Fatalf("parse data frame: %v", err)
+	}
+	if !packet.Confirmed || !packet.ACK || !packet.FPending || !packet.ADR || packet.ADRACKReq {
+		t.Fatalf("unexpected control flags: %+v", packet)
+	}
+	if len(packet.FOpts) != 1 || packet.FOpts[0] != 0x06 {
+		t.Fatalf("unexpected FOpts: %x", packet.FOpts)
 	}
 }
 

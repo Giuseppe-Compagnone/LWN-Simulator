@@ -8,6 +8,7 @@ import (
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/Giuseppe-Compagnone/lwn-engine/lorawan"
+	"github.com/Giuseppe-Compagnone/lwn-engine/regional"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 )
 
@@ -26,12 +27,12 @@ func (e *Engine) newDownlinkEventLocked(
 	if dataRate < 0 {
 		dataRate = session.CurrentDataRate
 	}
-	frequency := int64(device.RX2Config.ChannelFrequency)
+	frequency := session.RX2Frequency
 	event.PayloadSize = &payloadSize
 	event.FPort = &fPort
 	event.DataRate = &dataRate
 	event.ChannelFrequency = &frequency
-	event.Confirmed = pointerTo(false)
+	event.Confirmed = pointerTo(downlink.Confirmed)
 	frameCounter := session.FrameCounterDown
 	event.FrameCounter = &frameCounter
 	e.eventLog[len(e.eventLog)-1] = event
@@ -42,20 +43,24 @@ func (e *Engine) transmitQueuedClassADownlinkLocked(
 	device contracts.Device,
 	session *types.DeviceSession,
 	scheduled types.ScheduledEvent,
-) (contracts.SimulationEvent, bool) {
+) ([]contracts.SimulationEvent, bool) {
 	if len(session.PendingClassADownlinks) == 0 {
-		return contracts.SimulationEvent{}, false
+		return nil, false
 	}
 	gateways := e.classBCoveredGateways(device)
 	if len(gateways) == 0 {
-		return contracts.SimulationEvent{}, false
+		return nil, false
 	}
 	downlink := session.PendingClassADownlinks[0]
 	session.PendingClassADownlinks = session.PendingClassADownlinks[1:]
+	downlink.ACK = scheduled.Confirmed
+	if len(session.PendingClassADownlinks) > 0 {
+		downlink.FPending = true
+	}
 	session.FrameCounterDown++
 	gateway := gateways[0]
 	if gateway.Type == contracts.Real {
-		e.queueDataDownlinkLocked(gateway, device, session, downlink, scheduled.ChannelFrequency, scheduled.DataRate, scheduled.At+durationSeconds(device.RX1Config.Delay))
+		e.queueDataDownlinkLocked(gateway, device, session, downlink, scheduled.ChannelFrequency, scheduled.DataRate, scheduled.At)
 	}
 	event := e.newDownlinkEventLocked(
 		contracts.DeviceDownlinkTransmitted,
@@ -65,11 +70,21 @@ func (e *Engine) transmitQueuedClassADownlinkLocked(
 		downlink,
 		scheduled.ID,
 	)
+	if scheduled.ChannelFrequency > 0 {
+		frequency := scheduled.ChannelFrequency
+		event.ChannelFrequency = &frequency
+	}
+	if scheduled.DataRate >= 0 {
+		dataRate := scheduled.DataRate
+		event.DataRate = &dataRate
+	}
 	if event.GatewayID == nil {
 		event.GatewayID = &gateway.ID
 		e.eventLog[len(e.eventLog)-1] = event
 	}
-	return event, true
+	events := []contracts.SimulationEvent{event}
+	events = append(events, e.applyDownlinkEffectsLocked(device, session, downlink, scheduled.At+scheduled.WindowDuration)...)
+	return events, true
 }
 
 func (e *Engine) queueDataDownlinkLocked(
@@ -82,7 +97,7 @@ func (e *Engine) queueDataDownlinkLocked(
 	at time.Duration,
 ) {
 	if frequency <= 0 {
-		frequency = int64(device.RX2Config.ChannelFrequency)
+		frequency = session.RX2Frequency
 	}
 	if dataRate < 0 {
 		dataRate = currentDeviceDataRate(session, device)
@@ -92,15 +107,27 @@ func (e *Engine) queueDataDownlinkLocked(
 		return
 	}
 	address := binary.BigEndian.Uint32(devAddr)
-	fPort := byte(downlink.FPort)
+	var fPort *byte
+	if len(downlink.Payload) > 0 {
+		value := byte(downlink.FPort)
+		fPort = &value
+	}
+	macCommands, err := lorawan.EncodeMACCommands(downlink.MACCommands)
+	if err != nil {
+		return
+	}
 	payload, err := lorawan.BuildDataFrame(lorawan.DataFrameOptions{
 		DevAddr:   address,
 		FCnt:      uint32(session.FrameCounterDown),
-		FPort:     &fPort,
+		FPort:     fPort,
 		Payload:   downlink.Payload,
+		Confirmed: downlink.Confirmed,
+		ACK:       downlink.ACK,
+		FPending:  downlink.FPending,
 		Direction: 1,
 		NwkSKey:   session.NwkSKey,
 		AppSKey:   session.AppSKey,
+		FOpts:     macCommands,
 	})
 	if err != nil {
 		return
@@ -112,16 +139,17 @@ func (e *Engine) queueDataDownlinkLocked(
 			target = time.Now().Add(classBRealGatewayTimingLead)
 		}
 	}
-	spreadingFactor := spreadingFactorForDataRate(dataRate)
+	profile := regional.Profile(device.LocationConfig.Region, dataRate)
+	spreadingFactor := profile.SpreadingFactor
 	e.gatewayPackets = append(e.gatewayPackets, types.GatewayPacket{
 		GatewayID:       gateway.ID,
 		Kind:            GatewayPacketKindForDeviceClass(device.Class),
 		Payload:         payload,
 		Frequency:       frequency,
-		Bandwidth:       classBBeaconBandwidth,
+		Bandwidth:       profile.Bandwidth,
 		SpreadingFactor: spreadingFactor,
 		Power:           classBBeaconPower,
-		DataRate:        fmt.Sprintf("SF%dBW125", spreadingFactor),
+		DataRate:        fmt.Sprintf("SF%dBW%d", spreadingFactor, profile.Bandwidth/1000),
 		TransmitAt:      target,
 	})
 }

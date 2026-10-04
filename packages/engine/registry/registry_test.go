@@ -61,6 +61,29 @@ func TestRegistryRejectsInvalidHardware(t *testing.T) {
 	}
 }
 
+func TestRegistryOwnsDeepCopiesOfHardware(t *testing.T) {
+	device := contracts.Device{ID: "00000000-0000-0000-0000-000000000001", Name: "Original", Active: true, FrameConfig: contracts.FrameConfig{FPort: 1}}
+	completeRegistryDevice(&device)
+	gateway := registryGateway("00000000-0000-0000-0000-000000000004", true, contracts.Virtual)
+	registry, err := New([]contracts.Device{device}, []contracts.Gateway{gateway})
+	if err != nil {
+		t.Fatalf("create registry: %v", err)
+	}
+
+	device.ABPConfig.AppSKey = "11111111111111111111111111111111"
+	*gateway.Latitude = 0
+	storedDevice, _ := registry.Device(device.ID)
+	storedGateway, _ := registry.Gateway(gateway.ID)
+	if storedDevice.ABPConfig.AppSKey == device.ABPConfig.AppSKey || *storedGateway.Latitude == 0 {
+		t.Fatal("caller mutation leaked into registry")
+	}
+	storedDevice.ABPConfig.AppSKey = "22222222222222222222222222222222"
+	storedAgain, _ := registry.Device(device.ID)
+	if storedAgain.ABPConfig.AppSKey == storedDevice.ABPConfig.AppSKey {
+		t.Fatal("lookup mutation leaked back into registry")
+	}
+}
+
 func completeRegistryDevice(device *contracts.Device) {
 	device.DevEUI = "70B3D57ED000000" + device.ID[len(device.ID)-1:]
 	device.Class = contracts.ClassA

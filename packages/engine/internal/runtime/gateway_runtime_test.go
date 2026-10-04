@@ -142,6 +142,78 @@ func TestPhaseFiveRealUplinkUpdatesDeviceAndSchedulesConfirmedACK(t *testing.T) 
 	}
 }
 
+func TestRealClassADownlinkCarriesACKFPendingAndMACCommands(t *testing.T) {
+	adapter := newFakeGatewayAdapter()
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000043")
+	configureABP(&device)
+	gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c43")
+	gateway.Type = contracts.Real
+	gateway.KeepAlive = nil
+	gateway.GatewayEUI = "A840410001000143"
+	gateway.MacAddress = "02:00:00:10:00:43"
+	gateway.GatewayIPv4 = engineStringPtr("127.0.0.1")
+	gateway.GatewayPort = engineInt32Ptr(1743)
+	engine, err := New(
+		contracts.SimulationConfig{Speed: 1},
+		[]contracts.Device{device},
+		[]contracts.Gateway{gateway},
+		types.Options{EventBuffer: 256, GatewayAdapterFactory: &fakeGatewayFactory{adapter: adapter}},
+	)
+	if err != nil {
+		t.Fatalf("create engine: %v", err)
+	}
+	startEngine(t, engine)
+	defer stopEngine(t, engine)
+	waitForEventType(t, engine.Events(), contracts.GatewayConnecting)
+	adapter.emit(types.GatewayAdapterEvent{GatewayID: gateway.ID, State: contracts.Connected})
+	waitForEventType(t, engine.Events(), contracts.GatewayConnected)
+
+	dataRate, repetitions := 2, 3
+	if _, err := engine.QueueDownlink(types.Downlink{
+		DeviceID: device.ID, Payload: []byte("command"), Confirmed: true, DataRate: -1,
+		MACCommands: []types.MACCommand{{Type: types.MACLinkADRReq, DataRate: &dataRate, NbTrans: &repetitions}},
+	}); err != nil {
+		t.Fatalf("queue first downlink: %v", err)
+	}
+	if _, err := engine.QueueDownlink(types.Downlink{DeviceID: device.ID, Payload: []byte("second"), DataRate: -1}); err != nil {
+		t.Fatalf("queue second downlink: %v", err)
+	}
+
+	nwkSKey, _ := lorawan.DecodeHex(device.ABPConfig.NwkSKey)
+	appSKey, _ := lorawan.DecodeHex(device.ABPConfig.AppSKey)
+	fPort := byte(device.FrameConfig.FPort)
+	uplink, err := lorawan.BuildDataFrame(lorawan.DataFrameOptions{
+		DevAddr: 0x26011bda, FCnt: 1, FPort: &fPort, Payload: []byte("uplink"),
+		Confirmed: true, NwkSKey: nwkSKey, AppSKey: appSKey,
+	})
+	if err != nil {
+		t.Fatalf("build uplink: %v", err)
+	}
+	adapter.packets <- types.GatewayPacket{
+		GatewayID: gateway.ID, Payload: uplink, Frequency: 868_100_000,
+		Bandwidth: 125_000, SpreadingFactor: 7, DataRate: "SF7BW125",
+	}
+	waitForEventTypeWithLog(t, engine, contracts.DeviceDownlinkTransmitted)
+	select {
+	case sent := <-adapter.sends:
+		packet, parseErr := lorawan.Parse(sent.Payload)
+		if parseErr != nil {
+			t.Fatalf("parse downlink: %v", parseErr)
+		}
+		if !packet.ACK || !packet.Confirmed || !packet.FPending || len(packet.FOpts) != 5 || packet.FOpts[0] != 0x03 {
+			t.Fatalf("unexpected Class A downlink controls: %+v FOpts=%x", packet, packet.FOpts)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for real Class A downlink")
+	}
+	engine.mu.RLock()
+	session := *engine.sessions[device.ID]
+	engine.mu.RUnlock()
+	if session.CurrentDataRate != dataRate || session.UnconfirmedRepetitions != repetitions {
+		t.Fatalf("MAC command was not applied: %+v", session)
+	}
+}
+
 func TestPhaseFiveRealOTAAJoinQueuesEncryptedJoinAccept(t *testing.T) {
 	adapter := newFakeGatewayAdapter()
 	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000042")

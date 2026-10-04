@@ -11,6 +11,7 @@ import (
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/Giuseppe-Compagnone/lwn-engine/lorawan"
+	"github.com/Giuseppe-Compagnone/lwn-engine/regional"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 	"github.com/google/uuid"
 )
@@ -38,6 +39,7 @@ type Engine struct {
 	metrics contracts.SimulationMetrics
 
 	runCancel    context.CancelFunc
+	runContext   context.Context
 	done         chan struct{}
 	wake         chan struct{}
 	gatewayWG    sync.WaitGroup
@@ -56,6 +58,14 @@ func New(
 		return nil, fmt.Errorf("validate simulation config: %w", err)
 	}
 
+	if options.Checkpoint != nil {
+		if len(options.Checkpoint.Devices) > 0 {
+			devices = append([]contracts.Device(nil), options.Checkpoint.Devices...)
+		}
+		if len(options.Checkpoint.Gateways) > 0 {
+			gateways = append([]contracts.Gateway(nil), options.Checkpoint.Gateways...)
+		}
+	}
 	registry, err := NewRegistry(devices, gateways)
 	if err != nil {
 		return nil, fmt.Errorf("validate runtime registry: %w", err)
@@ -160,6 +170,7 @@ func (e *Engine) restoreCheckpoint(checkpoint *types.EngineCheckpoint) error {
 			copySession.PendingClassBDownlinks = cloneClassBDownlinks(session.PendingClassBDownlinks)
 			copySession.PendingClassADownlinks = cloneDownlinks(session.PendingClassADownlinks)
 			copySession.PendingClassCDownlinks = cloneDownlinks(session.PendingClassCDownlinks)
+			copySession.AdditionalChannels = append([]types.RadioChannel(nil), session.AdditionalChannels...)
 			copySession.NwkSKey = append([]byte(nil), session.NwkSKey...)
 			copySession.AppSKey = append([]byte(nil), session.AppSKey...)
 			e.sessions[deviceID] = &copySession
@@ -204,6 +215,7 @@ func (e *Engine) Start(ctx context.Context) error {
 
 	runCtx, cancel := context.WithCancel(ctx)
 	e.runCancel = cancel
+	e.runContext = runCtx
 	e.done = make(chan struct{})
 	e.state.Status = contracts.SimulationStatusRunning
 	events := []contracts.SimulationEvent{
@@ -447,6 +459,12 @@ func (e *Engine) QueueClassBDownlink(downlink types.ClassBDownlink) (string, err
 	return e.QueueDownlink(downlink)
 }
 
+// QueueMACCommand delivers a semantic LoRaWAN MAC command through the same
+// class-aware downlink path used by application payloads.
+func (e *Engine) QueueMACCommand(deviceID string, command types.MACCommand) (string, error) {
+	return e.QueueDownlink(types.Downlink{DeviceID: deviceID, DataRate: -1, MACCommands: []types.MACCommand{command}})
+}
+
 // QueueDownlink queues an application downlink according to the device class.
 // Class A uses the next receive window, Class B uses the next ping slot and
 // Class C is delivered as soon as a gateway path is available.
@@ -454,8 +472,8 @@ func (e *Engine) QueueDownlink(downlink types.Downlink) (string, error) {
 	if downlink.DeviceID == "" {
 		return "", fmt.Errorf("downlink device id is required")
 	}
-	if len(downlink.Payload) == 0 {
-		return "", fmt.Errorf("downlink payload cannot be empty")
+	if len(downlink.Payload) == 0 && len(downlink.MACCommands) == 0 {
+		return "", fmt.Errorf("downlink must contain an application payload or at least one MAC command")
 	}
 
 	e.mu.Lock()
@@ -477,16 +495,28 @@ func (e *Engine) QueueDownlink(downlink types.Downlink) (string, error) {
 		e.mu.Unlock()
 		return "", fmt.Errorf("%w: cannot queue Class B downlink from %q", ErrInvalidTransition, e.state.Status)
 	}
-	if downlink.FPort == 0 {
+	if downlink.FPort == 0 && len(downlink.Payload) > 0 {
 		downlink.FPort = device.FrameConfig.FPort
 	}
-	if downlink.FPort < 1 || downlink.FPort > 223 {
+	if len(downlink.Payload) > 0 && (downlink.FPort < 1 || downlink.FPort > 223) {
 		e.mu.Unlock()
 		return "", fmt.Errorf("downlink FPort must be between 1 and 223")
 	}
-	if downlink.DataRate < -1 || downlink.DataRate > 5 {
+	for index, command := range downlink.MACCommands {
+		if err := validateMACCommand(device.LocationConfig.Region, command); err != nil {
+			e.mu.Unlock()
+			return "", fmt.Errorf("validate MAC command %d: %w", index, err)
+		}
+	}
+	if _, err := lorawan.EncodeMACCommands(downlink.MACCommands); err != nil {
 		e.mu.Unlock()
-		return "", fmt.Errorf("downlink data rate must be between -1 and 5")
+		return "", fmt.Errorf("encode MAC commands: %w", err)
+	}
+	plan := regional.MustPlan(device.LocationConfig.Region)
+	_, downlinkDataRateSupported := plan.DataRates[downlink.DataRate]
+	if downlink.DataRate < -1 || (downlink.DataRate >= 0 && !downlinkDataRateSupported) {
+		e.mu.Unlock()
+		return "", fmt.Errorf("downlink data rate DR%d is not supported by %s", downlink.DataRate, device.LocationConfig.Region)
 	}
 	if downlink.ID != "" {
 		if _, err := uuid.Parse(downlink.ID); err != nil {
@@ -506,6 +536,7 @@ func (e *Engine) QueueDownlink(downlink types.Downlink) (string, error) {
 		downlink.ID = uuid.NewString()
 	}
 	downlink.Payload = append([]byte(nil), downlink.Payload...)
+	downlink.MACCommands = cloneMACCommands(downlink.MACCommands)
 	eventType := contracts.DeviceDownlinkScheduled
 	message := fmt.Sprintf("Class %s downlink queued", device.Class)
 	switch device.Class {
@@ -524,7 +555,7 @@ func (e *Engine) QueueDownlink(downlink types.Downlink) (string, error) {
 	// caller queues after synchronization but the chain was interrupted, make
 	// sure the next slot is restored immediately.
 	if device.Class == contracts.ClassB && session.ClassBSynchronized && session.ClassBNextPingEventID == "" {
-		scheduleEvent := e.scheduleClassBPingSlotLocked(device, session, e.eventTimestampLocked()+types.ClassBPingSlotPeriod)
+		scheduleEvent := e.scheduleClassBPingSlotLocked(device, session, e.eventTimestampLocked()+classBPingSlotPeriod(session))
 		if scheduleEvent != nil {
 			deferredScheduleEvent := *scheduleEvent
 			e.mu.Unlock()
@@ -604,6 +635,8 @@ func (e *Engine) Checkpoint() types.EngineCheckpoint {
 	}
 	checkpoint := types.EngineCheckpoint{
 		Config:         e.config,
+		Devices:        e.registry.Devices(),
+		Gateways:       e.registry.Gateways(),
 		State:          state,
 		Metrics:        e.metrics,
 		Sessions:       make(map[string]types.DeviceSession, len(e.sessions)),
@@ -630,6 +663,7 @@ func (e *Engine) Checkpoint() types.EngineCheckpoint {
 		copySession.PendingClassBDownlinks = cloneClassBDownlinks(session.PendingClassBDownlinks)
 		copySession.PendingClassADownlinks = cloneDownlinks(session.PendingClassADownlinks)
 		copySession.PendingClassCDownlinks = cloneDownlinks(session.PendingClassCDownlinks)
+		copySession.AdditionalChannels = append([]types.RadioChannel(nil), session.AdditionalChannels...)
 		copySession.NwkSKey = append([]byte(nil), session.NwkSKey...)
 		copySession.AppSKey = append([]byte(nil), session.AppSKey...)
 		checkpoint.Sessions[deviceID] = copySession
@@ -676,6 +710,7 @@ func (e *Engine) run(ctx context.Context) {
 
 		done := e.done
 		e.runCancel = nil
+		e.runContext = nil
 		e.done = nil
 		e.mu.Unlock()
 
@@ -766,15 +801,26 @@ func int32Pointer(value int) *int32 {
 func newDeviceSession(device contracts.Device) *types.DeviceSession {
 	dataRate := defaultUplinkDataRate(device.LocationConfig.Region)
 	if configured := device.AdvancedConfig.UplinkDataRate; configured != nil {
-		dataRate = clampDataRate(*configured)
+		dataRate = regional.ClampDataRate(device.LocationConfig.Region, *configured)
 	}
 	session := &types.DeviceSession{
 		Joined:                 device.Activation == contracts.ABP,
 		FrameCounterUp:         initialFrameCounter(device.FrameConfig.FCntUp),
 		FrameCounterDown:       initialFrameCounter(device.FrameConfig.FCntDown),
 		CurrentDataRate:        dataRate,
-		CurrentSpreadingFactor: spreadingFactorForDataRate(dataRate),
+		CurrentSpreadingFactor: spreadingFactorForDataRate(device.LocationConfig.Region, dataRate),
 		LastFPort:              device.FrameConfig.FPort,
+		CurrentTxPower:         int(radioTransmitPowerDBm),
+		UnconfirmedRepetitions: 1,
+		MaximumDutyCycle:       1,
+		RX1DataRateOffset:      intValue(device.RX1Config.DataRateOffset),
+		RX2DataRate:            intValue(device.RX2Config.DataRate),
+		RX2Frequency:           int64(device.RX2Config.ChannelFrequency),
+		ReceiveDelay:           durationSeconds(device.RX1Config.Delay),
+		MaximumEIRP:            int(radioTransmitPowerDBm),
+		PingSlotDataRate:       regional.MustPlan(device.LocationConfig.Region).PingSlotDataRate,
+		PingSlotFrequency:      regional.MustPlan(device.LocationConfig.Region).PingSlotFrequency,
+		BeaconFrequency:        regional.MustPlan(device.LocationConfig.Region).BeaconFrequency,
 	}
 	if device.ABPConfig != nil {
 		session.DeviceAddress = device.ABPConfig.DevAddr
@@ -817,6 +863,7 @@ func cloneClassBDownlinks(downlinks []types.ClassBDownlink) []types.ClassBDownli
 	for index, downlink := range downlinks {
 		cloned[index] = downlink
 		cloned[index].Payload = append([]byte(nil), downlink.Payload...)
+		cloned[index].MACCommands = cloneMACCommands(downlink.MACCommands)
 	}
 	return cloned
 }
@@ -843,6 +890,45 @@ func cloneGatewayPackets(packets []types.GatewayPacket) []types.GatewayPacket {
 		cloned[index].Payload = append([]byte(nil), packet.Payload...)
 	}
 	return cloned
+}
+
+func cloneMACCommands(commands []types.MACCommand) []types.MACCommand {
+	if len(commands) == 0 {
+		return nil
+	}
+	cloned := make([]types.MACCommand, len(commands))
+	for index, command := range commands {
+		cloned[index] = command
+		cloned[index].DataRate = cloneRuntimePointer(command.DataRate)
+		cloned[index].TxPower = cloneRuntimePointer(command.TxPower)
+		cloned[index].NbTrans = cloneRuntimePointer(command.NbTrans)
+		cloned[index].ChannelMask = cloneRuntimePointer(command.ChannelMask)
+		cloned[index].ChannelMaskControl = cloneRuntimePointer(command.ChannelMaskControl)
+		cloned[index].MaxDutyCycleExponent = cloneRuntimePointer(command.MaxDutyCycleExponent)
+		cloned[index].RX1DataRateOffset = cloneRuntimePointer(command.RX1DataRateOffset)
+		cloned[index].Frequency = cloneRuntimePointer(command.Frequency)
+		cloned[index].ChannelIndex = cloneRuntimePointer(command.ChannelIndex)
+		cloned[index].MinimumDataRate = cloneRuntimePointer(command.MinimumDataRate)
+		cloned[index].MaximumDataRate = cloneRuntimePointer(command.MaximumDataRate)
+		cloned[index].Delay = cloneRuntimePointer(command.Delay)
+		cloned[index].UplinkDwellTime = cloneRuntimePointer(command.UplinkDwellTime)
+		cloned[index].DownlinkDwellTime = cloneRuntimePointer(command.DownlinkDwellTime)
+		cloned[index].MaximumEIRP = cloneRuntimePointer(command.MaximumEIRP)
+		cloned[index].Margin = cloneRuntimePointer(command.Margin)
+		cloned[index].GatewayCount = cloneRuntimePointer(command.GatewayCount)
+		cloned[index].BatteryLevel = cloneRuntimePointer(command.BatteryLevel)
+		cloned[index].PingSlotPeriodicity = cloneRuntimePointer(command.PingSlotPeriodicity)
+		cloned[index].DeviceTime = cloneRuntimePointer(command.DeviceTime)
+	}
+	return cloned
+}
+
+func cloneRuntimePointer[T any](value *T) *T {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
 }
 
 func securityFingerprint(values ...string) string {

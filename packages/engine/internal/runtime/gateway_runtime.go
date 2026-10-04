@@ -11,6 +11,7 @@ import (
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/Giuseppe-Compagnone/lwn-engine/lorawan"
+	"github.com/Giuseppe-Compagnone/lwn-engine/regional"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 	"github.com/google/uuid"
 )
@@ -24,28 +25,34 @@ func (e *Engine) startGatewayAdapters(ctx context.Context) {
 		if gateway.Type != contracts.Real {
 			continue
 		}
+		e.startGatewayAdapter(ctx, gateway)
+	}
+}
 
-		adapter, err := e.gatewayAdapterFactory.NewGatewayAdapter(gateway)
-		if err != nil {
-			e.publishGatewayError(gateway.ID, fmt.Errorf("create gateway adapter: %w", err), false)
-			continue
-		}
+func (e *Engine) startGatewayAdapter(ctx context.Context, gateway contracts.Gateway) {
+	if e.gatewayAdapterFactory == nil || ctx == nil {
+		return
+	}
+	adapter, err := e.gatewayAdapterFactory.NewGatewayAdapter(gateway)
+	if err != nil {
+		e.publishGatewayError(gateway.ID, fmt.Errorf("create gateway adapter: %w", err), false)
+		return
+	}
 
-		e.mu.Lock()
-		e.gatewayAdapters[gateway.ID] = adapter
-		connecting := e.updateGatewayRuntimeLocked(gateway.ID, contracts.Connecting, "", true)
-		e.mu.Unlock()
-		e.publish(connecting)
+	e.mu.Lock()
+	e.gatewayAdapters[gateway.ID] = adapter
+	connecting := e.updateGatewayRuntimeLocked(gateway.ID, contracts.Connecting, "", true)
+	e.mu.Unlock()
+	e.publish(connecting)
 
-		e.gatewayWG.Add(1)
-		go func() {
-			defer e.gatewayWG.Done()
-			e.consumeGatewayAdapter(ctx, gateway.ID, adapter)
-		}()
-		if err := adapter.Start(ctx); err != nil {
-			e.publishGatewayError(gateway.ID, fmt.Errorf("start gateway adapter: %w", err), false)
-			_ = adapter.Close()
-		}
+	e.gatewayWG.Add(1)
+	go func() {
+		defer e.gatewayWG.Done()
+		e.consumeGatewayAdapter(ctx, gateway.ID, adapter)
+	}()
+	if err := adapter.Start(ctx); err != nil {
+		e.publishGatewayError(gateway.ID, fmt.Errorf("start gateway adapter: %w", err), false)
+		_ = adapter.Close()
 	}
 }
 
@@ -200,9 +207,6 @@ func (e *Engine) handleGatewayPacket(packet types.GatewayPacket) {
 		spreadingFactor := int32(packet.SpreadingFactor)
 		event.SpreadingFactor = &spreadingFactor
 	}
-	if dataRate := parseGatewayDataRate(packet.DataRate); dataRate >= 0 {
-		event.DataRate = &dataRate
-	}
 	events := []contracts.SimulationEvent{event}
 	if decoded, err := lorawan.Parse(packet.Payload); err == nil {
 		events = append(events, e.processRealUplinkLocked(packet, decoded)...)
@@ -300,6 +304,38 @@ func (e *Engine) processRealUplinkLocked(packet types.GatewayPacket, decoded lor
 		"uplink received from real gateway",
 		device.ID, packet.GatewayID, "", packetID, int64(frameCounter), 1, decoded.Confirmed, nil,
 	)}
+	if len(session.PendingClassADownlinks) > 0 {
+		downlink := session.PendingClassADownlinks[0]
+		session.PendingClassADownlinks = session.PendingClassADownlinks[1:]
+		downlink.ACK = decoded.Confirmed
+		if len(session.PendingClassADownlinks) > 0 {
+			downlink.FPending = true
+		}
+		dataRate := gatewayPacketDataRate(device, packet)
+		if dataRate < 0 {
+			dataRate = currentDeviceDataRate(session, device)
+		}
+		dataRate = regional.ClampDataRate(device.LocationConfig.Region, dataRate-session.RX1DataRateOffset)
+		downlink.DataRate = dataRate
+		session.FrameCounterDown++
+		if gateway, ok := e.registry.Gateway(packet.GatewayID); ok {
+			e.queueDataDownlinkLocked(gateway, device, session, downlink, packet.Frequency, dataRate, e.clock.Now()+session.ReceiveDelay)
+		}
+		downlinkEvent := e.newDownlinkEventLocked(
+			contracts.DeviceDownlinkTransmitted,
+			"Class A downlink scheduled through real gateway",
+			device,
+			session,
+			downlink,
+			"",
+		)
+		downlinkEvent.GatewayID = &packet.GatewayID
+		downlinkEvent.ChannelFrequency = &packet.Frequency
+		e.eventLog[len(e.eventLog)-1] = downlinkEvent
+		events = append(events, downlinkEvent)
+		events = append(events, e.applyDownlinkEffectsLocked(device, session, downlink, e.clock.Now()+session.ReceiveDelay)...)
+		return events
+	}
 	if decoded.Confirmed {
 		if ack := e.queueRealACKLocked(packet, device, session, decoded); ack {
 			events = append(events, e.newProtocolEventLocked(
@@ -350,20 +386,21 @@ func (e *Engine) queueRealACKLocked(packet types.GatewayPacket, device contracts
 	}
 	delay := durationSeconds(device.RX1Config.Delay)
 	transmitAt := time.Now().Add(time.Duration(float64(delay) / e.state.Speed))
-	dataRate := parseGatewayDataRate(packet.DataRate)
+	dataRate := gatewayPacketDataRate(device, packet)
 	if dataRate < 0 {
 		dataRate = currentDeviceDataRate(session, device)
 	}
-	spreadingFactor := spreadingFactorForDataRate(dataRate)
+	spreadingFactor := spreadingFactorForDataRate(device.LocationConfig.Region, dataRate)
+	bandwidth := gatewayPacketBandwidth(packet)
 	e.gatewayPackets = append(e.gatewayPackets, types.GatewayPacket{
 		GatewayID:       packet.GatewayID,
 		Kind:            types.GatewayPacketDownlink,
 		Payload:         payload,
 		Frequency:       packet.Frequency,
-		Bandwidth:       packet.Bandwidth,
+		Bandwidth:       bandwidth,
 		SpreadingFactor: spreadingFactor,
 		Power:           classBBeaconPower,
-		DataRate:        fmt.Sprintf("SF%dBW125", spreadingFactor),
+		DataRate:        fmt.Sprintf("SF%dBW%d", spreadingFactor, bandwidth/1000),
 		TransmitAt:      transmitAt,
 	})
 	session.FrameCounterDown++
@@ -381,7 +418,7 @@ func (e *Engine) queueRealJoinAcceptLocked(packet types.GatewayPacket, device co
 		AppNonce:          0,
 		NetID:             0,
 		DevAddr:           devAddr,
-		RX1DataRate:       intValue(device.RX2Config.DataRate),
+		RX2DataRate:       intValue(device.RX2Config.DataRate),
 		RX1DataRateOffset: intValue(device.RX1Config.DataRateOffset),
 		RXDelay:           intValue(device.RX1Config.Delay),
 		AppKey:            appKey,
@@ -391,15 +428,16 @@ func (e *Engine) queueRealJoinAcceptLocked(packet types.GatewayPacket, device co
 	}
 	delay := durationSeconds(device.RX1Config.Delay)
 	transmitAt := time.Now().Add(time.Duration(float64(delay) / e.state.Speed))
+	bandwidth := gatewayPacketBandwidth(packet)
 	e.gatewayPackets = append(e.gatewayPackets, types.GatewayPacket{
 		GatewayID:       packet.GatewayID,
 		Kind:            types.GatewayPacketDownlink,
 		Payload:         payload,
 		Frequency:       packet.Frequency,
-		Bandwidth:       packet.Bandwidth,
-		SpreadingFactor: spreadingFactorForDataRate(currentDeviceDataRate(session, device)),
+		Bandwidth:       bandwidth,
+		SpreadingFactor: spreadingFactorForDataRate(device.LocationConfig.Region, currentDeviceDataRate(session, device)),
 		Power:           classBBeaconPower,
-		DataRate:        fmt.Sprintf("SF%dBW125", spreadingFactorForDataRate(currentDeviceDataRate(session, device))),
+		DataRate:        fmt.Sprintf("SF%dBW%d", spreadingFactorForDataRate(device.LocationConfig.Region, currentDeviceDataRate(session, device)), bandwidth/1000),
 		TransmitAt:      transmitAt,
 	})
 	return true
@@ -456,6 +494,30 @@ func parseGatewayDataRate(value string) int {
 		return -1
 	}
 	return 12 - sf
+}
+
+func gatewayPacketDataRate(device contracts.Device, packet types.GatewayPacket) int {
+	spreadingFactor := packet.SpreadingFactor
+	if spreadingFactor == 0 {
+		if parsed := parseGatewayDataRate(packet.DataRate); parsed >= 0 {
+			spreadingFactor = 12 - parsed
+		}
+	}
+	bandwidth := packet.Bandwidth
+	if bandwidth == 0 {
+		bandwidth = radioBandwidthHz
+	}
+	if dataRate, ok := regional.DataRateForModulation(device.LocationConfig.Region, spreadingFactor, bandwidth); ok {
+		return dataRate
+	}
+	return -1
+}
+
+func gatewayPacketBandwidth(packet types.GatewayPacket) int64 {
+	if packet.Bandwidth > 0 {
+		return packet.Bandwidth
+	}
+	return radioBandwidthHz
 }
 
 func (e *Engine) publishGatewayError(gatewayID string, err error, timeout bool) {
