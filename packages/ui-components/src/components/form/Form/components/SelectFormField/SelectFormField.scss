@@ -1,4 +1,3 @@
-/* stylelint-disable scss/operator-no-newline-after */
 // SelectFormField
 
 @use "../../../../../styles/fonts" as *;
@@ -131,8 +130,7 @@
 
     .choices {
       height: calc(
-        var(--gap) +
-          (36px * var(--options) + ((var(--gap) / 2)) * (var(--options) - 1))
+        var(--gap) + (36px * var(--options) + ((var(--gap) / 2)) * (var(--options) - 1))
       );
       padding: calc(var(--gap) / 2);
       backdrop-filter: blur(12px);

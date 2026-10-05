@@ -1,5 +1,3 @@
-/* stylelint-disable selector-class-pattern, media-feature-range-notation */
-
 .simulation-command-panel {
   width: min(100%, 90rem);
   min-width: 0;
@@ -232,13 +230,13 @@
   }
 }
 
-@media (max-width: 58rem) {
+@media (width <= 58rem) {
   .simulation-command-panel__body {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 38rem) {
+@media (width <= 38rem) {
   .simulation-command-panel__header,
   .simulation-command-panel__footer {
     align-items: stretch;

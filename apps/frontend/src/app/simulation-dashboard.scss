@@ -1,8 +1,7 @@
-/* stylelint-disable */
-
 .simulation-dashboard {
   --dashboard-surface: var(--secondary-bg-color);
   --dashboard-muted: var(--tertiary-bg-color);
+
   gap: 1.25rem;
   min-height: calc(100vh - 4rem);
   padding: 2rem clamp(1.25rem, 3vw, 3rem);
@@ -28,6 +27,7 @@
   justify-content: space-between;
   gap: 1.5rem;
 }
+
 .simulation-dashboard__eyebrow,
 .simulation-dashboard__kicker {
   margin: 0;
@@ -38,17 +38,21 @@
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
+
 .simulation-dashboard h1,
 .simulation-dashboard h2 {
   margin: 0.4rem 0 0.2rem;
   letter-spacing: -0.03em;
 }
+
 .simulation-dashboard h1 {
   font-size: clamp(1.8rem, 3vw, 2.5rem);
 }
+
 .simulation-dashboard h2 {
   font-size: 1.05rem;
 }
+
 .simulation-dashboard__subtitle,
 .simulation-dashboard__section-heading > span,
 .simulation-dashboard__metric small,
@@ -56,15 +60,18 @@
 .simulation-dashboard__runtime-list strong {
   color: var(--secondary-text-color);
 }
+
 .simulation-dashboard__subtitle {
   margin: 0;
   font-size: 0.95rem;
 }
+
 .simulation-dashboard__status {
   display: grid;
   justify-items: end;
   gap: 0.45rem;
 }
+
 .simulation-dashboard__connection {
   color: var(--secondary-text-color);
   font: 0.68rem var(--secondary-font);
@@ -75,6 +82,7 @@
   border: 1px solid var(--border-color);
   background: var(--dashboard-surface);
 }
+
 .simulation-dashboard__controls > .form {
   display: flex;
   align-items: center;
@@ -82,30 +90,35 @@
   flex-direction: row;
   gap: 1.25rem;
 }
+
 .simulation-dashboard__controls .form-field-wrapper {
   flex: 1 1 0;
   min-width: 0;
 }
+
 .simulation-dashboard__controls .form-button {
   flex: 0 0 auto;
   margin-top: 0;
 }
+
 .simulation-dashboard__controls .form-button.is-hidden {
   display: none;
 }
+
 .simulation-dashboard__control-actions {
   display: flex;
   align-items: flex-end;
   gap: 0.75rem;
   margin-left: auto;
 }
+
 .simulation-dashboard__error {
+  padding: 0.75rem 1rem;
   border: 1px solid
     color-mix(in srgb, var(--error-color) 50%, var(--border-color));
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--error-color) 10%, transparent);
   color: var(--error-color);
-  padding: 0.75rem 1rem;
   font: 0.75rem var(--secondary-font);
 }
 
@@ -114,28 +127,33 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1rem;
 }
+
 .simulation-dashboard__metric {
   min-width: 0;
   border: 1px solid var(--border-color);
   background: var(--dashboard-surface);
 }
+
 .simulation-dashboard__metric strong {
   display: block;
   margin: 0.75rem 0 0.4rem;
   color: var(--primary-color);
   font: 1.8rem var(--secondary-font);
 }
+
 .simulation-dashboard__metric small {
   display: block;
   min-height: 1.2rem;
   font: 0.68rem var(--secondary-font);
 }
+
 .simulation-sparkline {
   display: block;
   width: 100%;
   height: 2.8rem;
   overflow: visible;
 }
+
 .simulation-sparkline polyline {
   stroke: var(--primary-color);
   stroke-width: 1.8;
@@ -149,6 +167,7 @@
   grid-template-columns: minmax(0, 1.25fr) minmax(20rem, 0.75fr);
   gap: 1rem;
 }
+
 .simulation-dashboard__map,
 .simulation-dashboard__events,
 .simulation-dashboard__runtime-grid > * {
@@ -156,6 +175,7 @@
   border: 1px solid var(--border-color);
   background: var(--dashboard-surface);
 }
+
 .simulation-dashboard__section-heading {
   display: flex;
   align-items: flex-start;
@@ -163,9 +183,11 @@
   gap: 1rem;
   margin-bottom: 1rem;
 }
+
 .simulation-dashboard__section-heading > span {
   font: 0.68rem var(--secondary-font);
 }
+
 .simulation-dashboard__map-canvas {
   height: 28rem;
   min-height: 18rem;
@@ -173,15 +195,18 @@
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
 }
+
 .simulation-dashboard__map-canvas .sensor-map {
   height: 100%;
   min-height: 100%;
 }
+
 .simulation-dashboard__event-list {
   max-height: 28rem;
   overflow-y: auto;
   border-top: 1px solid var(--border-color);
 }
+
 .simulation-dashboard__event {
   display: grid;
   grid-template-columns: 4.4rem minmax(7rem, auto) minmax(0, 1fr);
@@ -191,15 +216,18 @@
   border-bottom: 1px solid var(--border-color);
   font: 0.68rem var(--secondary-font);
 }
+
 .simulation-dashboard__event time {
   color: var(--secondary-text-color);
 }
+
 .simulation-dashboard__event strong {
   overflow: hidden;
   color: var(--primary-color);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .simulation-dashboard__event span {
   min-width: 0;
   overflow: hidden;
@@ -207,10 +235,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .simulation-dashboard__runtime-list {
   display: grid;
   gap: 0.55rem;
 }
+
 .simulation-dashboard__runtime-list > div {
   display: flex;
   justify-content: space-between;
@@ -220,21 +250,25 @@
   border-radius: var(--radius-sm);
   font-size: 0.78rem;
 }
+
 .simulation-dashboard__runtime-list span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .simulation-dashboard__runtime-list strong {
   flex: 0 0 auto;
   font: 0.68rem var(--secondary-font);
   text-align: right;
 }
+
 .simulation-dashboard__empty {
   margin: 0;
   font: 0.72rem var(--secondary-font);
 }
+
 .simulation-dashboard__loading {
   display: flex;
   align-items: center;
@@ -245,46 +279,55 @@
   font: 0.72rem var(--secondary-font);
 }
 
-@media (max-width: 70rem) {
+@media (width <= 70rem) {
   .simulation-dashboard__metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
   .simulation-dashboard__main-grid,
   .simulation-dashboard__runtime-grid {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 46rem) {
+@media (width <= 46rem) {
   .simulation-dashboard__header {
     align-items: flex-start;
     flex-direction: column;
   }
+
   .simulation-dashboard__status {
     justify-items: start;
   }
+
   .simulation-dashboard__controls > .form {
     align-items: stretch;
     flex-direction: column;
   }
+
   .simulation-dashboard__controls .form-field-wrapper {
     width: 100%;
   }
+
   .simulation-dashboard__controls .form-button {
     width: 100%;
     margin-left: 0;
   }
+
   .simulation-dashboard__control-actions {
     width: 100%;
     flex-wrap: wrap;
     margin-left: 0;
   }
+
   .simulation-dashboard__metric-grid {
     grid-template-columns: 1fr;
   }
+
   .simulation-dashboard__event {
     grid-template-columns: 3.5rem minmax(0, 1fr);
   }
+
   .simulation-dashboard__event span {
     grid-column: 2;
   }
