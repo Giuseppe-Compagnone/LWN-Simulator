@@ -229,11 +229,19 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
     return response;
   }, [service]);
 
+  const setSpeed = useCallback(async (request: Parameters<SimulationService["setSpeed"]>[0]) => {
+    const response = await service.setSpeed(request);
+    updateSnapshot(response);
+    setError(null);
+    return response;
+  }, [service, updateSnapshot]);
+
   useEffect(() => disconnect, [disconnect]);
 
   const value = useMemo(
     (): SimulationServiceContent => ({
       start,
+      setSpeed,
       pause,
       resume,
       stop,
@@ -252,6 +260,7 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
     }),
     [
       start,
+      setSpeed,
       pause,
       resume,
       stop,

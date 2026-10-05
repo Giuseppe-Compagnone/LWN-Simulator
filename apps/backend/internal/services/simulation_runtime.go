@@ -16,6 +16,17 @@ const (
 	maximumSimulationEventLimit = 1000
 )
 
+func (s *SimulationService) SetSpeed(speed float64) (contracts.SimulationSnapshot, error) {
+	runtime, err := s.currentEngine()
+	if err != nil {
+		return contracts.SimulationSnapshot{}, err
+	}
+	if err := runtime.SetSpeed(speed); err != nil {
+		return contracts.SimulationSnapshot{}, wrapEngineCommandError("change simulation speed", err)
+	}
+	return runtime.Snapshot(), nil
+}
+
 func (s *SimulationService) QueueUplink(req contracts.SimulationUplinkRequest) (contracts.SimulationActionResponse, error) {
 	runtime, err := s.currentEngine()
 	if err != nil {

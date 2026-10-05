@@ -19,10 +19,13 @@ export const useForm = (props: UseFormProps): FormLogic => {
   const setValue = useCallback((name: string, value: FormValue) => {
     const prev = fieldsStateRef.current;
     const field = prev[name];
+    const nextValue = field.format ? field.format(value as string) : value;
+
+    if (field.value === nextValue && field.error === null) return;
 
     const updatedField: FormField = {
       ...field,
-      value: field.format ? field.format(value as string) : value,
+      value: nextValue,
       error: null,
     };
 
@@ -96,6 +99,46 @@ export const useForm = (props: UseFormProps): FormLogic => {
 
     return field.display ?? true;
   }, []);
+
+  useEffect(() => {
+    setFieldsState((currentState) => {
+      const hasConfigurationChanged =
+        Object.keys(currentState).length !== props.fields.length ||
+        props.fields.some((field) => {
+          const currentField = currentState[field.name];
+
+          return !currentField ||
+            currentField.label !== field.label ||
+            currentField.placeholder !== field.placeholder ||
+            currentField.required !== field.required ||
+            currentField.disabled !== field.disabled ||
+            currentField.readOnly !== field.readOnly ||
+            currentField.display !== field.display ||
+            currentField.info !== field.info ||
+            currentField.toolbar !== field.toolbar;
+        });
+
+      if (!hasConfigurationChanged) return currentState;
+
+      const nextState = Object.fromEntries(
+        props.fields.map((field) => {
+          const currentField = currentState[field.name];
+
+          return [
+            field.name,
+            {
+              ...field,
+              value: currentField?.value ?? field.value,
+              error: currentField?.error ?? field.error,
+            },
+          ];
+        }),
+      );
+
+      fieldsStateRef.current = nextState;
+      return nextState;
+    });
+  }, [props.fields]);
 
   const validate = useCallback(() => {
     const tmp: Record<string, FormField> = Object.fromEntries(

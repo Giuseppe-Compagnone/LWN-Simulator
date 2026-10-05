@@ -10,6 +10,7 @@ const TextFormField = (props: TextFormFieldProps) => {
       name={props.name}
       spellCheck={false}
       disabled={props.disabled}
+      readOnly={props.readOnly}
       onChange={(e) => {
         let value = e.target.value;
 

@@ -27,4 +27,5 @@ func New(
 // Compile-time assertion documenting the lifecycle API exposed by Engine.
 var _ interface {
 	Start(context.Context) error
+	SetSpeed(float64) error
 } = (*Engine)(nil)

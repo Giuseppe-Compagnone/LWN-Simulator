@@ -10,6 +10,27 @@ import (
 	"github.com/google/uuid"
 )
 
+// SetSpeed changes the simulation clock multiplier without rebuilding the
+// runtime. The scheduler observes the new value on its next wait cycle.
+func (e *Engine) SetSpeed(speed float64) error {
+	if err := ValidateSimulationConfig(contracts.SimulationConfig{Speed: speed}); err != nil {
+		return fmt.Errorf("validate simulation speed: %w", err)
+	}
+
+	e.mu.Lock()
+	if e.state.Status != contracts.SimulationStatusRunning && e.state.Status != contracts.SimulationStatusPaused {
+		status := e.state.Status
+		e.mu.Unlock()
+		return fmt.Errorf("%w: cannot change speed from %q", ErrInvalidTransition, status)
+	}
+	e.config.Speed = speed
+	e.state.Speed = speed
+	e.mu.Unlock()
+
+	e.signalWake()
+	return nil
+}
+
 // QueueUplink injects a manual device transmission at the current simulation
 // time. An OTAA device that is not joined sends a join request instead.
 func (e *Engine) QueueUplink(deviceID string) (string, error) {

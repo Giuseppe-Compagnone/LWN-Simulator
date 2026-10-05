@@ -6,6 +6,7 @@ import {
   SimulationEventsResponse,
   SimulationMACCommandRequest,
   SimulationSnapshot,
+  SimulationSpeedRequest,
   SimulationUplinkRequest,
 } from "@lwn-simulator/contracts";
 import { ApiCaller, BaseService } from "../../models";
@@ -21,6 +22,9 @@ export class SimulationService extends BaseService {
 
   public start = async (config: SimulationConfig): Promise<SimulationSnapshot> =>
     this.apiCaller.post<SimulationSnapshot>("/start", config);
+
+  public setSpeed = async (request: SimulationSpeedRequest): Promise<SimulationSnapshot> =>
+    this.apiCaller.post<SimulationSnapshot>("/speed", request);
 
   public pause = async (): Promise<SimulationSnapshot> =>
     this.apiCaller.post<SimulationSnapshot>("/pause");

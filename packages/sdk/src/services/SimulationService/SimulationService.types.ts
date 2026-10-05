@@ -6,6 +6,7 @@ import {
   SimulationEventsResponse,
   SimulationMACCommandRequest,
   SimulationSnapshot,
+  SimulationSpeedRequest,
   SimulationUplinkRequest,
 } from "@lwn-simulator/contracts";
 import { PropsWithChildren } from "react";
@@ -22,6 +23,7 @@ export interface GetSimulationEventsOptions {
 
 export interface SimulationServiceContent {
   start: (config: SimulationConfig) => Promise<SimulationSnapshot>;
+  setSpeed: (request: SimulationSpeedRequest) => Promise<SimulationSnapshot>;
   pause: () => Promise<SimulationSnapshot>;
   resume: () => Promise<SimulationSnapshot>;
   stop: () => Promise<SimulationSnapshot>;

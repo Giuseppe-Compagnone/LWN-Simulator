@@ -5,8 +5,12 @@ import {
   ButtonType,
   Card,
   CardLayout,
+  Form,
+  FormValue,
   NotificationHandler,
   Spinner,
+  rangeField,
+  textField,
 } from "@lwn-simulator/ui-components";
 import {
   GatewayType,
@@ -21,7 +25,7 @@ import {
   SensorMapLink,
   useSensorMap,
 } from "@/components";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 const formatEventType = (value: string): string => value.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 
@@ -75,8 +79,6 @@ const SimulationDashboardPage = () => {
   const devices = useMemo(() => deviceService.devices ?? [], [deviceService.devices]);
   const gateways = useMemo(() => gatewayService.gateways ?? [], [gatewayService.gateways]);
   const mapLogic = useSensorMap({});
-  const [speed, setSpeed] = useState("1");
-  const [seed, setSeed] = useState("");
   const [controlError, setControlError] = useState<string | null>(null);
   const getSnapshot = simulation.getSnapshot;
   const getEvents = simulation.getEvents;
@@ -91,6 +93,7 @@ const SimulationDashboardPage = () => {
   const status = snapshot?.state.status ?? SimulationStatus.Idle;
   const isRunning = status === SimulationStatus.Running;
   const isPaused = status === SimulationStatus.Paused;
+  const canStart = status === SimulationStatus.Idle || status === SimulationStatus.Stopped || status === SimulationStatus.Failed;
   const packetRate = snapshot?.metrics.packetSuccessRate ?? 0;
   const simulationEvents = simulation.events;
   const recentRates = useMemo(() => simulationEvents.filter((event) => event.type === "metrics-updated").map(() => packetRate * 100).slice(-24), [packetRate, simulationEvents]);
@@ -175,15 +178,58 @@ const SimulationDashboardPage = () => {
     }
   };
 
-  const start = () =>
-    runControl(
-      () =>
-        simulation.start({
-          speed: Number(speed),
-          ...(seed.trim() ? { seed: Number(seed) } : {}),
-        }),
+  const start = (values: Record<string, FormValue>) => {
+    const speed = Number(values.speed);
+    const seed = typeof values.seed === "string" ? values.seed.trim() : "";
+
+    return runControl(
+      () => simulation.start({
+        speed,
+        ...(seed ? { seed: Number(seed) } : {}),
+      }),
       "Simulation started",
     );
+  };
+
+  const updateSpeed = useCallback(async (speed: number) => {
+    try {
+      await simulation.setSpeed({ speed });
+      setControlError(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to update simulation speed";
+      setControlError(message);
+      NotificationHandler.instance.error(message);
+    }
+  }, [simulation]);
+
+  const controlFields = useMemo(() => [
+    rangeField({
+      name: "speed",
+      label: "Speed",
+      value: "1",
+      error: null,
+      min: 0.1,
+      max: 10,
+      step: 0.1,
+      formatValue: (value: string) => `${Number(value).toFixed(1)}x`,
+      onChange: (logic) => {
+        const value = Number(logic.fieldsState.speed.value);
+
+        if ((isRunning || isPaused) && Number.isFinite(value) && value > 0) {
+          void updateSpeed(value);
+        }
+      },
+    }),
+    textField({
+      name: "seed",
+      label: "Seed (optional)",
+      value: "",
+      error: null,
+      placeholder: "Optional",
+      readOnly: !canStart,
+      format: (raw: string) => raw.replace(/[^0-9]/g, ""),
+    }),
+  ], [canStart, isPaused, isRunning, updateSpeed]);
 
   return (
     <main className="simulation-dashboard page">
@@ -200,16 +246,19 @@ const SimulationDashboardPage = () => {
       </header>
 
       <Card className="simulation-dashboard__controls" layout={CardLayout.Padded}>
-        <div className="simulation-dashboard__control-fields">
-          <label>Speed<input type="number" min="0.01" step="0.1" value={speed} disabled={status !== SimulationStatus.Idle && status !== SimulationStatus.Stopped} onChange={(event) => setSpeed(event.target.value)} /></label>
-          <label>Seed <span>(optional)</span><input type="number" value={seed} disabled={status !== SimulationStatus.Idle && status !== SimulationStatus.Stopped} onChange={(event) => setSeed(event.target.value)} /></label>
-        </div>
-        <div className="simulation-dashboard__control-actions">
-          {(status === SimulationStatus.Idle || status === SimulationStatus.Stopped || status === SimulationStatus.Failed) && <Button value="Start simulation" onClick={start} />}
+        <Form
+          fields={controlFields}
+          onSubmit={start}
+          submitButton={{
+            value: "Start simulation",
+            className: `simulation-dashboard__start-button${canStart ? "" : " is-hidden"}`,
+          }}
+        />
+        {(isRunning || isPaused) && <div className="simulation-dashboard__control-actions">
           {isRunning && <Button value="Pause" type={ButtonType.Outlined} onClick={() => runControl(simulation.pause, "Simulation paused")} />}
           {isPaused && <Button value="Resume" onClick={() => runControl(simulation.resume, "Simulation resumed")} />}
-          {(isRunning || isPaused) && <Button value="Stop" type={ButtonType.Outlined} onClick={() => runControl(simulation.stop, "Simulation stopped")} />}
-        </div>
+          <Button value="Stop" type={ButtonType.Outlined} onClick={() => runControl(simulation.stop, "Simulation stopped")} />
+        </div>}
       </Card>
 
       {(controlError || simulation.error) && <div className="simulation-dashboard__error" role="alert">{controlError ?? simulation.error?.message}</div>}

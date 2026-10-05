@@ -26,6 +26,9 @@ export interface FormFieldProps extends Omit<FormField, "render"> {
    * Disabled fields should prevent user interaction and value changes.
    */
   disabled?: boolean;
+
+  /** Prevents editing while keeping the field visually enabled. */
+  readOnly?: boolean;
 }
 
 /**
@@ -128,6 +131,9 @@ export interface FormField {
    * current form state.
    */
   disabled?: boolean | ((fieldsState: Record<string, FormField>) => boolean);
+
+  /** Prevents editing while keeping the field visually enabled. */
+  readOnly?: boolean;
 
   /**
    * Determines whether the field is rendered.

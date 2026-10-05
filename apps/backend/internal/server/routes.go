@@ -50,6 +50,7 @@ func registerRoutes(r *gin.Engine, port string, services Services) {
 	simulation := api.Group("/simulation")
 	simulationHandler := handlers.NewSimulationHandler(services.Simulation, validator)
 	simulation.POST("/start", simulationHandler.Start)
+	simulation.POST("/speed", simulationHandler.SetSpeed)
 	simulation.POST("/pause", simulationHandler.Pause)
 	simulation.POST("/resume", simulationHandler.Resume)
 	simulation.POST("/stop", simulationHandler.Stop)

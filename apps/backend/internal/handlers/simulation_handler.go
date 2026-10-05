@@ -18,6 +18,7 @@ import (
 
 type SimulationService interface {
 	Start(context.Context, contracts.SimulationConfig) (contracts.SimulationSnapshot, error)
+	SetSpeed(float64) (contracts.SimulationSnapshot, error)
 	Pause() (contracts.SimulationSnapshot, error)
 	Resume() (contracts.SimulationSnapshot, error)
 	Stop(context.Context) (contracts.SimulationSnapshot, error)
@@ -64,6 +65,19 @@ func (h *SimulationHandler) Start(c *gin.Context) {
 		return
 	}
 	res, err := h.service.Start(c.Request.Context(), req)
+	if err != nil {
+		writeServiceError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, res)
+}
+
+func (h *SimulationHandler) SetSpeed(c *gin.Context) {
+	var req contracts.SimulationSpeedRequest
+	if !bindJSONAndValidate(c, h.validator, &req) {
+		return
+	}
+	res, err := h.service.SetSpeed(req.Speed)
 	if err != nil {
 		writeServiceError(c, err)
 		return

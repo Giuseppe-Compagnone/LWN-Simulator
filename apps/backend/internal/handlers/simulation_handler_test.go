@@ -94,6 +94,10 @@ func (service *fakeSimulationService) Start(context.Context, contracts.Simulatio
 	return service.snapshot, service.err
 }
 
+func (service *fakeSimulationService) SetSpeed(float64) (contracts.SimulationSnapshot, error) {
+	return service.snapshot, service.err
+}
+
 func (service *fakeSimulationService) Pause() (contracts.SimulationSnapshot, error) {
 	return service.snapshot, service.err
 }
