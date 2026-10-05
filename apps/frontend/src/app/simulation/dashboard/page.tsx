@@ -84,6 +84,8 @@ const radioTransmissionEventTypes = new Set<SimulationEventType>([
   SimulationEventType.RadioTransmissionStarted,
 ]);
 
+const linkActivityWindowMilliseconds = 15_000;
+
 const SimulationDashboardPage = () => {
   const simulation = useSimulationService();
   const deviceService = useDeviceService();
@@ -142,12 +144,34 @@ const SimulationDashboardPage = () => {
       gateways.map((gateway) => [gateway.id, gateway]),
     );
     const latestLinks = new Map<string, SensorMapLink & { sequence: number }>();
+    const latestSimulationStartSequence = simulationEvents.reduce(
+      (sequence, event) =>
+        event.type === SimulationEventType.SimulationStarted
+          ? Math.max(sequence, event.sequence)
+          : sequence,
+      0,
+    );
+    const elapsedMilliseconds = snapshot?.state.elapsedMilliseconds ?? 0;
+    const minimumLinkTimestamp = Math.max(
+      0,
+      elapsedMilliseconds - linkActivityWindowMilliseconds,
+    );
 
     const registerLink = (
       device: (typeof devices)[number],
       gateway: (typeof gateways)[number],
       sequence: number,
     ) => {
+      if (!gateway.active) return;
+
+      const distance = distanceMeters(
+        device.locationConfig.latitude,
+        device.locationConfig.longitude,
+        gateway.latitude,
+        gateway.longitude,
+      );
+      if (distance > device.advancedConfig.antennaRange) return;
+
       const id = `${device.id}:${gateway.id}`;
       const previous = latestLinks.get(id);
       if (previous && previous.sequence >= sequence) return;
@@ -167,6 +191,13 @@ const SimulationDashboardPage = () => {
     };
 
     for (const event of simulationEvents) {
+      if (
+        event.sequence < latestSimulationStartSequence ||
+        event.timestampMilliseconds < minimumLinkTimestamp
+      ) {
+        continue;
+      }
+
       if (!event.deviceID) continue;
 
       const device = devicesByID.get(event.deviceID);
@@ -181,17 +212,9 @@ const SimulationDashboardPage = () => {
       if (!radioTransmissionEventTypes.has(event.type)) continue;
 
       for (const gateway of gateways) {
-        if (!gateway.active || gateway.type !== GatewayType.Virtual) continue;
+        if (gateway.type !== GatewayType.Virtual) continue;
 
-        const distance = distanceMeters(
-          device.locationConfig.latitude,
-          device.locationConfig.longitude,
-          gateway.latitude,
-          gateway.longitude,
-        );
-        if (distance <= device.advancedConfig.antennaRange) {
-          registerLink(device, gateway, event.sequence);
-        }
+        registerLink(device, gateway, event.sequence);
       }
     }
 
@@ -200,7 +223,7 @@ const SimulationDashboardPage = () => {
       from: link.from,
       to: link.to,
     }));
-  }, [devices, gateways, simulationEvents]);
+  }, [devices, gateways, simulationEvents, snapshot?.state.elapsedMilliseconds]);
 
   const runControl = async (
     action: () => Promise<unknown>,
