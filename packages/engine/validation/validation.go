@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"net/url"
 	"strings"
 	"time"
 
@@ -19,6 +20,24 @@ func ValidateSimulationConfig(config contracts.SimulationConfig) error {
 	issues := &types.ValidationErrors{}
 	if math.IsNaN(config.Speed) || math.IsInf(config.Speed, 0) || config.Speed <= 0 {
 		issues.Add("speed", "must_be_positive", "speed must be a finite value greater than zero")
+	}
+	if config.GatewayBridge != nil && config.GatewayBridge.Enabled {
+		address := strings.TrimSpace(config.GatewayBridge.Address)
+		if address == "" {
+			issues.Add("gatewayBridge.address", "required", "gateway bridge address is required")
+		}
+		if config.GatewayBridge.Port < 1 || config.GatewayBridge.Port > 65535 {
+			issues.Add("gatewayBridge.port", "invalid_port", "gateway bridge port must be between 1 and 65535")
+		}
+		if address != "" && config.GatewayBridge.Port >= 1 && config.GatewayBridge.Port <= 65535 {
+			if parsed, err := url.Parse(address); err == nil && parsed.Hostname() != "" {
+				address = parsed.Hostname()
+			}
+			listenAddress := net.JoinHostPort(address, fmt.Sprint(config.GatewayBridge.Port))
+			if _, err := net.ResolveUDPAddr("udp", listenAddress); err != nil {
+				issues.Add("gatewayBridge.address", "invalid_udp_address", "gateway bridge address must be a valid IPv4 address or host")
+			}
+		}
 	}
 	return validationResult(issues)
 }

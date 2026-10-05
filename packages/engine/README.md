@@ -95,6 +95,14 @@ transmissions are marked as collisions and are lost. A packet with no covered
 gateway is lost with reason `no-gateway`. Weak links can produce `low-snr` or
 seeded `random-loss` outcomes.
 
+The simulation contract accepts an optional `gatewayBridge` block. When
+`enabled` is true, its `address` and `port` select the UDP endpoint used by the
+Semtech packet-forwarder/Gateway Bridge connection; an omitted or disabled
+block keeps the server's configured default transport unchanged. The bridge
+configuration is applied before gateway adapters start and is rejected when
+the address is not a valid UDP endpoint. Virtual gateways continue to use the
+in-process radio model, while real gateways use this transport boundary.
+
 The event log is authoritative and retains every generated event. The live
 channel is a non-blocking view for consumers, so a slow consumer cannot stop
 the simulation. Each packet event carries a `packetID`; radio events also

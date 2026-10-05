@@ -3,6 +3,7 @@
 import { useGatewayService } from "@lwn-simulator/sdk";
 import {
   Button,
+  ButtonType,
   NotificationHandler,
   PageHeader,
   Table,
@@ -24,6 +25,11 @@ const GatewaysPage = () => {
   return (
     <div className="page gateways-page">
       <PageHeader title="Gateways" subTitle="Create and manage virtual and real gateways">
+        <Button
+          value="Gateway Bridge"
+          type={ButtonType.Outlined}
+          onClick={() => router.push("/hardware/gateway-bridge")}
+        />
         <Button value="Add Gateway" onClick={() => router.push("/hardware/gateways/new")} />
       </PageHeader>
       <Table

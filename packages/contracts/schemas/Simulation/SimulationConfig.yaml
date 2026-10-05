@@ -12,6 +12,8 @@ properties:
     format: int64
     x-oapi-codegen-extra-tags:
       validate: "omitempty"
+  gatewayBridge:
+    $ref: "./GatewayBridgeConfig.yaml"
 
 required:
   - speed

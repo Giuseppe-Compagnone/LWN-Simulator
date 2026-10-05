@@ -83,6 +83,8 @@ components:
       $ref: "./schemas/Gateway/DeleteGatewayResponse.yaml"
     SimulationConfig:
       $ref: "./schemas/Simulation/SimulationConfig.yaml"
+    GatewayBridgeConfig:
+      $ref: "./schemas/Simulation/GatewayBridgeConfig.yaml"
     SimulationSpeedRequest:
       $ref: "./schemas/Simulation/SimulationSpeedRequest.yaml"
     SimulationStatus:

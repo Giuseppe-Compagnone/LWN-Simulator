@@ -176,6 +176,11 @@
   background: var(--dashboard-surface);
 }
 
+.simulation-dashboard__events {
+  display: flex;
+  flex-direction: column;
+}
+
 .simulation-dashboard__section-heading {
   display: flex;
   align-items: flex-start;
@@ -202,9 +207,18 @@
 }
 
 .simulation-dashboard__event-list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
   max-height: 28rem;
   overflow-y: auto;
   border-top: 1px solid var(--border-color);
+}
+
+.simulation-dashboard__empty {
+  margin: auto 0 0;
+  padding-top: 1rem;
 }
 
 .simulation-dashboard__event {

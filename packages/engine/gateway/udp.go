@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -85,6 +86,46 @@ type udpRuntime struct {
 
 func NewUDPFactory(options UDPOptions) *UDPFactory {
 	return &UDPFactory{options: options.withDefaults()}
+}
+
+// ConfigureGatewayBridge applies the UDP listener selected for the next
+// simulation run. The factory is configured before adapters are started; a
+// running factory must be closed by the engine before it can be reconfigured.
+func (factory *UDPFactory) ConfigureGatewayBridge(config contracts.GatewayBridgeConfig) error {
+	factory.mu.Lock()
+	defer factory.mu.Unlock()
+	if factory.runtime != nil {
+		return errors.New("cannot configure gateway bridge while it is running")
+	}
+	if !config.Enabled {
+		return nil
+	}
+	listenAddress, err := gatewayBridgeListenAddress(config)
+	if err != nil {
+		return err
+	}
+	if _, err := net.ResolveUDPAddr("udp", listenAddress); err != nil {
+		return fmt.Errorf("invalid gateway bridge listen address: %w", err)
+	}
+	factory.options.LocalAddress = listenAddress
+	return nil
+}
+
+func gatewayBridgeListenAddress(config contracts.GatewayBridgeConfig) (string, error) {
+	address := strings.TrimSpace(config.Address)
+	if address == "" {
+		address = "0.0.0.0"
+	}
+	if parsed, err := url.Parse(address); err == nil && parsed.Hostname() != "" {
+		address = parsed.Hostname()
+	}
+	if config.Port < 1 || config.Port > 65535 {
+		return "", fmt.Errorf("invalid gateway bridge port: %d", config.Port)
+	}
+	if net.ParseIP(address) == nil && strings.Contains(address, "/") {
+		return "", fmt.Errorf("invalid gateway bridge address: %q", address)
+	}
+	return net.JoinHostPort(address, strconv.Itoa(int(config.Port))), nil
 }
 
 func (factory *UDPFactory) LocalAddress() string {

@@ -121,6 +121,17 @@ func (s *SimulationService) Start(
 
 	options := s.options
 	options.EventSink = s.handleEvent
+	if config.GatewayBridge != nil && config.GatewayBridge.Enabled {
+		if configurator, ok := options.GatewayAdapterFactory.(types.GatewayBridgeConfigurator); ok {
+			if err := configurator.ConfigureGatewayBridge(*config.GatewayBridge); err != nil {
+				s.finishStarting()
+				return contracts.SimulationSnapshot{}, fmt.Errorf("configure gateway bridge: %w", err)
+			}
+		} else if options.GatewayAdapterFactory != nil {
+			s.finishStarting()
+			return contracts.SimulationSnapshot{}, fmt.Errorf("gateway adapter factory does not support gateway bridge configuration")
+		}
+	}
 	if s.checkpointStore != nil {
 		checkpoint, checkpointErr := s.checkpointStore.Load()
 		if checkpointErr != nil {

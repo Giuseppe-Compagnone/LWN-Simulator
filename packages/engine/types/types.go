@@ -247,6 +247,13 @@ type GatewayAdapterFactoryCloser interface {
 	Close() error
 }
 
+// GatewayBridgeConfigurator allows the backend to apply the bridge settings
+// selected for a simulation before the engine starts its gateway adapters.
+// Implementations must not start or stop transports while configuring them.
+type GatewayBridgeConfigurator interface {
+	ConfigureGatewayBridge(contracts.GatewayBridgeConfig) error
+}
+
 type GatewayRuntime struct {
 	State              contracts.GatewayConnectionState
 	LastHeartbeat      time.Duration

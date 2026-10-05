@@ -4,25 +4,38 @@ import { SidebarProps } from "./Sidebar.types";
 import { usePathname } from "next/navigation";
 import cn from "classnames";
 import Link from "next/link";
+import { SimulationStatus } from "@lwn-simulator/contracts";
+import { useSimulationService } from "@lwn-simulator/sdk";
 
 const Sidebar = (props: SidebarProps) => {
-  const routes: Record<string, Array<{ route: string; icon: string }>> = {
+  const routes: Record<
+    string,
+    Array<{ route: string; icon: string; label?: string }>
+  > = {
     simulation: [{ route: "dashboard", icon: "dashboard" }],
     hardware: [
       { route: "devices", icon: "sensors" },
       { route: "gateways", icon: "router" },
+      {
+        route: "gateway-bridge",
+        icon: "settings_ethernet",
+        label: "Gateway Bridge",
+      },
     ],
     logs: [],
   };
 
   // Hooks
   const pathname = usePathname();
+  const simulationService = useSimulationService();
+  const simulationStatus = simulationService.snapshot?.state.status;
+  const simulationIsActive =
+    simulationStatus === SimulationStatus.Running ||
+    simulationStatus === SimulationStatus.Paused;
 
-  // Estraiamo la sezione principale del path in modo sicuro
   const mainSection = pathname?.split("/")[1] || "";
   const subSection = pathname?.split("/")[2] || "";
 
-  // Recuperiamo le rotte corrispondenti o un array vuoto di fallback
   const isHome = mainSection === "";
   const currentRoutes = isHome ? routes.simulation : routes[mainSection] || [];
   const currentSubSection = isHome ? "dashboard" : subSection;
@@ -31,15 +44,14 @@ const Sidebar = (props: SidebarProps) => {
     <div className="sidebar">
       <aside>
         <div className="status">
-          <span className="material-symbols-outlined icon">sensors</span>
-          {true ? (
+          <span className="material-symbols-outlined icon">vital_signs</span>
+          {simulationIsActive ? (
             <div className="active">Simulation active</div>
           ) : (
             <div className="inactive">Simulation inactive</div>
           )}
         </div>
 
-        {/* ✅ Ora .map() viene chiamato in sicurezza solo se le rotte esistono */}
         {currentRoutes.map((route, i) => {
           return (
             <Link
@@ -53,7 +65,7 @@ const Sidebar = (props: SidebarProps) => {
               <span className="material-symbols-outlined icon">
                 {route.icon}
               </span>
-              <span>{route.route}</span>
+              <span>{route.label ?? route.route}</span>
             </Link>
           );
         })}

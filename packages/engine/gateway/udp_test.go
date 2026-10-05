@@ -173,6 +173,71 @@ func TestSemtechDataRateParsing(t *testing.T) {
 	}
 }
 
+func TestUDPFactoryConfiguresGatewayBridgeBeforeStart(t *testing.T) {
+	factory := NewUDPFactory(UDPOptions{LocalAddress: "127.0.0.1:1700"})
+
+	if err := factory.ConfigureGatewayBridge(contracts.GatewayBridgeConfig{
+		Enabled: true,
+		Address: "127.0.0.1",
+		Port:    1700,
+	}); err != nil {
+		t.Fatalf("configure gateway bridge: %v", err)
+	}
+	if got := factory.LocalAddress(); got != "127.0.0.1:1700" {
+		t.Fatalf("unexpected configured listen address: %q", got)
+	}
+
+	if err := factory.ConfigureGatewayBridge(contracts.GatewayBridgeConfig{
+		Enabled: true,
+		Address: "not/an/address",
+		Port:    1700,
+	}); err == nil {
+		t.Fatal("invalid bridge address should be rejected")
+	}
+}
+
+func TestUDPFactoryIgnoresDisabledGatewayBridge(t *testing.T) {
+	factory := NewUDPFactory(UDPOptions{LocalAddress: "127.0.0.1:1700"})
+	if err := factory.ConfigureGatewayBridge(contracts.GatewayBridgeConfig{
+		Enabled: false,
+		Address: "not-an-address",
+		Port:    0,
+	}); err != nil {
+		t.Fatalf("disabled bridge configuration should be ignored: %v", err)
+	}
+	if got := factory.LocalAddress(); got != "127.0.0.1:1700" {
+		t.Fatalf("disabled configuration changed listen address to %q", got)
+	}
+}
+
+func TestUDPFactoryRejectsBridgeReconfigurationWhileRunning(t *testing.T) {
+	gatewaySocket, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("listen fake gateway: %v", err)
+	}
+	defer gatewaySocket.Close()
+
+	factory := NewUDPFactory(UDPOptions{LocalAddress: "127.0.0.1:0"})
+	adapter, err := factory.NewGatewayAdapter(testRealGateway(gatewaySocket.LocalAddr().(*net.UDPAddr).Port))
+	if err != nil {
+		t.Fatalf("create adapter: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	defer adapter.Close()
+	if err := adapter.Start(ctx); err != nil {
+		t.Fatalf("start adapter: %v", err)
+	}
+
+	if err := factory.ConfigureGatewayBridge(contracts.GatewayBridgeConfig{
+		Enabled: true,
+		Address: "127.0.0.1",
+		Port:    1701,
+	}); err == nil {
+		t.Fatal("running factory should reject bridge reconfiguration")
+	}
+}
+
 func testRealGateway(port int) contracts.Gateway {
 	return contracts.Gateway{
 		ID: "6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c01", Active: true, Name: "Real Test Gateway",

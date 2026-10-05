@@ -24,6 +24,30 @@ func TestValidateSimulationConfigRejectsNonFiniteOrNonPositiveSpeed(t *testing.T
 	}
 }
 
+func TestValidateSimulationConfigValidatesGatewayBridgeAddress(t *testing.T) {
+	if err := ValidateSimulationConfig(contracts.SimulationConfig{
+		Speed: 1,
+		GatewayBridge: &contracts.GatewayBridgeConfig{
+			Enabled: true,
+			Address: "127.0.0.1",
+			Port:    1700,
+		},
+	}); err != nil {
+		t.Fatalf("valid gateway bridge address was rejected: %v", err)
+	}
+
+	if err := ValidateSimulationConfig(contracts.SimulationConfig{
+		Speed: 1,
+		GatewayBridge: &contracts.GatewayBridgeConfig{
+			Enabled: true,
+			Address: "not/an-address",
+			Port:    1700,
+		},
+	}); err == nil || !strings.Contains(err.Error(), "gatewayBridge.address") {
+		t.Fatalf("invalid gateway bridge address was not rejected: %v", err)
+	}
+}
+
 func TestValidateHardwareAcceptsValidFleet(t *testing.T) {
 	if err := ValidateHardware([]contracts.Device{validationDevice()}, []contracts.Gateway{validationGateway()}); err != nil {
 		t.Fatalf("valid fleet was rejected: %v", err)

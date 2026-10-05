@@ -29,6 +29,7 @@ import {
   SensorMapLink,
   useSensorMap,
 } from "@/components";
+import { readGatewayBridgeConfig } from "@/utils/gatewayBridge";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 const formatEventType = (value: string): string =>
@@ -244,13 +245,15 @@ const SimulationDashboardPage = () => {
   const start = (values: Record<string, FormValue>) => {
     const speed = Number(values.speed);
     const seed = typeof values.seed === "string" ? values.seed.trim() : "";
+    const gatewayBridge = readGatewayBridgeConfig();
 
     return runControl(
       () =>
         simulation.start({
           speed,
-          ...(seed ? { seed: Number(seed) } : {}),
-        }),
+        ...(seed ? { seed: Number(seed) } : {}),
+        gatewayBridge,
+      }),
       "Simulation started",
     );
   };
@@ -297,7 +300,7 @@ const SimulationDashboardPage = () => {
         value: "",
         error: null,
         placeholder: "Optional",
-      disabled: !canStart,
+        disabled: !canStart,
         format: (raw: string) => raw.replace(/[^0-9]/g, ""),
       }),
     ],
