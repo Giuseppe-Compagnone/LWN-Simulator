@@ -33,9 +33,11 @@ const numberField = (
   minimum: number,
   maximum: number,
   required = false,
+  info = `${label} value used by the LoRaWAN simulation.`,
 ): SimulationMACCommandFieldDescriptor => ({
   name,
   label,
+  info,
   input: "number",
   minimum,
   maximum,
@@ -45,7 +47,8 @@ const numberField = (
 const booleanField = (
   name: SimulationMACCommandFieldDescriptor["name"],
   label: string,
-): SimulationMACCommandFieldDescriptor => ({ name, label, input: "checkbox" });
+  info = `${label} option applied to the simulated MAC command.`,
+): SimulationMACCommandFieldDescriptor => ({ name, label, info, input: "checkbox" });
 
 const MAC_COMMAND_FIELDS: SimulationMACCommandFields = {
   [SimulationMACCommandType.LinkCheckAns]: [
@@ -103,6 +106,17 @@ const MAC_COMMAND_FIELDS: SimulationMACCommandFields = {
 
 const numericFormat = (value: string): string => value.replace(/[^0-9]/g, "");
 
+const DATA_RATE_OPTIONS = [
+  { value: "auto", displayed: <>Auto</> },
+  ...Array.from({ length: 16 }, (_, dataRate) => ({
+    value: String(dataRate),
+    displayed: <>DR{dataRate}</>,
+  })),
+];
+
+const UTF8_PAYLOAD_MAX_LENGTH = 242;
+const BASE64_PAYLOAD_MAX_LENGTH = 324;
+
 const encodeUTF8 = (value: string): string => {
   const bytes = new TextEncoder().encode(value);
   return window.btoa(String.fromCharCode(...bytes));
@@ -117,6 +131,7 @@ const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
   const [macCommandType, setMACCommandType] = useState(
     SimulationMACCommandType.DevStatusReq,
   );
+  const [isPayloadBase64, setIsPayloadBase64] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [lastActionID, setLastActionID] = useState<string | null>(null);
 
@@ -187,7 +202,10 @@ const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
         const payload = String(values.payload ?? "");
         const fPort = Number(values.fPort);
         const dataRateValue = String(values.dataRate ?? "");
-        const dataRate = dataRateValue === "" ? undefined : Number(dataRateValue);
+        const dataRate =
+          dataRateValue === "" || dataRateValue === "auto"
+            ? undefined
+            : Number(dataRateValue);
 
         if (!payload.trim()) {
           setValidationError("Enter a downlink payload");
@@ -206,11 +224,10 @@ const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
         }
         response = await props.onQueueDownlink({
           deviceID: selectedDeviceID,
-          payload: encodeUTF8(payload),
+          payload: isPayloadBase64 ? payload : encodeUTF8(payload),
           fPort,
           ...(dataRate === undefined ? {} : { dataRate }),
           confirmed: Boolean(values.confirmed),
-          fPending: Boolean(values.fPending),
           ack: Boolean(values.ack),
         });
       } else {
@@ -241,6 +258,9 @@ const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
       options: deviceOptions,
       placeholder: availableDevices.length ? "Select an active device" : "No active devices",
       disabled: !props.enabled || availableDevices.length === 0,
+      info: {
+        default: "Select the active device that will receive or transmit the simulated traffic.",
+      },
     });
 
     if (mode === SimulationCommandMode.Uplink) return [targetDevice];
@@ -250,12 +270,41 @@ const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
         targetDevice,
         textAreaField({
           name: "payload",
-          label: "Payload (UTF-8)",
+          label: `Payload (${isPayloadBase64 ? "Base64" : "UTF-8"})`,
           value: "",
           error: null,
           placeholder: "Message delivered to the selected device",
-          charsMax: 242,
+          charsMax: isPayloadBase64
+            ? BASE64_PAYLOAD_MAX_LENGTH
+            : UTF8_PAYLOAD_MAX_LENGTH,
           required: true,
+          info: {
+            default: isPayloadBase64
+              ? "Base64 encoded application payload. The value is sent unchanged."
+              : "UTF-8 application payload. It is encoded to bytes before transmission.",
+          },
+          validations: isPayloadBase64
+            ? [
+                {
+                  rule: /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/,
+                  error: "Payload must be valid Base64",
+                },
+              ]
+            : undefined,
+        }),
+        booleanCheckboxField({
+          name: "payloadBase64",
+          label: "Base64 payload",
+          text: "Payload is Base64 encoded",
+          value: isPayloadBase64,
+          error: null,
+          info: {
+            default:
+              "Enable this when the payload already contains a Base64 representation of the bytes to send.",
+          },
+          onChange: (logic) => {
+            setIsPayloadBase64(Boolean(logic.fieldsState.payloadBase64.value));
+          },
         }),
         textField({
           name: "fPort",
@@ -264,18 +313,50 @@ const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
           error: null,
           required: true,
           format: numericFormat,
+          info: {
+            default:
+              "Application port. Valid LoRaWAN application ports range from 1 to 223.",
+          },
+          validations: [
+            {
+              rule: /^(?:[1-9]|[1-9]\d|1\d\d|2[0-1]\d|22[0-3])$/,
+              error: "FPort must be an integer between 1 and 223",
+            },
+          ],
         }),
-        textField({
+        selectField({
           name: "dataRate",
-          label: "Data rate (automatic when empty)",
-          value: "",
+          label: "Data rate",
+          value: "auto",
           error: null,
-          placeholder: "Auto",
-          format: numericFormat,
+          options: DATA_RATE_OPTIONS,
+          info: {
+            default:
+              "Select a fixed regional data rate or Auto to let the engine choose it.",
+          },
         }),
-        booleanCheckboxField({ name: "confirmed", label: "Confirmed", text: "Confirmed", value: false, error: null }),
-        booleanCheckboxField({ name: "fPending", label: "FPending", text: "FPending", value: false, error: null }),
-        booleanCheckboxField({ name: "ack", label: "ACK", text: "ACK", value: false, error: null }),
+        booleanCheckboxField({
+          name: "confirmed",
+          label: "Confirmed",
+          text: "Confirmed downlink",
+          value: false,
+          error: null,
+          info: {
+            default:
+              "Request an acknowledgement from the device for this downlink.",
+          },
+        }),
+        booleanCheckboxField({
+          name: "ack",
+          label: "ACK",
+          text: "Acknowledge confirmed uplink",
+          value: false,
+          error: null,
+          info: {
+            default:
+              "Set the LoRaWAN ACK bit to acknowledge a confirmed uplink.",
+          },
+        }),
       ];
     }
 
@@ -286,6 +367,10 @@ const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
         label: "MAC command",
         value: macCommandType,
         error: null,
+        info: {
+          default:
+            "Select the MAC command to queue for the target device.",
+        },
         options: Object.values(SimulationMACCommandType).map((commandType) => ({
           value: commandType,
           displayed: <>{formatEnum(commandType)}</>,
@@ -306,6 +391,7 @@ const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
               text: field.label,
               value: false,
               error: null,
+              info: { default: field.info },
             })
           : textField({
               name: field.name,
@@ -315,10 +401,19 @@ const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
               required: field.required,
               placeholder: field.required ? "Required" : "Optional",
               format: numericFormat,
+              info: { default: field.info },
             }),
       ),
     ];
-  }, [availableDevices, deviceOptions, macCommandType, macFields, mode, props.enabled]);
+  }, [
+    availableDevices,
+    deviceOptions,
+    isPayloadBase64,
+    macCommandType,
+    macFields,
+    mode,
+    props.enabled,
+  ]);
 
   return (
     <Card className="simulation-command-panel" layout={CardLayout.Padded}>

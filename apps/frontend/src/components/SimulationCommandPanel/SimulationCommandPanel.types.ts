@@ -22,6 +22,7 @@ export type SimulationMACCommandFieldName = Exclude<
 export interface SimulationMACCommandFieldDescriptor {
   name: SimulationMACCommandFieldName;
   label: string;
+  info: string;
   input: "number" | "checkbox";
   required?: boolean;
   minimum?: number;
@@ -48,4 +49,3 @@ export interface SimulationCommandPanelProps {
     request: SimulationMACCommandRequest,
   ) => Promise<SimulationActionResponse>;
 }
-

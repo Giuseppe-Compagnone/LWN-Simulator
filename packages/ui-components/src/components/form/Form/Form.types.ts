@@ -29,6 +29,9 @@ export interface FormFieldProps extends Omit<FormField, "render"> {
 
   /** Prevents editing while keeping the field visually enabled. */
   readOnly?: boolean;
+
+  /** Maximum number of characters accepted by multiline text fields. */
+  charsMax?: number;
 }
 
 /**
@@ -134,6 +137,9 @@ export interface FormField {
 
   /** Prevents editing while keeping the field visually enabled. */
   readOnly?: boolean;
+
+  /** Maximum number of characters accepted by multiline text fields. */
+  charsMax?: number;
 
   /**
    * Determines whether the field is rendered.

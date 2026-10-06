@@ -115,6 +115,7 @@ export const useForm = (props: UseFormProps): FormLogic => {
             currentField.readOnly !== field.readOnly ||
             currentField.display !== field.display ||
             currentField.info !== field.info ||
+            currentField.charsMax !== field.charsMax ||
             currentField.toolbar !== field.toolbar;
         });
 
