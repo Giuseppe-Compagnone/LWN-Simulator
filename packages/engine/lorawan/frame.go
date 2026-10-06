@@ -196,6 +196,27 @@ func BuildDataFrame(options DataFrameOptions) ([]byte, error) {
 	return append(frame, mic...), nil
 }
 
+// DecryptPayload decrypts the FRMPayload of a parsed data frame. LoRaWAN uses
+// the same AES stream operation for encryption and decryption, so the helper
+// is symmetric. The caller chooses NwkSKey for FPort 0 and AppSKey for
+// application ports.
+func DecryptPayload(packet Packet, key []byte, direction byte) ([]byte, error) {
+	if packet.MType != MTypeUnconfirmedDataUp && packet.MType != MTypeConfirmedDataUp &&
+		packet.MType != MTypeUnconfirmedDataDown && packet.MType != MTypeConfirmedDataDown {
+		return nil, fmt.Errorf("%w: packet is not a data frame", ErrInvalidFrame)
+	}
+	if packet.FPort == nil {
+		return nil, fmt.Errorf("%w: data frame has no FPort", ErrInvalidFrame)
+	}
+	if direction > 1 {
+		return nil, fmt.Errorf("%w: direction must be 0 or 1", ErrInvalidFrame)
+	}
+	if len(packet.FRMPayload) == 0 {
+		return []byte{}, nil
+	}
+	return cryptPayload(key, direction, packet.DevAddr, packet.FCnt, packet.FRMPayload)
+}
+
 // BuildJoinAccept builds the encrypted LoRaWAN 1.0 Join-Accept PHYPayload.
 // The simulator uses deterministic AppNonce/NetID values for both logical
 // and real-gateway sessions so the derived session keys stay aligned.

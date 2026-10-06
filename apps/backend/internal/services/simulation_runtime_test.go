@@ -75,6 +75,21 @@ func TestSimulationRuntimeCommandsAndEventPagination(t *testing.T) {
 	if len(secondPage.Events) == 0 || secondPage.Events[0].Sequence <= firstPage.LastSequence {
 		t.Fatalf("unexpected second page: %+v", secondPage)
 	}
+	filtered, err := service.EventsFiltered(0, 100, SimulationEventFilters{
+		DeviceID: device.ID,
+		Types:    map[contracts.SimulationEventType]struct{}{contracts.DeviceUplinkTransmitted: {}},
+	})
+	if err != nil {
+		t.Fatalf("get filtered events: %v", err)
+	}
+	if len(filtered.Events) == 0 {
+		t.Fatal("expected at least one filtered uplink event")
+	}
+	for _, event := range filtered.Events {
+		if event.DeviceID == nil || *event.DeviceID != device.ID || event.Type != contracts.DeviceUplinkTransmitted {
+			t.Fatalf("filter returned unrelated event: %+v", event)
+		}
+	}
 }
 
 func TestSimulationRuntimeSynchronizesHardwareRegistry(t *testing.T) {

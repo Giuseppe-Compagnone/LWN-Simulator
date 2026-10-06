@@ -82,6 +82,11 @@ func TestSimulationHandlerRuntimeEndpoints(t *testing.T) {
 	if events.Code != http.StatusOK || !strings.Contains(events.Body.String(), `"lastSequence":4`) {
 		t.Fatalf("unexpected events response: %d %s", events.Code, events.Body.String())
 	}
+	invalidType := httptest.NewRecorder()
+	router.ServeHTTP(invalidType, httptest.NewRequest(http.MethodGet, "/events?type=not-an-event", nil))
+	if invalidType.Code != http.StatusBadRequest {
+		t.Fatalf("invalid event type status = %d, want 400", invalidType.Code)
+	}
 
 	metrics := httptest.NewRecorder()
 	router.ServeHTTP(metrics, httptest.NewRequest(http.MethodGet, "/metrics", nil))
@@ -176,6 +181,10 @@ func (service *fakeSimulationService) QueueMACCommand(contracts.SimulationMACCom
 }
 
 func (service *fakeSimulationService) Events(int64, int) (contracts.SimulationEventsResponse, error) {
+	return service.events, service.err
+}
+
+func (service *fakeSimulationService) EventsFiltered(int64, int, services.SimulationEventFilters) (contracts.SimulationEventsResponse, error) {
 	return service.events, service.err
 }
 

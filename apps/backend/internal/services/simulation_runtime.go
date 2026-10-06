@@ -16,6 +16,15 @@ const (
 	maximumSimulationEventLimit = 1000
 )
 
+// SimulationEventFilters narrows the event stream without changing the
+// sequence cursor semantics. Empty fields mean that the dimension is not
+// filtered.
+type SimulationEventFilters struct {
+	DeviceID  string
+	GatewayID string
+	Types     map[contracts.SimulationEventType]struct{}
+}
+
 func (s *SimulationService) SetSpeed(speed float64) (contracts.SimulationSnapshot, error) {
 	runtime, err := s.currentEngine()
 	if err != nil {
@@ -72,6 +81,10 @@ func (s *SimulationService) QueueMACCommand(req contracts.SimulationMACCommandRe
 }
 
 func (s *SimulationService) Events(afterSequence int64, limit int) (contracts.SimulationEventsResponse, error) {
+	return s.EventsFiltered(afterSequence, limit, SimulationEventFilters{})
+}
+
+func (s *SimulationService) EventsFiltered(afterSequence int64, limit int, filters SimulationEventFilters) (contracts.SimulationEventsResponse, error) {
 	if afterSequence < 0 {
 		return contracts.SimulationEventsResponse{}, apperrors.Invalid("afterSequence cannot be negative")
 	}
@@ -91,6 +104,17 @@ func (s *SimulationService) Events(afterSequence int64, limit int) (contracts.Si
 	for _, event := range log {
 		if event.Sequence <= afterSequence {
 			continue
+		}
+		if filters.DeviceID != "" && (event.DeviceID == nil || *event.DeviceID != filters.DeviceID) {
+			continue
+		}
+		if filters.GatewayID != "" && (event.GatewayID == nil || *event.GatewayID != filters.GatewayID) {
+			continue
+		}
+		if len(filters.Types) > 0 {
+			if _, ok := filters.Types[event.Type]; !ok {
+				continue
+			}
 		}
 		events = append(events, event)
 		lastSequence = event.Sequence

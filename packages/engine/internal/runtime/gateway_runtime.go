@@ -280,6 +280,29 @@ func (e *Engine) processRealUplinkLocked(packet types.GatewayPacket, decoded lor
 			device.ID, packet.GatewayID, "", uuid.NewString(),
 		)}
 	}
+	if decoded.FPort != nil && len(decoded.FRMPayload) > 0 {
+		key := session.AppSKey
+		if *decoded.FPort == 0 {
+			key = session.NwkSKey
+		}
+		if _, err := lorawan.DecryptPayload(decoded, key, 0); err != nil {
+			return []contracts.SimulationEvent{e.newPacketEventLocked(
+				contracts.PacketDropped,
+				"real gateway uplink payload could not be decrypted",
+				device.ID, packet.GatewayID, "", uuid.NewString(),
+			)}
+		}
+		if dataRate := gatewayPacketDataRate(device, packet); dataRate >= 0 {
+			maximum := maximumPayloadSize(device.LocationConfig.Region, dataRate)
+			if len(decoded.FRMPayload) > maximum {
+				return []contracts.SimulationEvent{e.newPacketEventLocked(
+					contracts.PacketDropped,
+					fmt.Sprintf("real gateway uplink payload exceeds the regional maximum of %d bytes", maximum),
+					device.ID, packet.GatewayID, "", uuid.NewString(),
+				)}
+			}
+		}
+	}
 	if !device.FrameConfig.DisableFrameCounterValidation && decoded.FCnt <= session.LastExternalFrameCounter {
 		frameCounter := int64(decoded.FCnt)
 		e.metrics.FrameCounterErrors++

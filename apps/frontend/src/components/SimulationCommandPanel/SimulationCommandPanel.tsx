@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  DeviceRegion,
   SimulationMACCommand,
   SimulationMACCommandType,
 } from "@lwn-simulator/contracts";
@@ -16,7 +17,7 @@ import {
   textAreaField,
   textField,
 } from "@lwn-simulator/ui-components";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   SimulationCommandMode,
   SimulationCommandPanelProps,
@@ -106,16 +107,31 @@ const MAC_COMMAND_FIELDS: SimulationMACCommandFields = {
 
 const numericFormat = (value: string): string => value.replace(/[^0-9]/g, "");
 
-const DATA_RATE_OPTIONS = [
-  { value: "auto", displayed: <>Auto</> },
-  ...Array.from({ length: 16 }, (_, dataRate) => ({
-    value: String(dataRate),
-    displayed: <>DR{dataRate}</>,
-  })),
-];
+const REGION_DATA_RATES: Record<DeviceRegion, Array<number>> = {
+  [DeviceRegion.EU868]: [0, 1, 2, 3, 4, 5],
+  [DeviceRegion.EU433]: [0, 1, 2, 3, 4, 5],
+  [DeviceRegion.CN779]: [0, 1, 2, 3, 4, 5],
+  [DeviceRegion.CN470]: [0, 1, 2, 3, 4, 5],
+  [DeviceRegion.AS923]: [0, 1, 2, 3, 4, 5],
+  [DeviceRegion.IN865]: [0, 1, 2, 3, 4, 5],
+  [DeviceRegion.KR920]: [0, 1, 2, 3, 4, 5],
+  [DeviceRegion.RU864]: [0, 1, 2, 3, 4, 5],
+  [DeviceRegion.US915]: [0, 1, 2, 3, 4, 8, 9, 10, 11, 12, 13],
+  [DeviceRegion.AU915]: [0, 1, 2, 3, 4, 6, 8, 9, 10, 11, 12, 13],
+};
 
-const UTF8_PAYLOAD_MAX_LENGTH = 242;
-const BASE64_PAYLOAD_MAX_LENGTH = 324;
+const REGIONAL_PAYLOAD_LIMITS: Record<DeviceRegion, Record<number, number>> = {
+  [DeviceRegion.EU868]: { 0: 51, 1: 51, 2: 51, 3: 115, 4: 222, 5: 222 },
+  [DeviceRegion.EU433]: { 0: 51, 1: 51, 2: 51, 3: 115, 4: 222, 5: 222 },
+  [DeviceRegion.CN779]: { 0: 51, 1: 51, 2: 51, 3: 115, 4: 222, 5: 222 },
+  [DeviceRegion.CN470]: { 0: 51, 1: 51, 2: 51, 3: 115, 4: 222, 5: 222 },
+  [DeviceRegion.AS923]: { 0: 51, 1: 51, 2: 51, 3: 115, 4: 222, 5: 222 },
+  [DeviceRegion.IN865]: { 0: 51, 1: 51, 2: 51, 3: 115, 4: 222, 5: 222 },
+  [DeviceRegion.KR920]: { 0: 51, 1: 51, 2: 51, 3: 115, 4: 222, 5: 222 },
+  [DeviceRegion.RU864]: { 0: 51, 1: 51, 2: 51, 3: 115, 4: 222, 5: 222 },
+  [DeviceRegion.US915]: { 0: 11, 1: 53, 2: 125, 3: 242, 4: 242, 8: 33, 9: 109, 10: 222, 11: 222, 12: 222, 13: 222 },
+  [DeviceRegion.AU915]: { 0: 51, 1: 51, 2: 51, 3: 115, 4: 222, 6: 222, 8: 33, 9: 109, 10: 222, 11: 222, 12: 222, 13: 222 },
+};
 
 const encodeUTF8 = (value: string): string => {
   const bytes = new TextEncoder().encode(value);
@@ -128,6 +144,8 @@ const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
     [props.devices],
   );
   const [mode, setMode] = useState(SimulationCommandMode.Uplink);
+  const [selectedDeviceID, setSelectedDeviceID] = useState(availableDevices[0]?.id ?? "");
+  const [selectedDataRate, setSelectedDataRate] = useState("auto");
   const [macCommandType, setMACCommandType] = useState(
     SimulationMACCommandType.DevStatusReq,
   );
@@ -144,6 +162,33 @@ const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
       })),
     [availableDevices],
   );
+  const selectedDevice = availableDevices.find((device) => device.id === selectedDeviceID) ?? availableDevices[0];
+  const selectedRegion = selectedDevice?.locationConfig.region ?? DeviceRegion.EU868;
+  const regionalDataRates = REGION_DATA_RATES[selectedRegion];
+  const dataRateOptions = useMemo(
+    () => [
+      { value: "auto", displayed: <>Auto</> },
+      ...regionalDataRates.map((dataRate) => ({
+        value: String(dataRate),
+        displayed: <>DR{dataRate}</>,
+      })),
+    ],
+    [regionalDataRates],
+  );
+  const selectedDataRateNumber = Number(selectedDataRate);
+  const selectedPayloadMaximum =
+    selectedDataRate !== "auto" && Number.isInteger(selectedDataRateNumber)
+      ? REGIONAL_PAYLOAD_LIMITS[selectedRegion][selectedDataRateNumber] ?? 242
+      : Math.max(...Object.values(REGIONAL_PAYLOAD_LIMITS[selectedRegion]));
+  const payloadMaximum = isPayloadBase64
+    ? Math.ceil(selectedPayloadMaximum / 3) * 4
+    : selectedPayloadMaximum;
+
+  useEffect(() => {
+    if (!selectedDeviceID && availableDevices[0]) {
+      setSelectedDeviceID(availableDevices[0].id);
+    }
+  }, [availableDevices, selectedDeviceID]);
 
   const setCommandMode = (nextMode: SimulationCommandMode) => {
     setMode(nextMode);
@@ -217,9 +262,26 @@ const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
         }
         if (
           dataRate !== undefined &&
-          (!Number.isInteger(dataRate) || dataRate < 0 || dataRate > 15)
+          (!Number.isInteger(dataRate) || !regionalDataRates.includes(dataRate))
         ) {
-          setValidationError("Data rate must be an integer between 0 and 15");
+          setValidationError(`Data rate is not supported by ${selectedRegion}`);
+          return;
+        }
+        let payloadByteLength: number;
+        if (isPayloadBase64) {
+          try {
+            payloadByteLength = window.atob(payload).length;
+          } catch {
+            setValidationError("Payload must be valid Base64");
+            return;
+          }
+        } else {
+          payloadByteLength = new TextEncoder().encode(payload).byteLength;
+        }
+        if (payloadByteLength > selectedPayloadMaximum) {
+          setValidationError(
+            `Payload exceeds the regional maximum of ${selectedPayloadMaximum} bytes`,
+          );
           return;
         }
         response = await props.onQueueDownlink({
@@ -253,13 +315,20 @@ const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
     const targetDevice = selectField({
       name: "deviceID",
       label: "Target device",
-      value: availableDevices[0]?.id ?? null,
+      value: selectedDeviceID || null,
       error: null,
       options: deviceOptions,
       placeholder: availableDevices.length ? "Select an active device" : "No active devices",
       disabled: !props.enabled || availableDevices.length === 0,
       info: {
         default: "Select the active device that will receive or transmit the simulated traffic.",
+      },
+      onChange: (logic) => {
+        const value = logic.fieldsState.deviceID.value;
+        if (typeof value === "string") {
+          setSelectedDeviceID(value);
+          setSelectedDataRate("auto");
+        }
       },
     });
 
@@ -274,9 +343,7 @@ const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
           value: "",
           error: null,
           placeholder: "Message delivered to the selected device",
-          charsMax: isPayloadBase64
-            ? BASE64_PAYLOAD_MAX_LENGTH
-            : UTF8_PAYLOAD_MAX_LENGTH,
+          charsMax: payloadMaximum,
           required: true,
           info: {
             default: isPayloadBase64
@@ -327,12 +394,16 @@ const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
         selectField({
           name: "dataRate",
           label: "Data rate",
-          value: "auto",
+          value: selectedDataRate,
           error: null,
-          options: DATA_RATE_OPTIONS,
+          options: dataRateOptions,
           info: {
             default:
               "Select a fixed regional data rate or Auto to let the engine choose it.",
+          },
+          onChange: (logic) => {
+            const value = logic.fieldsState.dataRate.value;
+            if (typeof value === "string") setSelectedDataRate(value);
           },
         }),
         booleanCheckboxField({
@@ -412,7 +483,11 @@ const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
     macCommandType,
     macFields,
     mode,
+    dataRateOptions,
+    payloadMaximum,
     props.enabled,
+    selectedDataRate,
+    selectedDeviceID,
   ]);
 
   return (

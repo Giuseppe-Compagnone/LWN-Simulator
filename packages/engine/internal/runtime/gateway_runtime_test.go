@@ -142,6 +142,75 @@ func TestPhaseFiveRealUplinkUpdatesDeviceAndSchedulesConfirmedACK(t *testing.T) 
 	}
 }
 
+func TestRealGatewaysCanIngestTheSameDeviceThroughMultipleAdapters(t *testing.T) {
+	first := newFakeGatewayAdapter()
+	second := newFakeGatewayAdapter()
+	firstGateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c51")
+	secondGateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c52")
+	for index, gateway := range []*contracts.Gateway{&firstGateway, &secondGateway} {
+		gateway.Type = contracts.Real
+		gateway.KeepAlive = nil
+		gateway.GatewayEUI = "A84041000100015" + strconv.Itoa(index+1)
+		gateway.MacAddress = "02:00:00:10:00:5" + strconv.Itoa(index+1)
+		gateway.GatewayIPv4 = engineStringPtr("127.0.0.1")
+		port := int32(1751 + index)
+		gateway.GatewayPort = &port
+	}
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000051")
+	configureABP(&device)
+	factory := &multiFakeGatewayFactory{adapters: map[string]*fakeGatewayAdapter{
+		firstGateway.ID: first, secondGateway.ID: second,
+	}}
+	engine, err := New(contracts.SimulationConfig{Speed: 1}, []contracts.Device{device}, []contracts.Gateway{firstGateway, secondGateway}, types.Options{
+		EventBuffer: 256, GatewayAdapterFactory: factory,
+	})
+	if err != nil {
+		t.Fatalf("create engine: %v", err)
+	}
+	startEngine(t, engine)
+	defer stopEngine(t, engine)
+	waitForEventType(t, engine.Events(), contracts.GatewayConnecting)
+	waitForEventType(t, engine.Events(), contracts.GatewayConnecting)
+	first.emit(types.GatewayAdapterEvent{GatewayID: firstGateway.ID, State: contracts.Connected})
+	second.emit(types.GatewayAdapterEvent{GatewayID: secondGateway.ID, State: contracts.Connected})
+	waitForEventType(t, engine.Events(), contracts.GatewayConnected)
+	waitForEventType(t, engine.Events(), contracts.GatewayConnected)
+
+	nwkSKey, _ := lorawan.DecodeHex(device.ABPConfig.NwkSKey)
+	appSKey, _ := lorawan.DecodeHex(device.ABPConfig.AppSKey)
+	fPort := byte(device.FrameConfig.FPort)
+	build := func(counter uint32) []byte {
+		frame, buildErr := lorawan.BuildDataFrame(lorawan.DataFrameOptions{
+			DevAddr: 0x26011bda, FCnt: counter, FPort: &fPort, Payload: []byte("gateway uplink"),
+			NwkSKey: nwkSKey, AppSKey: appSKey,
+		})
+		if buildErr != nil {
+			t.Fatalf("build uplink %d: %v", counter, buildErr)
+		}
+		return frame
+	}
+	first.packets <- types.GatewayPacket{GatewayID: firstGateway.ID, Payload: build(1), Bandwidth: 125_000, SpreadingFactor: 7}
+	second.packets <- types.GatewayPacket{GatewayID: secondGateway.ID, Payload: build(2), Bandwidth: 125_000, SpreadingFactor: 7}
+	deadline := time.After(time.Second)
+	var snapshot contracts.SimulationSnapshot
+	for {
+		snapshot = engine.Snapshot()
+		if snapshot.Metrics.GatewayIngressPackets == 2 {
+			break
+		}
+		select {
+		case <-deadline:
+			t.Fatalf("multiple real gateway packets were not ingested: %+v", snapshot)
+		default:
+			time.Sleep(time.Millisecond)
+		}
+	}
+	if snapshot.Metrics.GatewayIngressPackets != 2 || snapshot.Devices[0].FrameCounterUp != 2 ||
+		snapshot.Gateways[0].IngressPackets != 1 || snapshot.Gateways[1].IngressPackets != 1 {
+		t.Fatalf("multiple real gateway uplinks were not processed: metrics=%+v device=%+v gateways=%+v", snapshot.Metrics, snapshot.Devices[0], snapshot.Gateways)
+	}
+}
+
 func TestRealClassADownlinkCarriesACKFPendingAndMACCommands(t *testing.T) {
 	adapter := newFakeGatewayAdapter()
 	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000043")
@@ -269,6 +338,18 @@ type fakeGatewayFactory struct {
 
 func (factory *fakeGatewayFactory) NewGatewayAdapter(contracts.Gateway) (types.GatewayAdapter, error) {
 	return factory.adapter, nil
+}
+
+type multiFakeGatewayFactory struct {
+	adapters map[string]*fakeGatewayAdapter
+}
+
+func (factory *multiFakeGatewayFactory) NewGatewayAdapter(gateway contracts.Gateway) (types.GatewayAdapter, error) {
+	adapter, ok := factory.adapters[gateway.ID]
+	if !ok {
+		return nil, strconv.ErrSyntax
+	}
+	return adapter, nil
 }
 
 type fakeGatewayAdapter struct {

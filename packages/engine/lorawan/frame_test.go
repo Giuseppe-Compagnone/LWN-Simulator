@@ -1,6 +1,7 @@
 package lorawan
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 )
@@ -34,6 +35,31 @@ func TestBuildAndParseDataFrame(t *testing.T) {
 	}
 	if !VerifyDataMIC(packet, nwkSKey, 0) {
 		t.Fatal("frame MIC did not validate")
+	}
+}
+
+func TestDecryptPayloadRoundTrip(t *testing.T) {
+	nwkSKey := bytes.Repeat([]byte{0x11}, 16)
+	appSKey := bytes.Repeat([]byte{0x22}, 16)
+	fPort := byte(10)
+	original := []byte("payload from a real gateway")
+	frame, err := BuildDataFrame(DataFrameOptions{
+		DevAddr: 0x26011bda, FCnt: 7, FPort: &fPort, Payload: original,
+		NwkSKey: nwkSKey, AppSKey: appSKey,
+	})
+	if err != nil {
+		t.Fatalf("build data frame: %v", err)
+	}
+	packet, err := Parse(frame)
+	if err != nil {
+		t.Fatalf("parse data frame: %v", err)
+	}
+	decrypted, err := DecryptPayload(packet, appSKey, 0)
+	if err != nil {
+		t.Fatalf("decrypt payload: %v", err)
+	}
+	if !bytes.Equal(decrypted, original) {
+		t.Fatalf("decrypted payload = %q, want %q", decrypted, original)
 	}
 }
 

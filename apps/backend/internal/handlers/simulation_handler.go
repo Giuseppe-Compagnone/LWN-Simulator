@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/websocket"
+	"lwn-simulator-backend/internal/apperrors"
 	"lwn-simulator-backend/internal/services"
 	"lwn-simulator-backend/internal/telemetry"
 )
@@ -27,6 +28,7 @@ type SimulationService interface {
 	QueueDownlink(contracts.SimulationDownlinkRequest) (contracts.SimulationActionResponse, error)
 	QueueMACCommand(contracts.SimulationMACCommandRequest) (contracts.SimulationActionResponse, error)
 	Events(int64, int) (contracts.SimulationEventsResponse, error)
+	EventsFiltered(int64, int, services.SimulationEventFilters) (contracts.SimulationEventsResponse, error)
 	Subscribe() (services.SimulationSubscription, error)
 }
 
@@ -145,7 +147,22 @@ func (h *SimulationHandler) Events(c *gin.Context) {
 	if !ok {
 		return
 	}
-	res, err := h.service.Events(afterSequence, int(limit))
+	filters := services.SimulationEventFilters{
+		DeviceID:  strings.TrimSpace(c.Query("deviceID")),
+		GatewayID: strings.TrimSpace(c.Query("gatewayID")),
+	}
+	if typeQuery := strings.TrimSpace(c.Query("type")); typeQuery != "" {
+		filters.Types = make(map[contracts.SimulationEventType]struct{})
+		for _, value := range strings.Split(typeQuery, ",") {
+			eventType := contracts.SimulationEventType(strings.TrimSpace(value))
+			if !eventType.Valid() {
+				writeServiceError(c, apperrors.Invalid("invalid event type %q", value))
+				return
+			}
+			filters.Types[eventType] = struct{}{}
+		}
+	}
+	res, err := h.service.EventsFiltered(afterSequence, int(limit), filters)
 	if err != nil {
 		writeServiceError(c, err)
 		return
