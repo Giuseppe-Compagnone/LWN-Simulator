@@ -1,0 +1,79 @@
+---
+title: Gateway Bridge
+---
+
+# Gateway Bridge
+
+The Gateway Bridge page configures the UDP endpoint used by real gateways and
+packet-forwarder software. It is separate from virtual gateways: virtual
+gateways stay entirely inside the simulator and do not use this endpoint.
+
+## Configuration fields
+
+| Field | Meaning | Value |
+| --- | --- | --- |
+| **Gateway Bridge** | Enables or disables the UDP listener for the next simulation run. | Checkbox. |
+| **Gateway Bridge's address** | Local address on which the simulator listens. | IPv4 address or URL accepted by the form. |
+| **Gateway Bridge's Port** | UDP port used by the bridge. | Numeric port, normally `1700`. |
+
+The address and port are disabled while the bridge checkbox is off. Click
+**Save settings** to store the configuration locally. The page shows the
+effective endpoint, protocol, and whether the settings have been saved.
+
+Use **Reset to default** to restore the default address, port, and disabled
+state.
+
+## Connect a real gateway
+
+1. Open **Hardware → Gateway Bridge**.
+2. Enable the bridge and set the address and UDP port.
+3. Save the settings.
+4. Make sure at least one active gateway with type **Real** is configured in Hardware.
+5. Configure the gateway’s packet forwarder or ChirpStack Gateway Bridge to send Semtech UDP traffic to the saved endpoint.
+6. Start the simulation and monitor the **Connectivity** panel.
+
+The gateway should move from connecting/reconnecting to connected after its
+heartbeat is received. The runtime panel reports incoming and outgoing packet
+counts. The event stream reports connection changes, heartbeats, UDP ingress,
+UDP egress, and network errors.
+
+## Supported traffic
+
+The bridge supports the normal Semtech UDP packet-forwarder flow used by real
+gateways:
+
+- gateway heartbeats and connection acknowledgements;
+- uplink packets received from a gateway;
+- downlinks and timed transmissions sent back to a gateway;
+- acknowledgements and reconnect handling;
+- gateway timeout and network-error reporting.
+
+The bridge does not make gateways communicate directly with one another. Each
+gateway communicates with the network side independently. Coverage and packet
+delivery still depend on the device-to-gateway radio relationship.
+
+## Troubleshooting
+
+### The gateway remains disconnected
+
+Check that:
+
+1. the bridge is enabled and saved;
+2. the address is reachable from the packet-forwarder host;
+3. the UDP port is the same on both sides;
+4. the gateway is active and has type **Real**;
+5. no other process is already using the selected port.
+
+### The gateway is connected but no uplinks arrive
+
+Confirm that the packet-forwarder is sending `PUSH_DATA`, that its Gateway EUI
+matches the configured Gateway EUI, and that the transmitted LoRaWAN frame is
+valid for the configured device session. Check the event stream for ingress or
+validation errors.
+
+### No downlink is visible at the gateway
+
+Make sure the device is in range, the downlink is valid for its regional plan,
+and that the packet-forwarder answers the bridge’s transmission request. For
+Class A devices, a downlink normally requires a receive window after an
+uplink.
