@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "ELECTRON_BUILD=true next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "lint:css": "stylelint \"src/**/*.scss\""
   },
   "dependencies": {
     "@lwn-simulator/sdk": "workspace:*",

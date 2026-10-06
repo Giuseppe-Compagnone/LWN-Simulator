@@ -9,8 +9,9 @@ import (
 )
 
 type Services struct {
-	Device  *services.DeviceService
-	Gateway *services.GatewayService
+	Device     *services.DeviceService
+	Gateway    *services.GatewayService
+	Simulation *services.SimulationService
 }
 
 func registerRoutes(r *gin.Engine, port string, services Services) {
@@ -45,4 +46,19 @@ func registerRoutes(r *gin.Engine, port string, services Services) {
 	gateway.GET("/get-gateways", gatewayHandler.GetGateways)
 	gateway.PUT("/update-gateway/:id", gatewayHandler.UpdateGateway)
 	gateway.DELETE("/delete-gateway/:id", gatewayHandler.DeleteGateway)
+
+	simulation := api.Group("/simulation")
+	simulationHandler := handlers.NewSimulationHandler(services.Simulation, validator)
+	simulation.POST("/start", simulationHandler.Start)
+	simulation.POST("/speed", simulationHandler.SetSpeed)
+	simulation.POST("/pause", simulationHandler.Pause)
+	simulation.POST("/resume", simulationHandler.Resume)
+	simulation.POST("/stop", simulationHandler.Stop)
+	simulation.GET("/snapshot", simulationHandler.Snapshot)
+	simulation.GET("/events", simulationHandler.Events)
+	simulation.GET("/metrics", simulationHandler.Metrics)
+	simulation.POST("/uplinks", simulationHandler.QueueUplink)
+	simulation.POST("/downlinks", simulationHandler.QueueDownlink)
+	simulation.POST("/mac-commands", simulationHandler.QueueMACCommand)
+	simulation.GET("/ws", simulationHandler.WebSocket)
 }

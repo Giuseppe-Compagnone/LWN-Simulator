@@ -26,6 +26,12 @@ export interface FormFieldProps extends Omit<FormField, "render"> {
    * Disabled fields should prevent user interaction and value changes.
    */
   disabled?: boolean;
+
+  /** Prevents editing while keeping the field visually enabled. */
+  readOnly?: boolean;
+
+  /** Maximum number of characters accepted by multiline text fields. */
+  charsMax?: number;
 }
 
 /**
@@ -128,6 +134,12 @@ export interface FormField {
    * current form state.
    */
   disabled?: boolean | ((fieldsState: Record<string, FormField>) => boolean);
+
+  /** Prevents editing while keeping the field visually enabled. */
+  readOnly?: boolean;
+
+  /** Maximum number of characters accepted by multiline text fields. */
+  charsMax?: number;
 
   /**
    * Determines whether the field is rendered.

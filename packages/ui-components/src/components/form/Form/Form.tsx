@@ -73,6 +73,7 @@ const Form = (props: FormProps) => {
           }
         }}
         disabled={
+          props.submitButton?.disabled ||
           !!Object.values(formLogic.fieldsState).find(
             (field) =>
               !formLogic.isFieldDisabled(field, formLogic.fieldsState) &&

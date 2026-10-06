@@ -32,9 +32,16 @@ export type SensorMapEntity =
   | { kind: "device"; entity: Device }
   | { kind: "gateway"; entity: Gateway };
 
+export interface SensorMapLink {
+  id: string;
+  from: Marker;
+  to: Marker;
+}
+
 export interface SensorMapProps {
   logic: SensorMapLogic;
   mode?: SensorMapMode;
   devices?: Array<Device>;
   gateways?: Array<Gateway>;
+  links?: Array<SensorMapLink>;
 }

@@ -5,7 +5,7 @@ import Map, { Layer, MapRef, Marker, Popup, Source } from "react-map-gl/maplibre
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Theme, useOutsideAlerter, useThemeService } from "@lwn-simulator/ui-components";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DeviceMarker, GatewayMarker } from "./components";
+import { DeviceMarker, GatewayMarker, LinkMarker } from "./components";
 
 const DEFAULT_POSITION = { longitude: 15.083, latitude: 37.5079, zoom: 12 };
 
@@ -17,6 +17,7 @@ const SensorMap = (props: SensorMapProps) => {
   const themeService = useThemeService();
   const mapRef = useRef<MapRef | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
+  const linksFittedRef = useRef(false);
 
   useOutsideAlerter({
     ref: tooltipRef,
@@ -46,7 +47,33 @@ const SensorMap = (props: SensorMapProps) => {
     mapRef.current.flyTo({ center: [marker.lng, marker.lat], zoom: 15, duration: 0 });
   }, [props.logic.markerPos, props.mode]);
 
+  const fitCommunicationLinks = useCallback(() => {
+    if (
+      props.mode === SensorMapMode.Coords ||
+      linksFittedRef.current ||
+      !mapRef.current ||
+      !props.links?.length
+    ) return;
+
+    const coordinates = props.links.flatMap((link) => [link.from, link.to]);
+    const longitudes = coordinates.map((coordinate) => coordinate.longitude);
+    const latitudes = coordinates.map((coordinate) => coordinate.latitude);
+
+    mapRef.current.fitBounds(
+      [
+        [Math.min(...longitudes), Math.min(...latitudes)],
+        [Math.max(...longitudes), Math.max(...latitudes)],
+      ],
+      { padding: 72, maxZoom: 14, duration: 0 },
+    );
+    linksFittedRef.current = true;
+  }, [props.links, props.mode]);
+
   useEffect(() => { centerOnMarker(); }, [centerOnMarker]);
+  useEffect(() => {
+    if (!props.links?.length) linksFittedRef.current = false;
+    fitCommunicationLinks();
+  }, [fitCommunicationLinks, props.links?.length]);
 
   const selectedPosition = selectedEntity
     ? selectedEntity.kind === "device"
@@ -58,7 +85,10 @@ const SensorMap = (props: SensorMapProps) => {
     <div className="sensor-map">
       <Map
         ref={mapRef}
-        onLoad={centerOnMarker}
+        onLoad={() => {
+          centerOnMarker();
+          fitCommunicationLinks();
+        }}
         onClick={props.logic.handleClick}
         initialViewState={DEFAULT_POSITION}
         style={{ width: "100%", height: "100%" }}
@@ -67,6 +97,15 @@ const SensorMap = (props: SensorMapProps) => {
         dragRotate={false}
         touchZoomRotate={false}
       >
+        {props.links?.map((link) => (
+          <LinkMarker
+            key={link.id}
+            id={link.id}
+            from={link.from}
+            to={link.to}
+          />
+        ))}
+
         {props.devices?.map((device) => (
           <DeviceMarker
             key={device.id}

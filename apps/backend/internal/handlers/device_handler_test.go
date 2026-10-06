@@ -121,6 +121,10 @@ func validCreateDeviceJSON() string {
 		"activation": "oota",
 		"active": true,
 		"class": "class-a",
+		"OOTAConfig": {
+			"joinEUI": "0102030405060708",
+			"appKey": "00112233445566778899AABBCCDDEEFF"
+		},
 
 		"locationConfig": {
 			"altitude": 100,
@@ -137,7 +141,7 @@ func validCreateDeviceJSON() string {
 
 		"RX2Config": {
 			"ACKTimeout": 1000,
-			"channelFrequency": 869.525,
+			"channelFrequency": 869525000,
 			"dataRate": 0,
 			"delay": 1,
 			"duration": 1
@@ -157,7 +161,7 @@ func validCreateDeviceJSON() string {
 		},
 
 		"payloadConfig": {
-			"MType": "unconfirmedDataUp",
+			"MType": "unconfirmed-data-up",
 			"base64Encoded": false,
 			"oversizedPayloadBehavior": "truncate",
 			"payload": "",
@@ -177,6 +181,10 @@ func validDeviceJSON(id string) string {
 		"activation": "oota",
 		"active": true,
 		"class": "class-a",
+		"OOTAConfig": {
+			"joinEUI": "0102030405060708",
+			"appKey": "00112233445566778899AABBCCDDEEFF"
+		},
 
 		"locationConfig": {
 			"altitude": 100,
@@ -193,7 +201,7 @@ func validDeviceJSON(id string) string {
 
 		"RX2Config": {
 			"ACKTimeout": 1000,
-			"channelFrequency": 869.525,
+			"channelFrequency": 869525000,
 			"dataRate": 0,
 			"delay": 1,
 			"duration": 1
@@ -213,7 +221,7 @@ func validDeviceJSON(id string) string {
 		},
 
 		"payloadConfig": {
-			"MType": "unconfirmedDataUp",
+			"MType": "unconfirmed-data-up",
 			"base64Encoded": false,
 			"oversizedPayloadBehavior": "truncate",
 			"payload": "",
@@ -233,6 +241,10 @@ func validUpdateDeviceJSON(id, devEUI, name string, active bool) string {
 			"activation": "oota",
 			"active": %t,
 			"class": "class-a",
+			"OOTAConfig": {
+				"joinEUI": "0102030405060708",
+				"appKey": "00112233445566778899AABBCCDDEEFF"
+			},
 
 			"locationConfig": {
 				"altitude": 100,
@@ -249,7 +261,7 @@ func validUpdateDeviceJSON(id, devEUI, name string, active bool) string {
 
 			"RX2Config": {
 				"ACKTimeout": 1000,
-				"channelFrequency": 869.525,
+				"channelFrequency": 869525000,
 				"dataRate": 0,
 				"delay": 1,
 				"duration": 1
@@ -269,7 +281,7 @@ func validUpdateDeviceJSON(id, devEUI, name string, active bool) string {
 			},
 
 			"payloadConfig": {
-				"MType": "unconfirmedDataUp",
+				"MType": "unconfirmed-data-up",
 				"base64Encoded": false,
 				"oversizedPayloadBehavior": "truncate",
 				"payload": "",

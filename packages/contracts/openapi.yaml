@@ -81,3 +81,55 @@ components:
       $ref: "./schemas/Gateway/DeleteGatewayRequest.yaml"
     DeleteGatewayResponse:
       $ref: "./schemas/Gateway/DeleteGatewayResponse.yaml"
+    SimulationConfig:
+      $ref: "./schemas/Simulation/SimulationConfig.yaml"
+    GatewayBridgeConfig:
+      $ref: "./schemas/Simulation/GatewayBridgeConfig.yaml"
+    SimulationSpeedRequest:
+      $ref: "./schemas/Simulation/SimulationSpeedRequest.yaml"
+    SimulationStatus:
+      $ref: "./schemas/Simulation/SimulationStatus.yaml"
+    SimulationEventType:
+      $ref: "./schemas/Simulation/SimulationEventType.yaml"
+    RuntimeStatus:
+      $ref: "./schemas/Simulation/RuntimeStatus.yaml"
+    RuntimeDevice:
+      $ref: "./schemas/Simulation/RuntimeDevice.yaml"
+    RuntimeGateway:
+      $ref: "./schemas/Simulation/RuntimeGateway.yaml"
+    SimulationState:
+      $ref: "./schemas/Simulation/SimulationState.yaml"
+    SimulationEvent:
+      $ref: "./schemas/Simulation/SimulationEvent.yaml"
+    SimulationSnapshot:
+      $ref: "./schemas/Simulation/SimulationSnapshot.yaml"
+    SimulationMetrics:
+      $ref: "./schemas/Simulation/SimulationMetrics.yaml"
+    SimulationRxWindow:
+      $ref: "./schemas/Simulation/SimulationRxWindow.yaml"
+    SimulationRadioLossReason:
+      $ref: "./schemas/Simulation/SimulationRadioLossReason.yaml"
+    GatewayConnectionState:
+      $ref: "./schemas/Simulation/GatewayConnectionState.yaml"
+    SimulationControlAction:
+      $ref: "./schemas/Simulation/SimulationControlAction.yaml"
+    SimulationControlRequest:
+      $ref: "./schemas/Simulation/SimulationControlRequest.yaml"
+    SimulationWebSocketMessageType:
+      $ref: "./schemas/Simulation/SimulationWebSocketMessageType.yaml"
+    SimulationWebSocketMessage:
+      $ref: "./schemas/Simulation/SimulationWebSocketMessage.yaml"
+    SimulationMACCommandType:
+      $ref: "./schemas/Simulation/SimulationMACCommandType.yaml"
+    SimulationMACCommand:
+      $ref: "./schemas/Simulation/SimulationMACCommand.yaml"
+    SimulationUplinkRequest:
+      $ref: "./schemas/Simulation/SimulationUplinkRequest.yaml"
+    SimulationDownlinkRequest:
+      $ref: "./schemas/Simulation/SimulationDownlinkRequest.yaml"
+    SimulationMACCommandRequest:
+      $ref: "./schemas/Simulation/SimulationMACCommandRequest.yaml"
+    SimulationActionResponse:
+      $ref: "./schemas/Simulation/SimulationActionResponse.yaml"
+    SimulationEventsResponse:
+      $ref: "./schemas/Simulation/SimulationEventsResponse.yaml"

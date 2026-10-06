@@ -29,6 +29,9 @@ jobs:
         with:
           go-version-file: apps/backend/go.mod
           cache: true
+          cache-dependency-path: |
+            apps/backend/go.sum
+            packages/engine/go.sum
 
       - name: Install dependencies
         run: yarn install --immutable
@@ -50,4 +53,8 @@ jobs:
 
       - name: Vet backend
         working-directory: apps/backend
+        run: go vet ./...
+
+      - name: Vet engine
+        working-directory: packages/engine
         run: go vet ./...

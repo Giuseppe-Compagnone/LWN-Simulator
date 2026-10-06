@@ -6,6 +6,7 @@ import (
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"lwn-simulator-backend/internal/services"
 )
 
 type DeviceService interface {
@@ -49,6 +50,10 @@ func (h *DeviceHandler) CreateDevice(c *gin.Context) {
 	var req contracts.CreateDeviceRequest
 
 	if !bindJSONAndValidate(c, h.validator, &req) {
+		return
+	}
+	if err := services.ValidateDeviceRequest(req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -117,6 +122,10 @@ func (h *DeviceHandler) UpdateDevice(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "device ID in body does not match device ID in URI",
 		})
+		return
+	}
+	if err := services.ValidateDevice(req.Device); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 

@@ -18,9 +18,24 @@ type DeviceRepository interface {
 	Update(device contracts.Device) error
 	Delete(device contracts.Device) error
 }
+
+type DeviceRuntimeSynchronizer interface {
+	AcquireHardwareMutation() func()
+	RegisterDeviceLocked(contracts.Device) error
+	UpdateDeviceLocked(contracts.Device) error
+	RemoveDeviceLocked(string) error
+}
+
 type DeviceService struct {
 	repository DeviceRepository
+	runtime    DeviceRuntimeSynchronizer
 	mu         sync.Mutex
+}
+
+func (s *DeviceService) SetRuntimeSynchronizer(runtime DeviceRuntimeSynchronizer) {
+	s.mu.Lock()
+	s.runtime = runtime
+	s.mu.Unlock()
 }
 
 func NewDeviceService(
@@ -36,6 +51,11 @@ func (s *DeviceService) CreateDevice(
 ) (contracts.CreateDeviceResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	releaseRuntime := func() {}
+	if s.runtime != nil {
+		releaseRuntime = s.runtime.AcquireHardwareMutation()
+	}
+	defer releaseRuntime()
 
 	devices, err := s.repository.GetAll()
 	if err != nil {
@@ -72,6 +92,12 @@ func (s *DeviceService) CreateDevice(
 
 	if err := s.repository.Save(devices); err != nil {
 		return contracts.CreateDeviceResponse{}, fmt.Errorf("save device: %w", err)
+	}
+	if s.runtime != nil {
+		if err := s.runtime.RegisterDeviceLocked(device); err != nil {
+			rollbackErr := s.repository.Delete(device)
+			return contracts.CreateDeviceResponse{}, formatRollbackError("synchronize created device", err, rollbackErr)
+		}
 	}
 
 	return contracts.CreateDeviceResponse{
@@ -116,8 +142,13 @@ func (s *DeviceService) UpdateDevice(
 ) (contracts.UpdateDeviceResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	releaseRuntime := func() {}
+	if s.runtime != nil {
+		releaseRuntime = s.runtime.AcquireHardwareMutation()
+	}
+	defer releaseRuntime()
 
-	_, err := s.repository.GetByID(req.ID)
+	previous, err := s.repository.GetByID(req.ID)
 	if err != nil {
 		return contracts.UpdateDeviceResponse{}, wrapDeviceRepositoryError(
 			"get device by id",
@@ -151,6 +182,12 @@ func (s *DeviceService) UpdateDevice(
 			err,
 		)
 	}
+	if s.runtime != nil {
+		if err := s.runtime.UpdateDeviceLocked(device); err != nil {
+			rollbackErr := s.repository.Update(previous)
+			return contracts.UpdateDeviceResponse{}, formatRollbackError("synchronize updated device", err, rollbackErr)
+		}
+	}
 
 	return contracts.UpdateDeviceResponse{
 		Device: device,
@@ -162,6 +199,11 @@ func (s *DeviceService) DeleteDevice(
 ) (contracts.DeleteDeviceResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	releaseRuntime := func() {}
+	if s.runtime != nil {
+		releaseRuntime = s.runtime.AcquireHardwareMutation()
+	}
+	defer releaseRuntime()
 	device, err := s.repository.GetByID(req.ID)
 
 	if err != nil {
@@ -176,6 +218,17 @@ func (s *DeviceService) DeleteDevice(
 			"delete device",
 			err,
 		)
+	}
+	if s.runtime != nil {
+		if err := s.runtime.RemoveDeviceLocked(device.ID); err != nil {
+			devices, readErr := s.repository.GetAll()
+			if readErr != nil {
+				return contracts.DeleteDeviceResponse{}, formatRollbackError("synchronize deleted device", err, readErr)
+			}
+			devices = append(devices, device)
+			rollbackErr := s.repository.Save(devices)
+			return contracts.DeleteDeviceResponse{}, formatRollbackError("synchronize deleted device", err, rollbackErr)
+		}
 	}
 
 	return contracts.DeleteDeviceResponse{}, nil

@@ -1,0 +1,80 @@
+---
+title: Simulation dashboard
+---
+
+# Simulation dashboard
+
+The dashboard is designed for both observation and controlled traffic
+injection. It does not require editing a device configuration to test a
+specific LoRaWAN exchange.
+
+## Network command console
+
+The **Network command console** is available while the simulation is running
+or paused. Choose one of its three tabs:
+
+### Uplink
+
+1. Select an active **Target device**.
+2. Click **Queue Uplink**.
+
+The device immediately schedules an uplink using its configured activation
+mode, payload, frame settings, region, and receive windows. An OTAA device that
+has not joined sends a join request before application traffic.
+
+### Downlink
+
+Use the downlink tab to send application data to a selected device.
+
+| Field | How to use it |
+| --- | --- |
+| **Target device** | Select the active device that will receive the downlink. |
+| **Payload** | Enter the application message. The character limit follows the selected region and data rate. |
+| **Base64 payload** | Enable when the payload is already Base64 encoded. The label and validation change accordingly. |
+| **FPort** | Enter an application port from `1` to `223`. |
+| **Data rate** | Choose `Auto` or a data rate supported by the device’s regional plan. |
+| **Confirmed** | Request an acknowledgement from the device. |
+| **ACK** | Set the acknowledgement bit when responding to a confirmed uplink. |
+
+The payload limit is checked by bytes, not only by visible characters. This is
+important for UTF-8 text and for Base64 data. The form prevents unsupported
+FPort values, invalid Base64, unsupported regional data rates, and oversized
+payloads.
+
+### MAC command
+
+Select a device and a MAC command from the list. Commands that require
+parameters display only the relevant fields and validate their supported
+ranges. Commands without parameters, such as **Dev Status Req**, can be queued
+immediately.
+
+Available command families include link checks, data-rate and transmission
+settings, duty-cycle configuration, receive-window configuration, channel
+configuration, device time, ping-slot settings, and beacon frequency.
+
+Every field includes contextual help. Required values and invalid ranges are
+reported before the command is queued.
+
+## Notifications and results
+
+Successful actions display a confirmation notification and the queued action
+identifier. Failed actions display an error notification and keep the current
+panel open so the input can be corrected.
+
+The event stream is the best place to confirm what happened after queuing a
+command. Look for events such as uplink transmission, downlink scheduling,
+gateway ingress/egress, receive-window activity, packet loss, and retry
+exhaustion.
+
+## Reading radio results
+
+The simulator considers the configured device location, antenna range, gateway
+location, regional channel plan, spreading factor, airtime, signal quality,
+collisions, and packet type when producing a result. A device can therefore be
+active and still lose a packet if no eligible gateway is in range or the radio
+conditions are unfavorable.
+
+Confirmed uplinks can open RX1 and RX2 windows and may be retransmitted when an
+acknowledgement is not received. Class B and Class C devices have additional
+downlink opportunities according to their configuration.
+

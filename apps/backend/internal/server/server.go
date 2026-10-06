@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"lwn-simulator-backend/internal/database"
 	"lwn-simulator-backend/internal/frontend"
@@ -8,8 +9,12 @@ import (
 	"lwn-simulator-backend/internal/services"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/Giuseppe-Compagnone/lwn-engine/gateway"
+	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -84,11 +89,25 @@ func New(port string) (*gin.Engine, error) {
 	gatewayRepository := repositories.NewGatewayRepository(dataDir)
 	gatewayService := services.NewGatewayService(gatewayRepository)
 
+	udpOptions := gateway.UDPOptions{LocalAddress: os.Getenv("LWN_GATEWAY_UDP_LISTEN_ADDR")}
+	simulationService := services.NewSimulationService(
+		deviceService,
+		gatewayService,
+		types.Options{GatewayAdapterFactory: gateway.NewUDPFactory(udpOptions)},
+		services.NewFileSimulationCheckpointStore(filepath.Join(dataDir, "simulation-checkpoint.json")),
+	)
+	deviceService.SetRuntimeSynchronizer(simulationService)
+	gatewayService.SetRuntimeSynchronizer(simulationService)
+	if err := simulationService.RestorePersisted(context.Background()); err != nil {
+		return nil, fmt.Errorf("restore persisted simulation: %w", err)
+	}
+
 	registerMiddleware(r)
 
 	registerRoutes(r, port, Services{
-		Device:  deviceService,
-		Gateway: gatewayService,
+		Device:     deviceService,
+		Gateway:    gatewayService,
+		Simulation: simulationService,
 	})
 
 	if err := registerFrontend(r); err != nil {
