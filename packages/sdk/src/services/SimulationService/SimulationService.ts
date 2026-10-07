@@ -4,6 +4,8 @@ import {
   SimulationDownlinkRequest,
   SimulationEvent,
   SimulationEventsResponse,
+  SimulationRun,
+  SimulationRunsResponse,
   SimulationMACCommandRequest,
   SimulationSnapshot,
   SimulationSpeedRequest,
@@ -62,6 +64,20 @@ export class SimulationService extends BaseService {
 
   public getMetrics = async (): Promise<string> =>
     this.apiCaller.get<string>("/metrics", { responseType: "text" });
+
+  public getLogs = async (): Promise<SimulationRunsResponse> =>
+    this.apiCaller.get<SimulationRunsResponse>("/logs");
+
+  public getLog = async (id: string): Promise<SimulationRun> =>
+    this.apiCaller.get<SimulationRun>(`/logs/${id}`);
+
+  public getLogEvents = async (
+    id: string,
+    options: GetSimulationEventsOptions = {},
+  ): Promise<SimulationEventsResponse> =>
+    this.apiCaller.get<SimulationEventsResponse>(`/logs/${id}/events`, {
+      params: options,
+    });
 
   public getWebSocketUrl = (): string => {
     const url = new URL(ApiCaller.joinUrl(this.baseUrl, "/simulation/ws"));

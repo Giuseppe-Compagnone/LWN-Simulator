@@ -124,6 +124,23 @@
         }
       }
     }
+
+    &.virtualized {
+      display: block;
+
+      .choices-space {
+        position: relative;
+        width: 100%;
+      }
+
+      .choice {
+        position: absolute;
+        top: calc(var(--gap) / 2);
+        left: calc(var(--gap) / 2);
+        width: calc(100% - var(--gap));
+        height: 36px;
+      }
+    }
   }
 
   &.open {

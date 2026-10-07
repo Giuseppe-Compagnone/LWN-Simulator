@@ -24,6 +24,9 @@ node_modules/
 **/web/**
 !**/web/.gitkeep
 **/dev-db/**
+!apps/backend/dev-db/
+!apps/backend/dev-db/devices.json
+!apps/backend/dev-db/gateways.json
 **/generated/
 **/assets/
 **/storybook-static/
@@ -54,4 +57,3 @@ next-env.d.ts
 releases/**
 
 debug-storybook.log
-

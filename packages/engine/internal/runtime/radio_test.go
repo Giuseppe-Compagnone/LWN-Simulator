@@ -76,6 +76,12 @@ func TestPhaseFourRadioDetectsOverlappingSameChannelTransmissions(t *testing.T) 
 	}
 	startEngine(t, engine)
 	defer stopEngine(t, engine)
+	if _, err := engine.QueueUplink(first.ID); err != nil {
+		t.Fatalf("queue first simultaneous uplink: %v", err)
+	}
+	if _, err := engine.QueueUplink(second.ID); err != nil {
+		t.Fatalf("queue second simultaneous uplink: %v", err)
+	}
 
 	if err := clock.Advance(time.Second); err != nil {
 		t.Fatalf("advance clock: %v", err)

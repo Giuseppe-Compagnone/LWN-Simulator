@@ -133,3 +133,15 @@ components:
       $ref: "./schemas/Simulation/SimulationActionResponse.yaml"
     SimulationEventsResponse:
       $ref: "./schemas/Simulation/SimulationEventsResponse.yaml"
+    SimulationRunStatus:
+      $ref: "./schemas/Simulation/SimulationRunStatus.yaml"
+    SimulationLogObjectKind:
+      $ref: "./schemas/Simulation/SimulationLogObjectKind.yaml"
+    SimulationLogObject:
+      $ref: "./schemas/Simulation/SimulationLogObject.yaml"
+    SimulationRunSummary:
+      $ref: "./schemas/Simulation/SimulationRunSummary.yaml"
+    SimulationRun:
+      $ref: "./schemas/Simulation/SimulationRun.yaml"
+    SimulationRunsResponse:
+      $ref: "./schemas/Simulation/SimulationRunsResponse.yaml"

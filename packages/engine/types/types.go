@@ -65,6 +65,26 @@ func (c *RealClock) SetElapsed(elapsed time.Duration) {
 	c.mu.Unlock()
 }
 
+// SetSpeed changes the wall-clock multiplier while preserving the simulation
+// time already accumulated. The current elapsed value is captured before the
+// new multiplier is applied so changing speed never freezes or jumps the
+// simulation clock.
+func (c *RealClock) SetSpeed(speed float64) error {
+	if speed <= 0 {
+		return fmt.Errorf("clock speed must be greater than zero")
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.started && !c.paused {
+		now := time.Now()
+		c.elapsed = c.nowLocked(now)
+		c.startedAt = now
+	}
+	c.speed = speed
+	return nil
+}
+
 func (c *RealClock) Pause() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -275,6 +295,7 @@ type Options struct {
 // the contract snapshot and the engine runtime state together so a backend
 // restart can continue from the same simulation timeline.
 type EngineCheckpoint struct {
+	RunID          string
 	Config         contracts.SimulationConfig
 	Devices        []contracts.Device
 	Gateways       []contracts.Gateway

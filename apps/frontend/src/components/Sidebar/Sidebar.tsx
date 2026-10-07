@@ -22,7 +22,7 @@ const Sidebar = (props: SidebarProps) => {
         label: "Gateway Bridge",
       },
     ],
-    logs: [],
+    logs: [{ route: "", icon: "history", label: "Logs" }],
   };
 
   // Hooks
@@ -35,6 +35,7 @@ const Sidebar = (props: SidebarProps) => {
 
   const mainSection = pathname?.split("/")[1] || "";
   const subSection = pathname?.split("/")[2] || "";
+  const isLogsSection = mainSection === "logs";
 
   const isHome = mainSection === "";
   const currentRoutes = isHome ? routes.simulation : routes[mainSection] || [];
@@ -57,10 +58,10 @@ const Sidebar = (props: SidebarProps) => {
             <Link
               className={cn(
                 "sub-section",
-                currentSubSection === route.route && "active",
+                (isLogsSection || currentSubSection === route.route) && "active",
               )}
               key={i}
-              href={`/${mainSection}/${route.route}`}
+              href={route.route ? `/${mainSection}/${route.route}` : `/${mainSection}`}
             >
               <span className="material-symbols-outlined icon">
                 {route.icon}
