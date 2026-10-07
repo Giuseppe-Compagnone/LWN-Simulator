@@ -11,15 +11,12 @@ import {
   SimulationSpeedRequest,
   SimulationUplinkRequest,
 } from "@lwn-simulator/contracts";
-import { ApiCaller, BaseService } from "../../models";
+import { BaseService } from "../../models";
 import { GetSimulationEventsOptions } from "./SimulationService.types";
 
 export class SimulationService extends BaseService {
-  private readonly baseUrl: string;
-
   constructor(baseUrl: string) {
     super("simulation", baseUrl);
-    this.baseUrl = baseUrl;
   }
 
   public start = async (config: SimulationConfig): Promise<SimulationSnapshot> =>
@@ -78,12 +75,6 @@ export class SimulationService extends BaseService {
     this.apiCaller.get<SimulationEventsResponse>(`/logs/${id}/events`, {
       params: options,
     });
-
-  public getWebSocketUrl = (): string => {
-    const url = new URL(ApiCaller.joinUrl(this.baseUrl, "/simulation/ws"));
-    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-    return url.toString();
-  };
 
   public static appendEvent(
     events: Array<SimulationEvent>,
