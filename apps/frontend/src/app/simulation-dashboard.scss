@@ -251,18 +251,31 @@
 }
 
 .simulation-dashboard__runtime-list {
-  display: grid;
-  gap: 0.55rem;
+  height: 20rem;
+  min-height: 0;
+  overflow-y: auto;
 }
 
-.simulation-dashboard__runtime-list > div {
+.simulation-dashboard__runtime-list-space {
+  position: relative;
+  width: 100%;
+}
+
+.simulation-dashboard__runtime-row {
+  position: absolute;
+  top: 0;
+  left: 0;
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  width: 100%;
+  height: 2.9rem;
   padding: 0.7rem 0.8rem;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   font-size: 0.78rem;
+  will-change: transform;
 }
 
 .simulation-dashboard__runtime-list span {

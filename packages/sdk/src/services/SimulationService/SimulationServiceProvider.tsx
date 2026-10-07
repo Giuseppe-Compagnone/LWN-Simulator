@@ -21,6 +21,8 @@ import {
 } from "./SimulationService.types";
 import { SimulationService } from "./SimulationService";
 
+const realtimeRenderIntervalMilliseconds = 100;
+
 const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
   const [snapshot, setSnapshot] = useState<SimulationSnapshot | null>(null);
   const [events, setEvents] = useState<Array<SimulationEvent>>([]);
@@ -36,6 +38,9 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
   const shouldReconnectRef = useRef(false);
   const snapshotRef = useRef<SimulationSnapshot | null>(null);
   const eventsRef = useRef<Array<SimulationEvent>>([]);
+  const pendingSnapshotRef = useRef<SimulationSnapshot | null>(null);
+  const pendingEventsRef = useRef<Array<SimulationEvent>>([]);
+  const renderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const updateSnapshot = useCallback((next: SimulationSnapshot) => {
     snapshotRef.current = next;
@@ -46,6 +51,34 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
     eventsRef.current = next;
     setEvents(next);
   }, []);
+
+  const flushRealtimeUpdates = useCallback(() => {
+    renderTimerRef.current = null;
+
+    if (pendingSnapshotRef.current) {
+      updateSnapshot(pendingSnapshotRef.current);
+      pendingSnapshotRef.current = null;
+    }
+
+    if (pendingEventsRef.current.length > 0) {
+      updateEvents(
+        SimulationService.mergeEvents(
+          eventsRef.current,
+          pendingEventsRef.current,
+        ),
+      );
+      pendingEventsRef.current = [];
+    }
+  }, [updateEvents, updateSnapshot]);
+
+  const scheduleRealtimeRender = useCallback(() => {
+    if (renderTimerRef.current) return;
+
+    renderTimerRef.current = setTimeout(
+      flushRealtimeUpdates,
+      realtimeRenderIntervalMilliseconds,
+    );
+  }, [flushRealtimeUpdates]);
 
   const getEvents = useCallback(
     async (
@@ -73,8 +106,12 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
     }
     socketRef.current?.close();
     socketRef.current = null;
+    if (renderTimerRef.current) {
+      clearTimeout(renderTimerRef.current);
+      flushRealtimeUpdates();
+    }
     setConnectionState("disconnected");
-  }, []);
+  }, [flushRealtimeUpdates]);
 
   const connect = useCallback(() => {
     if (socketRef.current || connectionState === "connecting") {
@@ -105,19 +142,15 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
           return;
         }
         if (update.snapshot) {
-          updateSnapshot(update.snapshot);
+          pendingSnapshotRef.current = update.snapshot;
         }
         if (
           update.type === SimulationWebSocketMessageType.Event &&
           update.event
         ) {
-          updateEvents(
-            SimulationService.appendEvent(
-              eventsRef.current,
-              update.event as SimulationEvent,
-            ),
-          );
+          pendingEventsRef.current.push(update.event as SimulationEvent);
         }
+        scheduleRealtimeRender();
       } catch (parseError) {
         setError(
           parseError instanceof Error
@@ -141,7 +174,7 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
         reconnectTimerRef.current = setTimeout(connect, 1000);
       }
     };
-  }, [connectionState, getEvents, service, updateEvents, updateSnapshot]);
+  }, [connectionState, getEvents, scheduleRealtimeRender, service]);
 
   const start = useCallback(
     async (config: SimulationConfig) => {

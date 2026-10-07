@@ -31,6 +31,7 @@ import {
 } from "@/components";
 import { readGatewayBridgeConfig } from "@/utils/gatewayBridge";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { DeviceRuntimeList, GatewayRuntimeList } from "./RuntimeLists";
 
 const formatEventType = (value: string): string =>
   value.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
@@ -512,21 +513,9 @@ const SimulationDashboardPage = () => {
               </span>
               <h2>Live sessions</h2>
             </div>
+            <span>{snapshot?.devices.length ?? 0} devices</span>
           </div>
-          <div className="simulation-dashboard__runtime-list">
-            {(snapshot?.devices ?? []).map((device) => (
-              <div key={device.id}>
-                <span>{device.name}</span>
-                <strong>
-                  {device.joined ? "Joined" : "Joining"} · FCnt{" "}
-                  {device.frameCounterUp}
-                </strong>
-              </div>
-            ))}
-            {!snapshot?.devices.length && (
-              <p className="simulation-dashboard__empty">No runtime devices.</p>
-            )}
-          </div>
+          <DeviceRuntimeList devices={snapshot?.devices ?? []} />
         </Card>
         <Card layout={CardLayout.Padded}>
           <div className="simulation-dashboard__section-heading">
@@ -536,23 +525,12 @@ const SimulationDashboardPage = () => {
               </span>
               <h2>Connectivity</h2>
             </div>
+            <span>{snapshot?.gateways.length ?? 0} gateways</span>
           </div>
-          <div className="simulation-dashboard__runtime-list">
-            {(snapshot?.gateways ?? []).map((gateway) => (
-              <div key={gateway.id}>
-                <span>{gateway.name}</span>
-                <strong>
-                  {formatEventType(gateway.gatewayState)} ·{" "}
-                  {gateway.ingressPackets} in / {gateway.egressPackets} out
-                </strong>
-              </div>
-            ))}
-            {!snapshot?.gateways.length && (
-              <p className="simulation-dashboard__empty">
-                No runtime gateways.
-              </p>
-            )}
-          </div>
+          <GatewayRuntimeList
+            gateways={snapshot?.gateways ?? []}
+            formatState={formatEventType}
+          />
         </Card>
       </section>
 

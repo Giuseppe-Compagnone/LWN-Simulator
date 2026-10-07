@@ -41,7 +41,7 @@ type simulationPersistenceCommand struct {
 const (
 	simulationPersistenceInterval = 500 * time.Millisecond
 	simulationCheckpointInterval  = time.Second
-	simulationSnapshotInterval    = 250 * time.Millisecond
+	simulationSnapshotInterval    = 500 * time.Millisecond
 	simulationPersistenceQueue    = 65_536
 	simulationPersistenceBatch    = 8_192
 )

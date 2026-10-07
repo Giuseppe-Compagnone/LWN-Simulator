@@ -1,13 +1,17 @@
 "use client";
 
 import { SensorMapMode, SensorMapProps, SensorMapEntity } from "./SensorMap.types";
-import Map, { Layer, MapRef, Marker, Popup, Source } from "react-map-gl/maplibre";
+import MapGL, { Layer, MapRef, Marker, Popup, Source } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Theme, useOutsideAlerter, useThemeService } from "@lwn-simulator/ui-components";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { DeviceMarker, GatewayMarker, LinkMarker } from "./components";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DeviceMarker, GatewayMarker } from "./components";
+import { MapLayerMouseEvent } from "maplibre-gl";
 
 const DEFAULT_POSITION = { longitude: 15.083, latitude: 37.5079, zoom: 12 };
+const DENSE_ENTITY_THRESHOLD = 250;
+const DENSE_DEVICE_LAYER_ID = "sensor-map-dense-devices";
+const DENSE_GATEWAY_LAYER_ID = "sensor-map-dense-gateways";
 
 const formatEnumValue = (value: string): string =>
   value.replace(/[-_]/g, " ");
@@ -18,6 +22,9 @@ const SensorMap = (props: SensorMapProps) => {
   const mapRef = useRef<MapRef | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
   const linksFittedRef = useRef(false);
+  const denseEntityMode =
+    (props.devices?.length ?? 0) + (props.gateways?.length ?? 0) >
+    DENSE_ENTITY_THRESHOLD;
 
   useOutsideAlerter({
     ref: tooltipRef,
@@ -80,15 +87,133 @@ const SensorMap = (props: SensorMapProps) => {
       : { latitude: selectedEntity.entity.latitude, longitude: selectedEntity.entity.longitude }
     : null;
 
+  const devicesByID = useMemo(
+    () => new Map(props.devices?.map((device) => [device.id, device]) ?? []),
+    [props.devices],
+  );
+  const gatewaysByID = useMemo(
+    () => new Map(props.gateways?.map((gateway) => [gateway.id, gateway]) ?? []),
+    [props.gateways],
+  );
+  const denseEntities = useMemo(
+    () => ({
+      type: "FeatureCollection" as const,
+      features: [
+        ...(props.devices ?? []).map((device) => ({
+          type: "Feature" as const,
+          geometry: {
+            type: "Point" as const,
+            coordinates: [
+              device.locationConfig.longitude,
+              device.locationConfig.latitude,
+            ],
+          },
+          properties: { id: device.id, kind: "device" },
+        })),
+        ...(props.gateways ?? []).map((gateway) => ({
+          type: "Feature" as const,
+          geometry: {
+            type: "Point" as const,
+            coordinates: [gateway.longitude, gateway.latitude],
+          },
+          properties: { id: gateway.id, kind: "gateway" },
+        })),
+      ],
+    }),
+    [props.devices, props.gateways],
+  );
+  const linkLines = useMemo(
+    () => ({
+      type: "FeatureCollection" as const,
+      features: (props.links ?? []).map((link) => ({
+        type: "Feature" as const,
+        geometry: {
+          type: "LineString" as const,
+          coordinates: [
+            [link.from.longitude, link.from.latitude],
+            [link.to.longitude, link.to.latitude],
+          ],
+        },
+        properties: { id: link.id },
+      })),
+    }),
+    [props.links],
+  );
+  const deviceMarkers = useMemo(
+    () =>
+      denseEntityMode
+        ? null
+        : props.devices?.map((device) => (
+            <DeviceMarker
+              key={device.id}
+              marker={{
+                latitude: device.locationConfig.latitude,
+                longitude: device.locationConfig.longitude,
+              }}
+              onClick={() =>
+                setSelectedEntity({ kind: "device", entity: device })
+              }
+            />
+          )),
+    [denseEntityMode, props.devices],
+  );
+  const gatewayMarkers = useMemo(
+    () =>
+      denseEntityMode
+        ? null
+        : props.gateways?.map((gateway) => (
+            <GatewayMarker
+              key={gateway.id}
+              marker={{
+                latitude: gateway.latitude,
+                longitude: gateway.longitude,
+              }}
+              onClick={() =>
+                setSelectedEntity({ kind: "gateway", entity: gateway })
+              }
+            />
+          )),
+    [denseEntityMode, props.gateways],
+  );
+  const handleMapClick = useCallback(
+    (event: MapLayerMouseEvent) => {
+      const feature = event.features?.[0];
+      const id = String(feature?.properties?.id ?? "");
+
+      if (feature?.layer.id === DENSE_DEVICE_LAYER_ID) {
+        const device = devicesByID.get(id);
+        if (device) {
+          setSelectedEntity({ kind: "device", entity: device });
+          return;
+        }
+      }
+      if (feature?.layer.id === DENSE_GATEWAY_LAYER_ID) {
+        const gateway = gatewaysByID.get(id);
+        if (gateway) {
+          setSelectedEntity({ kind: "gateway", entity: gateway });
+          return;
+        }
+      }
+
+      props.logic.handleClick?.(event);
+    },
+    [devicesByID, gatewaysByID, props.logic],
+  );
+
   return (
     <div className="sensor-map">
-      <Map
+      <MapGL
         ref={mapRef}
         onLoad={() => {
           centerOnMarker();
           fitCommunicationLinks();
         }}
-        onClick={props.logic.handleClick}
+        onClick={handleMapClick}
+        interactiveLayerIds={
+          denseEntityMode
+            ? [DENSE_DEVICE_LAYER_ID, DENSE_GATEWAY_LAYER_ID]
+            : undefined
+        }
         initialViewState={DEFAULT_POSITION}
         style={{ width: "100%", height: "100%" }}
         mapStyle={themeService.theme === Theme.Dark ? "/dark-map-theme.json" : "/light-map-theme.json"}
@@ -96,29 +221,64 @@ const SensorMap = (props: SensorMapProps) => {
         dragRotate={false}
         touchZoomRotate={false}
       >
-        {props.links?.map((link) => (
-          <LinkMarker
-            key={link.id}
-            id={link.id}
-            from={link.from}
-            to={link.to}
-          />
-        ))}
+        {linkLines.features.length > 0 && (
+          <Source id="sensor-map-links" type="geojson" data={linkLines}>
+            <Layer
+              id="sensor-map-links-glow"
+              type="line"
+              paint={{
+                "line-color":
+                  themeService.theme === Theme.Dark ? "#38bdf8" : "#005cff",
+                "line-width": 8,
+                "line-opacity": 0.3,
+                "line-blur": 2,
+              }}
+            />
+            <Layer
+              id="sensor-map-links-line"
+              type="line"
+              paint={{
+                "line-color":
+                  themeService.theme === Theme.Dark ? "#38bdf8" : "#005cff",
+                "line-width": 4,
+                "line-opacity": 1,
+                "line-dasharray": [2, 1.5],
+              }}
+            />
+          </Source>
+        )}
 
-        {props.devices?.map((device) => (
-          <DeviceMarker
-            key={device.id}
-            marker={{ latitude: device.locationConfig.latitude, longitude: device.locationConfig.longitude }}
-            onClick={() => setSelectedEntity({ kind: "device", entity: device })}
-          />
-        ))}
-        {props.gateways?.map((gateway) => (
-          <GatewayMarker
-            key={gateway.id}
-            marker={{ latitude: gateway.latitude, longitude: gateway.longitude }}
-            onClick={() => setSelectedEntity({ kind: "gateway", entity: gateway })}
-          />
-        ))}
+        {denseEntityMode ? (
+          <Source id="sensor-map-dense-entities" type="geojson" data={denseEntities}>
+            <Layer
+              id={DENSE_DEVICE_LAYER_ID}
+              type="circle"
+              filter={["==", ["get", "kind"], "device"]}
+              paint={{
+                "circle-color": "#38bdf8",
+                "circle-radius": 4,
+                "circle-stroke-color": "#ffffff",
+                "circle-stroke-width": 1,
+              }}
+            />
+            <Layer
+              id={DENSE_GATEWAY_LAYER_ID}
+              type="circle"
+              filter={["==", ["get", "kind"], "gateway"]}
+              paint={{
+                "circle-color": "#f59e0b",
+                "circle-radius": 7,
+                "circle-stroke-color": "#ffffff",
+                "circle-stroke-width": 1.5,
+              }}
+            />
+          </Source>
+        ) : (
+          <>
+            {deviceMarkers}
+            {gatewayMarkers}
+          </>
+        )}
 
         {selectedEntity && selectedPosition && (
           <Popup
@@ -163,7 +323,7 @@ const SensorMap = (props: SensorMapProps) => {
             {props.logic.antennaRange && <Source id="coverage-circle" type="geojson" data={createCircle(props.logic.markerPos.lng, props.logic.markerPos.lat, props.logic.antennaRange)}><Layer id="coverage-circle-line" type="line" paint={{ "line-color": "#fff", "line-width": 2, "line-opacity": 0.8, "line-dasharray": [2, 4] }} /></Source>}
           </>
         )}
-      </Map>
+      </MapGL>
     </div>
   );
 };
