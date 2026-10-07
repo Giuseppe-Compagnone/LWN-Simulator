@@ -190,6 +190,7 @@ func TestRealGatewaysCanIngestTheSameDeviceThroughMultipleAdapters(t *testing.T)
 		return frame
 	}
 	first.packets <- types.GatewayPacket{GatewayID: firstGateway.ID, Payload: build(1), Bandwidth: 125_000, SpreadingFactor: 7}
+	waitForEventType(t, engine.Events(), contracts.GatewayPacketIngress)
 	second.packets <- types.GatewayPacket{GatewayID: secondGateway.ID, Payload: build(2), Bandwidth: 125_000, SpreadingFactor: 7}
 	deadline := time.After(time.Second)
 	var snapshot contracts.SimulationSnapshot
