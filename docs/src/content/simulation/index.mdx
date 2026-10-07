@@ -40,7 +40,9 @@ is active.
 - **Stop** ends the run and disconnects the live session.
 - The status indicator shows whether the simulation is idle, running, paused,
   stopped, or failed.
-- The `WS` indicator shows the live connection used to refresh the dashboard.
+- The connection indicator shows whether the dashboard can receive live
+  updates. If it is reconnecting, the dashboard restores the latest state when
+  the connection returns.
 
 The speed control accepts values from `0.1x` to `10.0x`. Changing it affects
 the simulation clock, not the configured uplink intervals or device settings.
@@ -107,5 +109,5 @@ gateway count, and packet success rate.
 Select a run to open its detailed history. You can inspect the complete event
 stream, search the devices and gateways involved in the run, and select an
 object to see only the events associated with it. A running or paused run is
-refreshed automatically, so its history can be monitored without leaving the
-detail page.
+updated automatically, so its history can be monitored without leaving the
+detail page or manually refreshing the browser.
