@@ -95,6 +95,7 @@ func New(port string) (*gin.Engine, error) {
 		gatewayService,
 		types.Options{GatewayAdapterFactory: gateway.NewUDPFactory(udpOptions)},
 		services.NewFileSimulationCheckpointStore(filepath.Join(dataDir, "simulation-checkpoint.json")),
+		services.NewFileSimulationLogStore(filepath.Join(dataDir, "simulation-logs.json")),
 	)
 	deviceService.SetRuntimeSynchronizer(simulationService)
 	gatewayService.SetRuntimeSynchronizer(simulationService)

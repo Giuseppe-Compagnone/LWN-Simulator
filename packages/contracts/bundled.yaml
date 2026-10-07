@@ -1750,6 +1750,137 @@ components:
       required:
         - events
         - lastSequence
+    SimulationRunStatus:
+      title: SimulationRunStatus
+      type: string
+      enum:
+        - running
+        - paused
+        - stopped
+        - failed
+    SimulationLogObjectKind:
+      title: SimulationLogObjectKind
+      type: string
+      enum:
+        - device
+        - gateway
+    SimulationLogObject:
+      title: SimulationLogObject
+      type: object
+      properties:
+        id:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36
+        name:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required
+        kind:
+          $ref: '#/components/schemas/SimulationLogObjectKind'
+        identifier:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required
+      required:
+        - id
+        - name
+        - kind
+        - identifier
+    SimulationRunSummary:
+      title: SimulationRunSummary
+      type: object
+      properties:
+        id:
+          type: string
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36
+        startedAtMilliseconds:
+          type: integer
+          format: int64
+          x-oapi-codegen-extra-tags:
+            validate: required,min=0
+        endedAtMilliseconds:
+          type: integer
+          format: int64
+          nullable: true
+        durationMilliseconds:
+          type: integer
+          format: int64
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        status:
+          $ref: '#/components/schemas/SimulationRunStatus'
+        speed:
+          type: number
+          format: double
+          x-go-type: float64
+          x-oapi-codegen-extra-tags:
+            validate: required,gt=0
+        seed:
+          type: integer
+          format: int64
+          nullable: true
+        deviceCount:
+          type: integer
+          format: int32
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        gatewayCount:
+          type: integer
+          format: int32
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        eventCount:
+          type: integer
+          format: int32
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        packetSuccessRate:
+          type: number
+          format: double
+          x-go-type: float64
+          x-oapi-codegen-extra-tags:
+            validate: min=0,max=1
+      required:
+        - id
+        - startedAtMilliseconds
+        - durationMilliseconds
+        - status
+        - speed
+        - deviceCount
+        - gatewayCount
+        - eventCount
+        - packetSuccessRate
+    SimulationRun:
+      title: SimulationRun
+      type: object
+      properties:
+        summary:
+          $ref: '#/components/schemas/SimulationRunSummary'
+        objects:
+          type: array
+          items:
+            $ref: '#/components/schemas/SimulationLogObject'
+      required:
+        - summary
+        - objects
+    SimulationRunsResponse:
+      title: SimulationRunsResponse
+      type: object
+      properties:
+        runs:
+          type: array
+          items:
+            $ref: '#/components/schemas/SimulationRun'
+        total:
+          type: integer
+          format: int32
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+      required:
+        - runs
+        - total
     RX1Config:
       title: RX1Config
       type: object

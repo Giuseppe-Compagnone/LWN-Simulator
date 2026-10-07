@@ -92,3 +92,24 @@ func TestRealClockWaitUntilWakesOnPause(t *testing.T) {
 		t.Fatal("clock wait did not wake after pause")
 	}
 }
+
+func TestRealClockChangesSpeedWithoutResettingElapsedTime(t *testing.T) {
+	clock := NewRealClock(1)
+	clock.Start()
+	time.Sleep(5 * time.Millisecond)
+	clock.Pause()
+	pausedElapsed := clock.Now()
+
+	if err := clock.SetSpeed(4); err != nil {
+		t.Fatalf("set clock speed: %v", err)
+	}
+	if got := clock.Now(); got != pausedElapsed {
+		t.Fatalf("changing speed while paused changed elapsed time: before=%s after=%s", pausedElapsed, got)
+	}
+
+	clock.Resume()
+	time.Sleep(5 * time.Millisecond)
+	if got := clock.Now(); got <= pausedElapsed {
+		t.Fatalf("clock did not advance after changing speed: before=%s after=%s", pausedElapsed, got)
+	}
+}

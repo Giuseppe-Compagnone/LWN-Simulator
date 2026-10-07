@@ -18,11 +18,43 @@ import (
 )
 
 type fakeSimulationService struct {
-	snapshot contracts.SimulationSnapshot
-	updates  chan services.SimulationUpdate
-	action   contracts.SimulationActionResponse
-	events   contracts.SimulationEventsResponse
-	err      error
+	snapshot  contracts.SimulationSnapshot
+	updates   chan services.SimulationUpdate
+	action    contracts.SimulationActionResponse
+	events    contracts.SimulationEventsResponse
+	err       error
+	logRun    contracts.SimulationRun
+	logEvents []contracts.SimulationEvent
+}
+
+func (service *fakeSimulationService) ListLogs() (contracts.SimulationRunsResponse, error) {
+	return contracts.SimulationRunsResponse{Runs: []contracts.SimulationRun{service.logRun}, Total: 1}, service.err
+}
+
+func (service *fakeSimulationService) GetLogRun(string) (contracts.SimulationRun, error) {
+	return service.logRun, service.err
+}
+
+func (service *fakeSimulationService) GetLogEvents(_ string, query services.SimulationLogEventQuery) (contracts.SimulationEventsResponse, error) {
+	if service.err != nil {
+		return contracts.SimulationEventsResponse{}, service.err
+	}
+	filtered := make([]contracts.SimulationEvent, 0)
+	for _, event := range service.logEvents {
+		if event.Sequence <= query.AfterSequence || (query.DeviceID != "" && stringValue(event.DeviceID) != query.DeviceID) || (query.GatewayID != "" && stringValue(event.GatewayID) != query.GatewayID) {
+			continue
+		}
+		if len(query.Types) > 0 {
+			if _, exists := query.Types[event.Type]; !exists {
+				continue
+			}
+		}
+		filtered = append(filtered, event)
+		if query.Limit > 0 && len(filtered) >= query.Limit {
+			break
+		}
+	}
+	return contracts.SimulationEventsResponse{Events: filtered, LastSequence: int64(service.logRun.Summary.EventCount)}, nil
 }
 
 func TestSimulationHandlerRuntimeEndpoints(t *testing.T) {
@@ -161,6 +193,39 @@ func TestSimulationHandlerLifecycleEndpoints(t *testing.T) {
 	router.ServeHTTP(invalid, request)
 	if invalid.Code != http.StatusBadRequest {
 		t.Fatalf("invalid start status = %d, want 400", invalid.Code)
+	}
+}
+
+func TestSimulationHandlerLogEndpointsFilterHistoricalEvents(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	deviceID := "550e8400-e29b-41d4-a716-446655440001"
+	service := &fakeSimulationService{
+		logRun: contracts.SimulationRun{Summary: contracts.SimulationRunSummary{Id: "550e8400-e29b-41d4-a716-446655440000", EventCount: 2}},
+		logEvents: []contracts.SimulationEvent{
+			{ID: "550e8400-e29b-41d4-a716-446655440002", Sequence: 1, Type: contracts.DeviceUplinkTransmitted, DeviceID: &deviceID, Message: "uplink"},
+			{ID: "550e8400-e29b-41d4-a716-446655440003", Sequence: 2, Type: contracts.SimulationPaused, Message: "paused"},
+		},
+	}
+	handler := NewSimulationHandler(service, validator.New())
+	router := gin.New()
+	router.GET("/logs", handler.Logs)
+	router.GET("/logs/:id", handler.Log)
+	router.GET("/logs/:id/events", handler.LogEvents)
+
+	list := httptest.NewRecorder()
+	router.ServeHTTP(list, httptest.NewRequest(http.MethodGet, "/logs", nil))
+	if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), service.logRun.Summary.Id) {
+		t.Fatalf("unexpected logs response: %d %s", list.Code, list.Body.String())
+	}
+	filtered := httptest.NewRecorder()
+	router.ServeHTTP(filtered, httptest.NewRequest(http.MethodGet, "/logs/550e8400-e29b-41d4-a716-446655440000/events?deviceID="+deviceID, nil))
+	if filtered.Code != http.StatusOK || !strings.Contains(filtered.Body.String(), "uplink") || strings.Contains(filtered.Body.String(), "paused") {
+		t.Fatalf("unexpected filtered events response: %d %s", filtered.Code, filtered.Body.String())
+	}
+	detail := httptest.NewRecorder()
+	router.ServeHTTP(detail, httptest.NewRequest(http.MethodGet, "/logs/550e8400-e29b-41d4-a716-446655440000", nil))
+	if detail.Code != http.StatusOK {
+		t.Fatalf("unexpected log detail status: %d", detail.Code)
 	}
 }
 

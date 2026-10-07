@@ -25,7 +25,14 @@ func (e *Engine) SetSpeed(speed float64) error {
 	}
 	e.config.Speed = speed
 	e.state.Speed = speed
+	clock := e.clock
 	e.mu.Unlock()
+
+	if speedClock, ok := clock.(interface{ SetSpeed(float64) error }); ok {
+		if err := speedClock.SetSpeed(speed); err != nil {
+			return fmt.Errorf("update simulation clock speed: %w", err)
+		}
+	}
 
 	e.signalWake()
 	return nil

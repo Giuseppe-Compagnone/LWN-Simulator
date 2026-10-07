@@ -2,12 +2,71 @@ package runtime
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 )
+
+func TestInitialTrafficIsDeterministicallyDistributed(t *testing.T) {
+	devices := make([]contracts.Device, 200)
+	for index := range devices {
+		device := validDevice(fmt.Sprintf("00000000-0000-4000-8000-%012x", index+1))
+		device.Name = fmt.Sprintf("Dense device %d", index+1)
+		device.DevEUI = fmt.Sprintf("70B3D57E%08X", index+1)
+		device.OOTAConfig.JoinEUI = fmt.Sprintf("70B3D57F%08X", index+1)
+		device.PayloadConfig.UplinkInterval = 60
+		devices[index] = device
+	}
+
+	collect := func() map[string]time.Duration {
+		clock := types.NewManualClock(0)
+		runtime, err := New(
+			contracts.SimulationConfig{Speed: 1, Seed: int64Ptr(42)},
+			devices,
+			nil,
+			types.Options{Clock: clock, EventBuffer: 1024},
+		)
+		if err != nil {
+			t.Fatalf("create dense engine: %v", err)
+		}
+		startEngine(t, runtime)
+		t.Cleanup(func() { stopEngine(t, runtime) })
+		delays := make(map[string]time.Duration, len(devices))
+		for _, event := range runtime.Checkpoint().Scheduled {
+			if event.Kind == types.ScheduledEventDeviceUplink || event.Kind == types.ScheduledEventJoinRequest {
+				delays[event.DeviceID] = event.At
+			}
+		}
+		return delays
+	}
+
+	first := collect()
+	second := collect()
+	if !reflect.DeepEqual(first, second) {
+		t.Fatal("the same seed did not reproduce initial device phases")
+	}
+	if len(first) != len(devices) {
+		t.Fatalf("expected %d initial transmissions, got %d", len(devices), len(first))
+	}
+	distinct := make(map[time.Duration]struct{}, len(first))
+	zeroDelays := 0
+	for _, delay := range first {
+		if delay < 0 || delay >= 60*time.Second {
+			t.Fatalf("initial delay outside reporting interval: %s", delay)
+		}
+		if delay == 0 {
+			zeroDelays++
+		}
+		distinct[delay] = struct{}{}
+	}
+	if zeroDelays > 1 || len(distinct) < len(devices)*9/10 {
+		t.Fatalf("initial traffic was not sufficiently distributed: zero=%d distinct=%d", zeroDelays, len(distinct))
+	}
+}
 
 func TestEngineLifecycleAndScheduledEvents(t *testing.T) {
 	clock := types.NewManualClock(0)

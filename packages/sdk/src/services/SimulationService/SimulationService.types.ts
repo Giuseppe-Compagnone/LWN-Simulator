@@ -4,6 +4,8 @@ import {
   SimulationDownlinkRequest,
   SimulationEvent,
   SimulationEventsResponse,
+  SimulationRun,
+  SimulationRunsResponse,
   SimulationMACCommandRequest,
   SimulationSnapshot,
   SimulationSpeedRequest,
@@ -19,6 +21,9 @@ export type SimulationConnectionState =
 export interface GetSimulationEventsOptions {
   afterSequence?: number;
   limit?: number;
+  deviceID?: string;
+  gatewayID?: string;
+  type?: string;
 }
 
 export interface SimulationServiceContent {
@@ -38,6 +43,12 @@ export interface SimulationServiceContent {
     req: SimulationMACCommandRequest,
   ) => Promise<SimulationActionResponse>;
   getEvents: (
+    options?: GetSimulationEventsOptions,
+  ) => Promise<SimulationEventsResponse>;
+  getLogs: () => Promise<SimulationRunsResponse>;
+  getLog: (id: string) => Promise<SimulationRun>;
+  getLogEvents: (
+    id: string,
     options?: GetSimulationEventsOptions,
   ) => Promise<SimulationEventsResponse>;
   getMetrics: () => Promise<string>;

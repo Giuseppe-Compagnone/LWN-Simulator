@@ -229,6 +229,14 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
     return response;
   }, [service]);
 
+  const getLogs = useCallback(() => service.getLogs(), [service]);
+  const getLog = useCallback((id: string) => service.getLog(id), [service]);
+  const getLogEvents = useCallback(
+    (id: string, options: GetSimulationEventsOptions = {}) =>
+      service.getLogEvents(id, options),
+    [service],
+  );
+
   const setSpeed = useCallback(async (request: Parameters<SimulationService["setSpeed"]>[0]) => {
     const response = await service.setSpeed(request);
     updateSnapshot(response);
@@ -251,6 +259,9 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
       queueMACCommand,
       getEvents,
       getMetrics,
+      getLogs,
+      getLog,
+      getLogEvents,
       connect,
       disconnect,
       snapshot,
@@ -270,6 +281,9 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
       queueMACCommand,
       getEvents,
       getMetrics,
+      getLogs,
+      getLog,
+      getLogEvents,
       connect,
       disconnect,
       snapshot,

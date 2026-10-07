@@ -71,7 +71,6 @@ const SensorMap = (props: SensorMapProps) => {
 
   useEffect(() => { centerOnMarker(); }, [centerOnMarker]);
   useEffect(() => {
-    if (!props.links?.length) linksFittedRef.current = false;
     fitCommunicationLinks();
   }, [fitCommunicationLinks, props.links?.length]);
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -30,6 +31,12 @@ type SimulationService interface {
 	Events(int64, int) (contracts.SimulationEventsResponse, error)
 	EventsFiltered(int64, int, services.SimulationEventFilters) (contracts.SimulationEventsResponse, error)
 	Subscribe() (services.SimulationSubscription, error)
+}
+
+type SimulationLogService interface {
+	ListLogs() (contracts.SimulationRunsResponse, error)
+	GetLogRun(string) (contracts.SimulationRun, error)
+	GetLogEvents(string, services.SimulationLogEventQuery) (contracts.SimulationEventsResponse, error)
 }
 
 type SimulationHandler struct {
@@ -179,6 +186,83 @@ func (h *SimulationHandler) Metrics(c *gin.Context) {
 	c.Data(http.StatusOK, "text/plain; version=0.0.4; charset=utf-8", telemetry.Prometheus(snapshot))
 }
 
+func (h *SimulationHandler) Logs(c *gin.Context) {
+	service, ok := h.service.(SimulationLogService)
+	if !ok {
+		c.JSON(http.StatusNotImplemented, gin.H{"error": "simulation logs are not configured"})
+		return
+	}
+	res, err := service.ListLogs()
+	if err != nil {
+		writeServiceError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, res)
+}
+
+func (h *SimulationHandler) Log(c *gin.Context) {
+	service, ok := h.service.(SimulationLogService)
+	if !ok {
+		c.JSON(http.StatusNotImplemented, gin.H{"error": "simulation logs are not configured"})
+		return
+	}
+	run, err := service.GetLogRun(c.Param("id"))
+	if err != nil {
+		if os.IsNotExist(err) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "simulation log not found"})
+			return
+		}
+		writeServiceError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, run)
+}
+
+func (h *SimulationHandler) LogEvents(c *gin.Context) {
+	service, ok := h.service.(SimulationLogService)
+	if !ok {
+		c.JSON(http.StatusNotImplemented, gin.H{"error": "simulation logs are not configured"})
+		return
+	}
+	afterSequence, ok := parseNonNegativeQuery(c, "afterSequence", 0)
+	if !ok {
+		return
+	}
+	limit, ok := parseNonNegativeQuery(c, "limit", 1000)
+	if !ok {
+		return
+	}
+	deviceID := strings.TrimSpace(c.Query("deviceID"))
+	gatewayID := strings.TrimSpace(c.Query("gatewayID"))
+	types := map[contracts.SimulationEventType]struct{}{}
+	if typeQuery := strings.TrimSpace(c.Query("type")); typeQuery != "" {
+		for _, value := range strings.Split(typeQuery, ",") {
+			eventType := contracts.SimulationEventType(strings.TrimSpace(value))
+			if !eventType.Valid() {
+				writeServiceError(c, apperrors.Invalid("invalid event type %q", value))
+				return
+			}
+			types[eventType] = struct{}{}
+		}
+	}
+	response, err := service.GetLogEvents(c.Param("id"), services.SimulationLogEventQuery{
+		AfterSequence: afterSequence,
+		Limit:         int(limit),
+		DeviceID:      deviceID,
+		GatewayID:     gatewayID,
+		Types:         types,
+	})
+	if err != nil {
+		if os.IsNotExist(err) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "simulation log not found"})
+			return
+		}
+		writeServiceError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, response)
+}
+
 func (h *SimulationHandler) WebSocket(c *gin.Context) {
 	connection, err := h.upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
@@ -217,12 +301,15 @@ func (h *SimulationHandler) WebSocket(c *gin.Context) {
 				return
 			}
 			event := update.Event
-			if err := writeWebSocketMessage(connection, contracts.SimulationWebSocketMessage{
+			message := contracts.SimulationWebSocketMessage{
 				Type:                  contracts.SimulationEventMessage,
 				TimestampMilliseconds: time.Now().UnixMilli(),
 				Event:                 &event,
-				Snapshot:              &update.Snapshot,
-			}); err != nil {
+			}
+			if update.IncludeSnapshot {
+				message.Snapshot = &update.Snapshot
+			}
+			if err := writeWebSocketMessage(connection, message); err != nil {
 				return
 			}
 		}
@@ -284,3 +371,10 @@ func watchWebSocketConnection(connection *websocket.Conn) <-chan struct{} {
 }
 
 func stringPointer(value string) *string { return &value }
+
+func stringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}

@@ -16,6 +16,8 @@ import (
 	"github.com/google/uuid"
 )
 
+const runtimeEventLogLimit = 10_000
+
 type Engine struct {
 	mu sync.RWMutex
 
@@ -153,7 +155,7 @@ func (e *Engine) restoreCheckpoint(checkpoint *types.EngineCheckpoint) error {
 	e.state.GatewayCount = len(e.registry.Gateways())
 	e.metrics.ActiveDevices = int64(len(e.registry.ActiveDevices()))
 	e.metrics.ActiveGateways = int64(len(e.registry.ActiveGateways()))
-	e.eventLog = append([]contracts.SimulationEvent(nil), checkpoint.EventLog...)
+	e.eventLog = recentSimulationEvents(checkpoint.EventLog, runtimeEventLogLimit)
 	for deviceID, session := range checkpoint.Sessions {
 		if _, ok := e.sessions[deviceID]; ok {
 			copySession := session
@@ -246,6 +248,7 @@ func (e *Engine) Start(ctx context.Context) error {
 		))
 	}
 	if !e.restored {
+		activeDevices := e.registry.ActiveDevices()
 		for _, gateway := range e.registry.ActiveVirtualGateways() {
 			beacon := e.scheduleClassBBeaconLocked(gateway.ID, 0)
 			events = append(events, beacon)
@@ -273,7 +276,7 @@ func (e *Engine) Start(ctx context.Context) error {
 				return fmt.Errorf("schedule heartbeat for gateway %s: %w", gateway.ID, err)
 			}
 		}
-		for _, device := range e.registry.ActiveDevices() {
+		for _, device := range activeDevices {
 			session := e.sessions[device.ID]
 			kind := types.ScheduledEventDeviceUplink
 			scheduledType := contracts.DeviceUplinkTransmitted
@@ -287,7 +290,7 @@ func (e *Engine) Start(ctx context.Context) error {
 			}
 			scheduled := types.ScheduledEvent{
 				ID:       uuid.NewString(),
-				At:       0,
+				At:       e.initialTransmissionDelay(device, len(activeDevices)),
 				Type:     scheduledType,
 				Message:  scheduledMessage,
 				DeviceID: device.ID,
@@ -317,6 +320,22 @@ func (e *Engine) Start(ctx context.Context) error {
 	e.startGatewayAdapters(runCtx)
 	go e.run(runCtx)
 	return nil
+}
+
+// initialTransmissionDelay gives every device a deterministic phase within
+// its reporting period. Real fleets are not powered on on the same radio
+// tick; scheduling every first frame at t=0 creates an artificial collision
+// storm that gets worse as the topology grows. The seeded engine RNG keeps
+// repeated simulations reproducible while distributing the initial load.
+func (e *Engine) initialTransmissionDelay(device contracts.Device, activeDeviceCount int) time.Duration {
+	if activeDeviceCount <= 1 {
+		return 0
+	}
+	interval := durationSecondsFloat(device.PayloadConfig.UplinkInterval)
+	if interval <= 0 {
+		return 0
+	}
+	return time.Duration(e.rng.Int63n(int64(interval)))
 }
 
 func (e *Engine) Pause() error {
@@ -643,7 +662,7 @@ func (e *Engine) Checkpoint() types.EngineCheckpoint {
 		Radio:          make(map[string]types.RadioTransmission, len(e.radio)),
 		Scheduled:      e.scheduler.Events(),
 		GatewayPackets: cloneGatewayPackets(e.gatewayPackets),
-		EventLog:       append([]contracts.SimulationEvent(nil), e.eventLog...),
+		EventLog:       recentSimulationEvents(e.eventLog, runtimeEventLogLimit),
 	}
 	for deviceID, session := range e.sessions {
 		if session == nil {
@@ -978,7 +997,21 @@ func (e *Engine) newEventLocked(
 		event.ScheduledEventID = &scheduledEventID
 	}
 	e.eventLog = append(e.eventLog, event)
+	if len(e.eventLog) >= runtimeEventLogLimit*2 {
+		e.eventLog = recentSimulationEvents(e.eventLog, runtimeEventLogLimit)
+	}
 	return event
+}
+
+func recentSimulationEvents(events []contracts.SimulationEvent, limit int) []contracts.SimulationEvent {
+	if limit <= 0 || len(events) == 0 {
+		return []contracts.SimulationEvent{}
+	}
+	start := 0
+	if len(events) > limit {
+		start = len(events) - limit
+	}
+	return append([]contracts.SimulationEvent(nil), events[start:]...)
 }
 
 func (e *Engine) eventTimestampLocked() time.Duration {

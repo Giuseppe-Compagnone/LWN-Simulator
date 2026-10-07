@@ -123,6 +123,34 @@ func TestSimulationServiceOutlivesStartRequestContext(t *testing.T) {
 	}
 }
 
+func TestSimulationServicePersistsAndFinalizesSimulationLog(t *testing.T) {
+	logStore := NewFileSimulationLogStore(t.TempDir() + "/simulation-logs.json")
+	service := NewSimulationService(
+		simulationDeviceSource{},
+		simulationGatewaySource{},
+		types.Options{EventBuffer: 32},
+		nil,
+		logStore,
+	)
+	if _, err := service.Start(t.Context(), contracts.SimulationConfig{Speed: 1, Seed: int64Pointer(42)}); err != nil {
+		t.Fatalf("start simulation: %v", err)
+	}
+	if _, err := service.Stop(t.Context()); err != nil {
+		t.Fatalf("stop simulation: %v", err)
+	}
+	logs, err := service.ListLogs()
+	if err != nil || logs.Total != 1 || len(logs.Runs) != 1 {
+		t.Fatalf("unexpected simulation logs: %+v, %v", logs, err)
+	}
+	if logs.Runs[0].Summary.Status != contracts.SimulationRunStatusStopped || logs.Runs[0].Summary.EventCount == 0 {
+		t.Fatalf("simulation log was not finalized: %+v", logs.Runs[0].Summary)
+	}
+	_, events, err := service.GetLog(logs.Runs[0].Summary.Id)
+	if err != nil || len(events) == 0 {
+		t.Fatalf("simulation events were not persisted: %v", err)
+	}
+}
+
 func receiveSimulationUpdate(t *testing.T, updates <-chan SimulationUpdate) SimulationUpdate {
 	t.Helper()
 	select {
