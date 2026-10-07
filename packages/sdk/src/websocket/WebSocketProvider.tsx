@@ -22,6 +22,11 @@ const WebSocketProvider = (props: WebSocketProviderProps) => {
     };
   }, [client]);
 
+  useEffect(() => {
+    client.connect("/ws");
+    return () => client.disconnect();
+  }, [client]);
+
   const connect = useCallback((path: string) => client.connect(path), [client]);
   const disconnect = useCallback(() => client.disconnect(), [client]);
   const send = useCallback((payload: string) => client.send(payload), [client]);

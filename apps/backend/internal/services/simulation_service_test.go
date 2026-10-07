@@ -134,6 +134,8 @@ func TestSimulationServiceBroadcastsUpdatesToMultipleSubscribers(t *testing.T) {
 		t.Fatalf("start simulation: %v", err)
 	}
 	defer service.Stop(context.Background())
+	publisher := &recordingRealtimePublisher{messages: make(chan contracts.RealtimeWebSocketMessage, 8)}
+	service.SetRealtimePublisher(publisher)
 
 	first, err := service.Subscribe()
 	if err != nil {
@@ -153,6 +155,9 @@ func TestSimulationServiceBroadcastsUpdatesToMultipleSubscribers(t *testing.T) {
 	secondUpdate := receiveSimulationUpdate(t, second.Updates)
 	if firstUpdate.Event.Type != contracts.SimulationPaused || secondUpdate.Event.Type != contracts.SimulationPaused {
 		t.Fatalf("frontends received different lifecycle updates: %s, %s", firstUpdate.Event.Type, secondUpdate.Event.Type)
+	}
+	if message := receiveRealtimeMessage(t, publisher.messages); message.Type != contracts.RealtimeSimulationEventMessage || message.Event == nil || message.Event.Type != contracts.SimulationPaused {
+		t.Fatalf("shared websocket did not receive pause event: %+v", message)
 	}
 }
 

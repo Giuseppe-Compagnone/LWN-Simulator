@@ -29,6 +29,7 @@ func TestRegisterRoutesIncludesSimulationRuntimeAPI(t *testing.T) {
 		"POST /api/simulation/downlinks",
 		"POST /api/simulation/mac-commands",
 		"GET /api/simulation/ws",
+		"GET /api/ws",
 	} {
 		if _, exists := routes[expected]; !exists {
 			t.Errorf("route %q is not registered", expected)

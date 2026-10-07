@@ -26,10 +26,21 @@ type DeviceRuntimeSynchronizer interface {
 	RemoveDeviceLocked(string) error
 }
 
+type RealtimePublisher interface {
+	Publish(contracts.RealtimeWebSocketMessage)
+}
+
 type DeviceService struct {
 	repository DeviceRepository
 	runtime    DeviceRuntimeSynchronizer
+	realtime   RealtimePublisher
 	mu         sync.Mutex
+}
+
+func (s *DeviceService) SetRealtimePublisher(publisher RealtimePublisher) {
+	s.mu.Lock()
+	s.realtime = publisher
+	s.mu.Unlock()
 }
 
 func (s *DeviceService) SetRuntimeSynchronizer(runtime DeviceRuntimeSynchronizer) {
@@ -99,6 +110,8 @@ func (s *DeviceService) CreateDevice(
 			return contracts.CreateDeviceResponse{}, formatRollbackError("synchronize created device", err, rollbackErr)
 		}
 	}
+
+	s.publishRealtime(contracts.RealtimeDeviceCreatedMessage, &device, nil, device.ID)
 
 	return contracts.CreateDeviceResponse{
 		Device: device,
@@ -188,6 +201,7 @@ func (s *DeviceService) UpdateDevice(
 			return contracts.UpdateDeviceResponse{}, formatRollbackError("synchronize updated device", err, rollbackErr)
 		}
 	}
+	s.publishRealtime(contracts.RealtimeDeviceUpdatedMessage, &device, nil, device.ID)
 
 	return contracts.UpdateDeviceResponse{
 		Device: device,
@@ -230,9 +244,31 @@ func (s *DeviceService) DeleteDevice(
 			return contracts.DeleteDeviceResponse{}, formatRollbackError("synchronize deleted device", err, rollbackErr)
 		}
 	}
+	s.publishRealtime(contracts.RealtimeDeviceDeletedMessage, nil, nil, device.ID)
 
 	return contracts.DeleteDeviceResponse{}, nil
 }
+
+func (s *DeviceService) publishRealtime(
+	messageType contracts.RealtimeWebSocketMessageType,
+	device *contracts.Device,
+	gateway *contracts.Gateway,
+	resourceID string,
+) {
+	publisher := s.realtime
+	if publisher == nil {
+		return
+	}
+	publisher.Publish(contracts.RealtimeWebSocketMessage{
+		Type:                  messageType,
+		TimestampMilliseconds: 0,
+		ResourceID:            stringPointer(resourceID),
+		Device:                device,
+		Gateway:               gateway,
+	})
+}
+
+func stringPointer(value string) *string { return &value }
 
 func wrapDeviceRepositoryError(operation string, err error) error {
 	if errors.Is(err, database.ErrNotFound) {

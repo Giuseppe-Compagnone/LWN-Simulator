@@ -26,23 +26,23 @@ const ProvidersWrapper = (props: ProvidersWrapperProps) => {
     );
   }, []);
   return (
-    <ThemeServiceProvider>
-      <AppInfoServiceProvider baseUrl={origin}>
-        <DeviceServiceProvider baseUrl={origin}>
-          <GatewayServiceProvider baseUrl={origin}>
-            <WebSocketProvider baseUrl={origin}>
-              <SimulationServiceProvider baseUrl={origin}>
+      <ThemeServiceProvider>
+        <AppInfoServiceProvider baseUrl={origin}>
+          <WebSocketProvider baseUrl={origin}>
+            <DeviceServiceProvider baseUrl={origin}>
+              <GatewayServiceProvider baseUrl={origin}>
+                <SimulationServiceProvider baseUrl={origin}>
                 <Navbar />
                 <Sidebar>
                   {props.children}
                   <Footer />
                 </Sidebar>
                 <ToastContainer />
-              </SimulationServiceProvider>
-            </WebSocketProvider>
-          </GatewayServiceProvider>
-        </DeviceServiceProvider>
-      </AppInfoServiceProvider>
+                </SimulationServiceProvider>
+              </GatewayServiceProvider>
+            </DeviceServiceProvider>
+          </WebSocketProvider>
+        </AppInfoServiceProvider>
     </ThemeServiceProvider>
   );
 };

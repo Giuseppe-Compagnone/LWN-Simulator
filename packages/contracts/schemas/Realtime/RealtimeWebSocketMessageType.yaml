@@ -1,0 +1,28 @@
+title: RealtimeWebSocketMessageType
+type: string
+
+enum:
+  - device.created
+  - device.updated
+  - device.deleted
+  - gateway.created
+  - gateway.updated
+  - gateway.deleted
+  - simulation.snapshot
+  - simulation.event
+  - simulation.run.created
+  - simulation.run.updated
+  - error
+
+x-enum-varnames:
+  - RealtimeDeviceCreatedMessage
+  - RealtimeDeviceUpdatedMessage
+  - RealtimeDeviceDeletedMessage
+  - RealtimeGatewayCreatedMessage
+  - RealtimeGatewayUpdatedMessage
+  - RealtimeGatewayDeletedMessage
+  - RealtimeSimulationSnapshotMessage
+  - RealtimeSimulationEventMessage
+  - RealtimeSimulationRunCreatedMessage
+  - RealtimeSimulationRunUpdatedMessage
+  - RealtimeErrorMessage

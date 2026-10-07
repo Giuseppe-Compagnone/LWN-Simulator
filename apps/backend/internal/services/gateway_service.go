@@ -29,7 +29,14 @@ type GatewayRuntimeSynchronizer interface {
 type GatewayService struct {
 	repository GatewayRepository
 	runtime    GatewayRuntimeSynchronizer
+	realtime   RealtimePublisher
 	mu         sync.Mutex
+}
+
+func (s *GatewayService) SetRealtimePublisher(publisher RealtimePublisher) {
+	s.mu.Lock()
+	s.realtime = publisher
+	s.mu.Unlock()
 }
 
 func NewGatewayService(repository GatewayRepository) *GatewayService {
@@ -100,6 +107,7 @@ func (s *GatewayService) CreateGateway(req contracts.CreateGatewayRequest) (cont
 			return contracts.Gateway{}, formatRollbackError("synchronize created gateway", err, rollbackErr)
 		}
 	}
+	s.publishRealtime(contracts.RealtimeGatewayCreatedMessage, &gateway, gateway.ID)
 
 	return gateway, nil
 }
@@ -172,6 +180,7 @@ func (s *GatewayService) UpdateGateway(req contracts.UpdateGatewayRequest) (cont
 			return contracts.UpdateGatewayResponse{}, formatRollbackError("synchronize updated gateway", err, rollbackErr)
 		}
 	}
+	s.publishRealtime(contracts.RealtimeGatewayUpdatedMessage, &gateway, gateway.ID)
 
 	return contracts.UpdateGatewayResponse{Gateway: gateway}, nil
 }
@@ -203,7 +212,25 @@ func (s *GatewayService) DeleteGateway(req contracts.DeleteGatewayRequest) (cont
 			return contracts.DeleteGatewayResponse{}, formatRollbackError("synchronize deleted gateway", err, rollbackErr)
 		}
 	}
+	s.publishRealtime(contracts.RealtimeGatewayDeletedMessage, nil, gateway.ID)
 	return contracts.DeleteGatewayResponse{}, nil
+}
+
+func (s *GatewayService) publishRealtime(
+	messageType contracts.RealtimeWebSocketMessageType,
+	gateway *contracts.Gateway,
+	resourceID string,
+) {
+	publisher := s.realtime
+	if publisher == nil {
+		return
+	}
+	publisher.Publish(contracts.RealtimeWebSocketMessage{
+		Type:                  messageType,
+		TimestampMilliseconds: 0,
+		ResourceID:            stringPointer(resourceID),
+		Gateway:               gateway,
+	})
 }
 
 func wrapGatewayRepositoryError(operation string, err error) error {

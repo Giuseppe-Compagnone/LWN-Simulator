@@ -7,10 +7,9 @@ import {
   SimulationEventsResponse,
   SimulationMACCommandRequest,
   SimulationSnapshot,
-  SimulationStatus,
   SimulationUplinkRequest,
-  SimulationWebSocketMessage,
-  SimulationWebSocketMessageType,
+  RealtimeWebSocketMessageType,
+  RealtimeWebSocketMessage,
 } from "@lwn-simulator/contracts";
 import { useWebSocket } from "../../websocket";
 import SimulationServiceContext from "./SimulationServiceContext";
@@ -23,8 +22,6 @@ import {
 import { SimulationService } from "./SimulationService";
 
 const realtimeRenderIntervalMilliseconds = 100;
-const simulationWebSocketPath = "/simulation/ws";
-
 const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
   const [snapshot, setSnapshot] = useState<SimulationSnapshot | null>(null);
   const [events, setEvents] = useState<Array<SimulationEvent>>([]);
@@ -34,8 +31,6 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
     [props.baseUrl],
   );
   const {
-    connect: connectWebSocket,
-    disconnect: disconnectWebSocket,
     subscribe: subscribeWebSocket,
     connectionState,
     error: websocketError,
@@ -44,8 +39,10 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
   const pendingSnapshotRef = useRef<SimulationSnapshot | null>(null);
   const pendingEventsRef = useRef<Array<SimulationEvent>>([]);
   const renderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasSnapshotRef = useRef(false);
 
   const updateSnapshot = useCallback((next: SimulationSnapshot) => {
+    hasSnapshotRef.current = true;
     setSnapshot(next);
   }, []);
 
@@ -103,16 +100,16 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
   const handleWebSocketMessage = useCallback(
     (rawMessage: string) => {
       try {
-        const update = JSON.parse(rawMessage) as SimulationWebSocketMessage;
-        if (update.type === SimulationWebSocketMessageType.Error) {
-          setError(new Error(update.error ?? "Simulation websocket error"));
+        const update = JSON.parse(rawMessage) as RealtimeWebSocketMessage;
+        if (update.type === RealtimeWebSocketMessageType.Error) {
+          setError(new Error(update.error ?? "Realtime websocket error"));
           return;
         }
         if (update.snapshot) {
           pendingSnapshotRef.current = update.snapshot;
         }
         if (
-          update.type === SimulationWebSocketMessageType.Event &&
+          update.type === RealtimeWebSocketMessageType.SimulationEvent &&
           update.event
         ) {
           pendingEventsRef.current.push(update.event);
@@ -122,7 +119,7 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
         setError(
           parseError instanceof Error
             ? parseError
-            : new Error("Invalid simulation websocket message"),
+            : new Error("Invalid realtime websocket message"),
         );
       }
     },
@@ -135,7 +132,7 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
   );
 
   useEffect(() => {
-    if (connectionState !== "connected") return;
+    if (connectionState !== "connected" || !hasSnapshotRef.current) return;
 
     void getEvents().catch((eventsError: unknown) => {
       setError(
@@ -147,17 +144,13 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
   }, [connectionState, getEvents]);
 
   const disconnect = useCallback(() => {
-    disconnectWebSocket();
     if (renderTimerRef.current) {
       clearTimeout(renderTimerRef.current);
       flushRealtimeUpdates();
     }
-  }, [disconnectWebSocket, flushRealtimeUpdates]);
+  }, [flushRealtimeUpdates]);
 
-  const connect = useCallback(
-    () => connectWebSocket(simulationWebSocketPath),
-    [connectWebSocket],
-  );
+  const connect = useCallback(() => undefined, []);
 
   const start = useCallback(
     async (config: SimulationConfig) => {
@@ -167,10 +160,9 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
       updateEvents([]);
       setError(null);
       updateSnapshot(next);
-      connect();
       return next;
     },
-    [connect, service, updateEvents, updateSnapshot],
+    [service, updateEvents, updateSnapshot],
   );
 
   const pause = useCallback(async () => {
@@ -199,14 +191,8 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
     const next = await service.getSnapshot();
     updateSnapshot(next);
     setError(null);
-    if (
-      next.state.status === SimulationStatus.Running ||
-      next.state.status === SimulationStatus.Paused
-    ) {
-      connect();
-    }
     return next;
-  }, [connect, service, updateSnapshot]);
+  }, [service, updateSnapshot]);
 
   const queueUplink = useCallback(
     async (

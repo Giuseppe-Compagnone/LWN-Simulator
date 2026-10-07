@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CreateGatewayRequest,
   DeleteGatewayRequest,
   Gateway,
   GetGatewayRequest,
+  RealtimeWebSocketMessage,
+  RealtimeWebSocketMessageType,
   UpdateGatewayRequest,
 } from "@lwn-simulator/contracts";
 import GatewayServiceContext from "./GatewayServiceContext";
@@ -12,11 +14,14 @@ import {
   GatewayServiceContent,
   GatewayServiceProviderProps,
 } from "./GatewayService.types";
+import { useWebSocket } from "../../websocket";
 
 const GatewayServiceProvider = (props: GatewayServiceProviderProps) => {
   const [gateways, setGateways] = useState<Array<Gateway> | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const service = useMemo(() => new GatewayService(props.baseUrl), [props.baseUrl]);
+  const { connectionState, subscribe } = useWebSocket();
+  const hasConnectedRef = useRef(false);
 
   const createGateway = useCallback(async (req: CreateGatewayRequest) => {
     const res = await service.createGateway(req);
@@ -46,6 +51,53 @@ const GatewayServiceProvider = (props: GatewayServiceProviderProps) => {
     setGateways((prev) => prev?.filter((gateway) => gateway.id !== req.id) ?? null);
     setError(null);
   }, [service]);
+
+  const handleRealtimeMessage = useCallback((rawMessage: string) => {
+    try {
+      const message = JSON.parse(rawMessage) as RealtimeWebSocketMessage;
+      if (
+        (message.type === RealtimeWebSocketMessageType.GatewayCreated ||
+          message.type === RealtimeWebSocketMessageType.GatewayUpdated) &&
+        message.gateway
+      ) {
+        setGateways((previous) => {
+          if (!previous) return [message.gateway as Gateway];
+          const exists = previous.some((gateway) => gateway.id === message.gateway?.id);
+          return exists
+            ? previous.map((gateway) =>
+                gateway.id === message.gateway?.id ? message.gateway as Gateway : gateway,
+              )
+            : [...previous, message.gateway as Gateway];
+        });
+      } else if (
+        message.type === RealtimeWebSocketMessageType.GatewayDeleted &&
+        message.resourceID
+      ) {
+        setGateways((previous) =>
+          previous?.filter((gateway) => gateway.id !== message.resourceID) ?? null,
+        );
+      }
+    } catch {
+      // Ignore messages owned by another realtime consumer or malformed data.
+    }
+  }, []);
+
+  useEffect(
+    () => subscribe(handleRealtimeMessage),
+    [handleRealtimeMessage, subscribe],
+  );
+
+  useEffect(() => {
+    if (connectionState !== "connected") return;
+    if (!hasConnectedRef.current) {
+      hasConnectedRef.current = true;
+      return;
+    }
+
+    void getGateways().catch(() => {
+      setError(new Error("Failed to recover gateways after websocket reconnect"));
+    });
+  }, [connectionState, getGateways]);
 
   useEffect(() => {
     void Promise.resolve()

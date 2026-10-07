@@ -9,6 +9,10 @@ paths: {}
 
 components:
   schemas:
+    RealtimeWebSocketMessageType:
+      $ref: "./schemas/Realtime/RealtimeWebSocketMessageType.yaml"
+    RealtimeWebSocketMessage:
+      $ref: "./schemas/Realtime/RealtimeWebSocketMessage.yaml"
     AppInfoResponse:
       $ref: "./schemas/AppInfoResponse.yaml"
     StatusResponse:
