@@ -31,8 +31,10 @@ const LogsPage = () => {
   useEffect(() => {
     let mounted = true;
     let firstLoad = true;
+    let nextRefresh: number | undefined;
 
     const refreshLogs = async () => {
+      let shouldPoll = false;
       try {
         const response = await getLogs();
         if (mounted) {
@@ -44,6 +46,9 @@ const LogsPage = () => {
             ),
           );
           setError(null);
+          shouldPoll = response.runs.some(
+            (run) => run.summary.status === "running" || run.summary.status === "paused",
+          );
         }
       } catch {
         if (mounted && firstLoad) setError("Unable to load simulation history.");
@@ -52,15 +57,17 @@ const LogsPage = () => {
           firstLoad = false;
           setLoading(false);
         }
+        if (mounted && shouldPoll) {
+          nextRefresh = window.setTimeout(() => void refreshLogs(), 1000);
+        }
       }
     };
 
     void refreshLogs();
-    const refreshInterval = window.setInterval(() => void refreshLogs(), 1000);
 
     return () => {
       mounted = false;
-      window.clearInterval(refreshInterval);
+      if (nextRefresh !== undefined) window.clearTimeout(nextRefresh);
     };
   }, [getLogs]);
 

@@ -68,6 +68,9 @@ func TestFileSimulationLogStorePersistsEventBatchesInSidecar(t *testing.T) {
 	// Re-open the store to prove that events are durable and not served only
 	// by the in-memory cache.
 	reopened := NewFileSimulationLogStore(path)
+	if err := reopened.AppendBatch(runID, events, nil); err != nil {
+		t.Fatal(err)
+	}
 	loaded, persisted, err := reopened.Get(runID)
 	if err != nil {
 		t.Fatal(err)
@@ -90,5 +93,41 @@ func TestFileSimulationLogStorePersistsEventBatchesInSidecar(t *testing.T) {
 	}
 	if info, err := os.Stat(indexPath); err != nil || info.Size() == 0 {
 		t.Fatalf("event index was not persisted: info=%v err=%v", info, err)
+	}
+}
+
+func TestFileSimulationLogStoreAppendBatchIsIdempotentAcrossRetries(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "logs.json")
+	runID := "550e8400-e29b-41d4-a716-446655440020"
+	run := contracts.SimulationRun{Summary: contracts.SimulationRunSummary{Id: runID, StartedAtMilliseconds: 10, Status: contracts.SimulationRunStatusRunning}}
+	store := NewFileSimulationLogStore(path)
+	if err := store.Create(run); err != nil {
+		t.Fatal(err)
+	}
+	events := []contracts.SimulationEvent{
+		{ID: "550e8400-e29b-41d4-a716-446655440021", Sequence: 1, Type: contracts.DeviceRegistered, Message: "registered"},
+		{ID: "550e8400-e29b-41d4-a716-446655440022", Sequence: 2, Type: contracts.DeviceUplinkTransmitted, Message: "uplink"},
+	}
+	if err := store.AppendBatch(runID, events, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.AppendBatch(runID, events, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	reopened := NewFileSimulationLogStore(path)
+	loaded, persisted, err := reopened.Get(runID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Summary.EventCount != 2 || len(persisted) != 2 {
+		t.Fatalf("retry duplicated events: summary=%+v events=%d", loaded.Summary, len(persisted))
+	}
+	page, err := reopened.Events(runID, SimulationLogEventQuery{BeforeSequence: 3, Limit: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Events) != 1 || page.Events[0].Sequence != 2 || page.LastSequence != 2 {
+		t.Fatalf("unexpected latest page: %+v", page)
 	}
 }

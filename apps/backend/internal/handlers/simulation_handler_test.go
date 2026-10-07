@@ -222,6 +222,16 @@ func TestSimulationHandlerLogEndpointsFilterHistoricalEvents(t *testing.T) {
 	if filtered.Code != http.StatusOK || !strings.Contains(filtered.Body.String(), "uplink") || strings.Contains(filtered.Body.String(), "paused") {
 		t.Fatalf("unexpected filtered events response: %d %s", filtered.Code, filtered.Body.String())
 	}
+	tooMany := httptest.NewRecorder()
+	router.ServeHTTP(tooMany, httptest.NewRequest(http.MethodGet, "/logs/550e8400-e29b-41d4-a716-446655440000/events?limit=1001", nil))
+	if tooMany.Code != http.StatusBadRequest {
+		t.Fatalf("oversized log page status = %d, want 400", tooMany.Code)
+	}
+	negativeBefore := httptest.NewRecorder()
+	router.ServeHTTP(negativeBefore, httptest.NewRequest(http.MethodGet, "/logs/550e8400-e29b-41d4-a716-446655440000/events?beforeSequence=-1", nil))
+	if negativeBefore.Code != http.StatusBadRequest {
+		t.Fatalf("negative beforeSequence status = %d, want 400", negativeBefore.Code)
+	}
 	detail := httptest.NewRecorder()
 	router.ServeHTTP(detail, httptest.NewRequest(http.MethodGet, "/logs/550e8400-e29b-41d4-a716-446655440000", nil))
 	if detail.Code != http.StatusOK {

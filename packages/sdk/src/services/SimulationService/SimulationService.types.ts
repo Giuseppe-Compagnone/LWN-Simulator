@@ -20,6 +20,7 @@ export type SimulationConnectionState =
 
 export interface GetSimulationEventsOptions {
   afterSequence?: number;
+  beforeSequence?: number;
   limit?: number;
   deviceID?: string;
   gatewayID?: string;

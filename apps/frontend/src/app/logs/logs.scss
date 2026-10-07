@@ -158,18 +158,40 @@
     overflow: hidden;
   }
 
-  &__panel-head { margin-bottom: 1rem; }
+  &__panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  &__object-filter {
+    width: min(12rem, 45%);
+    min-width: 0;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--primary-bg-color);
+    color: var(--text-color);
+  }
 
   &__objects {
-    display: grid;
+    position: relative;
+    display: block;
     min-height: 0;
     overflow-y: auto;
-    gap: 0.5rem;
+
+    > div { position: relative; }
   }
 
   &__object {
+    position: absolute;
+    right: 0;
+    left: 0;
     display: grid;
-    width: 100%;
+    width: auto;
+    height: calc(4.75rem - 0.5rem);
     padding: 0.75rem;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
@@ -188,7 +210,8 @@
   &__object--active { border-color: var(--primary-color); }
 
   &__object-events,
-  &__event-list {
+  &__event-list,
+  &__virtual-list {
     margin-top: 1.25rem;
   }
 
@@ -204,18 +227,47 @@
     overflow-y: auto;
   }
 
+  &__virtual-list {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+
+    > div { position: relative; }
+  }
+
   &__event {
+    position: absolute;
+    right: 0;
+    left: 0;
     display: grid;
     grid-template-columns: 3rem minmax(8rem, 0.5fr) minmax(0, 1fr);
     gap: 0.75rem;
     align-items: start;
     padding: 0.7rem 0;
     border-bottom: 1px solid var(--border-color);
+    overflow: hidden;
 
     time,
     small { color: var(--secondary-text-color); }
     span { color: var(--primary-color); }
-    small { overflow-wrap: anywhere; }
+
+    small {
+      overflow: hidden;
+      overflow-wrap: anywhere;
+      text-overflow: ellipsis;
+    }
+
+    time {
+      display: grid;
+      gap: 0.2rem;
+
+      small { font-size: 0.65rem; }
+    }
+  }
+
+  &__loading-label {
+    margin-top: 0.5rem;
+    color: var(--secondary-text-color);
   }
 
   @media (width <= 60rem) {
@@ -247,6 +299,10 @@
     &__header-actions {
       align-items: flex-start;
     }
+
+    &__panel-head { flex-direction: column; }
+
+    &__object-filter { width: 100%; }
 
     &__metrics {
       align-items: flex-start;

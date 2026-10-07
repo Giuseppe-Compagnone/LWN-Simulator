@@ -58,13 +58,14 @@ type SimulationService struct {
 	checkpointStore SimulationCheckpointStore
 	logStore        SimulationLogStore
 
-	operationMu sync.Mutex
-	mu          sync.RWMutex
-	engine      *engine.Engine
-	starting    bool
-	nextID      uint64
-	activeRunID string
-	subscribers map[uint64]chan SimulationUpdate
+	operationMu                    sync.Mutex
+	mu                             sync.RWMutex
+	engine                         *engine.Engine
+	starting                       bool
+	nextID                         uint64
+	activeRunID                    string
+	activeRunStartedAtMilliseconds int64
+	subscribers                    map[uint64]chan SimulationUpdate
 
 	persistenceQueue chan simulationPersistenceCommand
 	lastSnapshotAt   time.Time
@@ -107,16 +108,44 @@ func (s *SimulationService) RestorePersisted(ctx context.Context) error {
 	}
 	checkpoint, err := s.checkpointStore.Load()
 	if err != nil || checkpoint == nil {
-		return err
+		if err != nil {
+			return err
+		}
+		return s.reconcileOrphanedLogs()
 	}
 	if checkpoint.State.Status == contracts.SimulationStatusStopped || checkpoint.State.Status == contracts.SimulationStatusFailed {
-		return s.checkpointStore.Clear()
+		if err := s.checkpointStore.Clear(); err != nil {
+			return err
+		}
+		return s.reconcileOrphanedLogs()
 	}
 	s.mu.Lock()
 	s.activeRunID = checkpoint.RunID
 	s.mu.Unlock()
 	_, err = s.Start(ctx, checkpoint.Config)
 	return err
+}
+
+func (s *SimulationService) reconcileOrphanedLogs() error {
+	if s.logStore == nil {
+		return nil
+	}
+	runs, err := s.logStore.List()
+	if err != nil {
+		return err
+	}
+	for _, run := range runs.Runs {
+		if run.Summary.Status != contracts.SimulationRunStatusRunning && run.Summary.Status != contracts.SimulationRunStatusPaused {
+			continue
+		}
+		summary := run.Summary
+		summary.Status = contracts.SimulationRunStatusFailed
+		summary.EndedAtMilliseconds = int64Pointer(time.Now().UnixMilli())
+		if err := s.logStore.Finalize(run.Summary.Id, summary); err != nil {
+			return fmt.Errorf("finalize orphaned simulation log %s: %w", run.Summary.Id, err)
+		}
+	}
+	return nil
 }
 
 func (s *SimulationService) Start(
@@ -202,6 +231,13 @@ func (s *SimulationService) Start(
 		}
 	}
 	runID := s.activeRunID
+	runStartedAtMilliseconds := time.Now().UnixMilli()
+	if persistedCheckpoint != nil && s.logStore != nil {
+		if persistedRun, persistedRunErr := s.logStore.GetRun(runID); persistedRunErr == nil && persistedRun.Summary.StartedAtMilliseconds > 0 {
+			runStartedAtMilliseconds = persistedRun.Summary.StartedAtMilliseconds
+		}
+	}
+	s.activeRunStartedAtMilliseconds = runStartedAtMilliseconds
 	s.starting = false
 	s.mu.Unlock()
 	if s.logStore != nil && persistedCheckpoint == nil {
@@ -213,8 +249,8 @@ func (s *SimulationService) Start(
 			objects = append(objects, contracts.SimulationLogObject{Id: gateway.ID, Name: gateway.Name, Kind: contracts.SimulationLogObjectKindGateway, Identifier: gateway.GatewayEUI})
 		}
 		seed := config.Seed
-		if err := s.logStore.Create(contracts.SimulationRun{Summary: contracts.SimulationRunSummary{Id: runID, StartedAtMilliseconds: time.Now().UnixMilli(), Status: contracts.SimulationRunStatusRunning, Speed: config.Speed, Seed: seed, DeviceCount: int32(len(devices.Devices)), GatewayCount: int32(len(gateways.Gateways))}, Objects: objects}); err != nil {
-			s.finishStarting()
+		if err := s.logStore.Create(contracts.SimulationRun{Summary: contracts.SimulationRunSummary{Id: runID, StartedAtMilliseconds: runStartedAtMilliseconds, Status: contracts.SimulationRunStatusRunning, Speed: config.Speed, Seed: seed, DeviceCount: int32(len(devices.Devices)), GatewayCount: int32(len(gateways.Gateways))}, Objects: objects}); err != nil {
+			s.resetRuntimeAfterStartFailure(runtime)
 			return contracts.SimulationSnapshot{}, fmt.Errorf("create simulation log: %w", err)
 		}
 	}
@@ -222,12 +258,23 @@ func (s *SimulationService) Start(
 	// The service owns the simulation lifecycle. In particular, an HTTP request
 	// context must not stop the engine as soon as the start response is sent.
 	if err := runtime.Start(context.WithoutCancel(ctx)); err != nil {
-		s.mu.Lock()
-		if s.engine == runtime {
-			s.engine = nil
+		failure := fmt.Errorf("start simulation engine: %w", err)
+		if persistenceErr := s.flushPersistence(context.Background()); persistenceErr != nil {
+			failure = errors.Join(failure, fmt.Errorf("flush failed simulation events: %w", persistenceErr))
 		}
-		s.mu.Unlock()
-		return contracts.SimulationSnapshot{}, fmt.Errorf("start simulation engine: %w", err)
+		if s.logStore != nil {
+			summary := s.runSummaryFor(runID, runtime.Snapshot(), contracts.SimulationRunStatusFailed)
+			if finalizeErr := s.logStore.Finalize(runID, summary); finalizeErr != nil {
+				failure = errors.Join(failure, fmt.Errorf("finalize failed simulation log: %w", finalizeErr))
+			}
+		}
+		if s.checkpointStore != nil {
+			if clearErr := s.checkpointStore.Clear(); clearErr != nil {
+				failure = errors.Join(failure, fmt.Errorf("clear failed simulation checkpoint: %w", clearErr))
+			}
+		}
+		s.resetRuntimeAfterStartFailure(runtime)
+		return contracts.SimulationSnapshot{}, failure
 	}
 
 	return runtime.Snapshot(), nil
@@ -278,8 +325,9 @@ func (s *SimulationService) Stop(ctx context.Context) (contracts.SimulationSnaps
 		}
 	}
 	if s.logStore != nil {
-		summary := s.runSummary(runtime.Snapshot(), contracts.SimulationRunStatusStopped)
-		if err := s.logStore.Finalize(s.activeRunID, summary); err != nil {
+		runID := s.currentRunID()
+		summary := s.runSummaryFor(runID, runtime.Snapshot(), contracts.SimulationRunStatusStopped)
+		if err := s.logStore.Finalize(runID, summary); err != nil {
 			return contracts.SimulationSnapshot{}, err
 		}
 	}
@@ -334,6 +382,23 @@ func (s *SimulationService) finishStarting() {
 	s.mu.Unlock()
 }
 
+func (s *SimulationService) resetRuntimeAfterStartFailure(runtime *engine.Engine) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.engine == runtime {
+		s.engine = nil
+	}
+	s.starting = false
+	s.activeRunID = ""
+	s.activeRunStartedAtMilliseconds = 0
+}
+
+func (s *SimulationService) currentRunID() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.activeRunID
+}
+
 func (s *SimulationService) handleEvent(event contracts.SimulationEvent) {
 	s.mu.Lock()
 	runtime := s.engine
@@ -374,10 +439,11 @@ func (s *SimulationService) runPersistenceWorker() {
 	defer ticker.Stop()
 	pending := make([]contracts.SimulationEvent, 0, simulationPersistenceBatch)
 	runID := ""
+	var terminalStatus *contracts.SimulationRunStatus
 	lastCheckpointAt := time.Time{}
 
 	flush := func(forceCheckpoint bool) error {
-		if runID == "" && len(pending) == 0 {
+		if runID == "" && len(pending) == 0 && terminalStatus == nil {
 			return nil
 		}
 		s.mu.RLock()
@@ -387,6 +453,7 @@ func (s *SimulationService) runPersistenceWorker() {
 		if runtime == nil || activeRunID == "" || (runID != "" && runID != activeRunID) {
 			pending = pending[:0]
 			runID = ""
+			terminalStatus = nil
 			return nil
 		}
 
@@ -412,7 +479,23 @@ func (s *SimulationService) runPersistenceWorker() {
 				lastCheckpointAt = time.Now()
 			}
 		}
-		if len(pending) == 0 {
+		if terminalStatus != nil && len(pending) == 0 {
+			status := *terminalStatus
+			if s.logStore != nil {
+				if err := s.logStore.Finalize(activeRunID, s.runSummaryFor(activeRunID, snapshot, status)); err != nil {
+					persistenceErr = errors.Join(persistenceErr, fmt.Errorf("finalize simulation log: %w", err))
+				}
+			}
+			if s.checkpointStore != nil && persistenceErr == nil {
+				if err := s.checkpointStore.Clear(); err != nil {
+					persistenceErr = errors.Join(persistenceErr, fmt.Errorf("clear simulation checkpoint: %w", err))
+				}
+			}
+			if persistenceErr == nil {
+				terminalStatus = nil
+			}
+		}
+		if len(pending) == 0 && terminalStatus == nil {
 			runID = ""
 		}
 		return persistenceErr
@@ -426,10 +509,19 @@ func (s *SimulationService) runPersistenceWorker() {
 					runID = command.runID
 				}
 				pending = append(pending, *command.event)
+				if command.event.Type == contracts.SimulationFailed {
+					status := contracts.SimulationRunStatusFailed
+					terminalStatus = &status
+				}
 			}
 			if command.barrier != nil {
 				command.barrier <- flush(true)
 				continue
+			}
+			if terminalStatus != nil {
+				if err := flush(true); err != nil {
+					log.Printf("simulation persistence failed: %v", err)
+				}
 			}
 			if len(pending) >= simulationPersistenceBatch {
 				if err := flush(false); err != nil {
@@ -505,7 +597,12 @@ func (s *SimulationService) runSummary(snapshot contracts.SimulationSnapshot, st
 }
 
 func (s *SimulationService) runSummaryFor(runID string, snapshot contracts.SimulationSnapshot, status contracts.SimulationRunStatus) contracts.SimulationRunSummary {
-	startedAt := time.Now().UnixMilli() - snapshot.State.ElapsedMilliseconds
+	s.mu.RLock()
+	startedAt := s.activeRunStartedAtMilliseconds
+	s.mu.RUnlock()
+	if startedAt <= 0 {
+		startedAt = time.Now().UnixMilli() - snapshot.State.ElapsedMilliseconds
+	}
 	return contracts.SimulationRunSummary{Id: runID, StartedAtMilliseconds: startedAt, EndedAtMilliseconds: int64Pointer(time.Now().UnixMilli()), DurationMilliseconds: snapshot.State.ElapsedMilliseconds, Status: status, Speed: snapshot.State.Speed, DeviceCount: int32(len(snapshot.Devices)), GatewayCount: int32(len(snapshot.Gateways)), EventCount: int32(snapshot.State.EventSequence), PacketSuccessRate: snapshot.Metrics.PacketSuccessRate}
 }
 

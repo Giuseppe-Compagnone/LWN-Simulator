@@ -39,6 +39,8 @@ type SimulationLogService interface {
 	GetLogEvents(string, services.SimulationLogEventQuery) (contracts.SimulationEventsResponse, error)
 }
 
+const maximumSimulationLogLimit = 1000
+
 type SimulationHandler struct {
 	service   SimulationService
 	validator *validator.Validate
@@ -228,8 +230,16 @@ func (h *SimulationHandler) LogEvents(c *gin.Context) {
 	if !ok {
 		return
 	}
-	limit, ok := parseNonNegativeQuery(c, "limit", 1000)
+	beforeSequence, ok := parseNonNegativeQuery(c, "beforeSequence", 0)
 	if !ok {
+		return
+	}
+	limit, ok := parseNonNegativeQuery(c, "limit", maximumSimulationLogLimit)
+	if !ok {
+		return
+	}
+	if limit == 0 || limit > maximumSimulationLogLimit {
+		writeServiceError(c, apperrors.Invalid("limit must be between 1 and %d", maximumSimulationLogLimit))
 		return
 	}
 	deviceID := strings.TrimSpace(c.Query("deviceID"))
@@ -246,11 +256,12 @@ func (h *SimulationHandler) LogEvents(c *gin.Context) {
 		}
 	}
 	response, err := service.GetLogEvents(c.Param("id"), services.SimulationLogEventQuery{
-		AfterSequence: afterSequence,
-		Limit:         int(limit),
-		DeviceID:      deviceID,
-		GatewayID:     gatewayID,
-		Types:         types,
+		AfterSequence:  afterSequence,
+		BeforeSequence: beforeSequence,
+		Limit:          int(limit),
+		DeviceID:       deviceID,
+		GatewayID:      gatewayID,
+		Types:          types,
 	})
 	if err != nil {
 		if os.IsNotExist(err) {
