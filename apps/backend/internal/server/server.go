@@ -85,10 +85,21 @@ func New(port string) (*gin.Engine, error) {
 		return nil, fmt.Errorf("initialize database: %w", err)
 	}
 
-	deviceRepository := repositories.NewDeviceRepository(dataDir)
+	profileRepository := repositories.NewProfileRepository(dataDir)
+	profileService := services.NewProfileService(profileRepository, dataDir)
+	defaultProfile, err := profileService.EnsureDefaultProfile()
+	if err != nil {
+		return nil, fmt.Errorf("initialize default profile: %w", err)
+	}
+	profileStorage, err := database.NewProfileStorage(dataDir, defaultProfile.ID)
+	if err != nil {
+		return nil, fmt.Errorf("resolve default profile storage: %w", err)
+	}
+
+	deviceRepository := repositories.NewDeviceRepository(profileStorage.Directory())
 	deviceService := services.NewDeviceService(deviceRepository)
 
-	gatewayRepository := repositories.NewGatewayRepository(dataDir)
+	gatewayRepository := repositories.NewGatewayRepository(profileStorage.Directory())
 	gatewayService := services.NewGatewayService(gatewayRepository)
 
 	udpOptions := gateway.UDPOptions{LocalAddress: os.Getenv("LWN_GATEWAY_UDP_LISTEN_ADDR")}
@@ -96,8 +107,8 @@ func New(port string) (*gin.Engine, error) {
 		deviceService,
 		gatewayService,
 		types.Options{GatewayAdapterFactory: gateway.NewUDPFactory(udpOptions)},
-		services.NewFileSimulationCheckpointStore(filepath.Join(dataDir, "simulation-checkpoint.json")),
-		services.NewFileSimulationLogStore(filepath.Join(dataDir, "simulation-logs.json")),
+		services.NewFileSimulationCheckpointStore(filepath.Join(profileStorage.Directory(), "simulation-checkpoint.json")),
+		services.NewFileSimulationLogStore(filepath.Join(profileStorage.Directory(), "simulation-logs.json")),
 	)
 	realtimeHub := realtime.NewHub()
 	deviceService.SetRealtimePublisher(realtimeHub)
@@ -114,6 +125,7 @@ func New(port string) (*gin.Engine, error) {
 	registerRoutes(r, port, Services{
 		Device:     deviceService,
 		Gateway:    gatewayService,
+		Profile:    profileService,
 		Simulation: simulationService,
 		Realtime:   handlers.NewRealtimeHandler(realtimeHub),
 	})

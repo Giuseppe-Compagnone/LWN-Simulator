@@ -9,6 +9,8 @@ paths: {}
 
 components:
   schemas:
+    Profile:
+      $ref: "./schemas/Profile/Profile.yaml"
     RealtimeWebSocketMessageType:
       $ref: "./schemas/Realtime/RealtimeWebSocketMessageType.yaml"
     RealtimeWebSocketMessage:

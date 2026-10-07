@@ -11,6 +11,7 @@ import (
 type Services struct {
 	Device     *services.DeviceService
 	Gateway    *services.GatewayService
+	Profile    *services.ProfileService
 	Simulation *services.SimulationService
 	Realtime   *handlers.RealtimeHandler
 }
