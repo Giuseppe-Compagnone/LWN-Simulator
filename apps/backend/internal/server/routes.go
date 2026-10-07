@@ -12,6 +12,7 @@ type Services struct {
 	Device     *services.DeviceService
 	Gateway    *services.GatewayService
 	Simulation *services.SimulationService
+	Realtime   *handlers.RealtimeHandler
 }
 
 func registerRoutes(r *gin.Engine, port string, services Services) {
@@ -64,4 +65,5 @@ func registerRoutes(r *gin.Engine, port string, services Services) {
 	simulation.POST("/downlinks", simulationHandler.QueueDownlink)
 	simulation.POST("/mac-commands", simulationHandler.QueueMACCommand)
 	simulation.GET("/ws", simulationHandler.WebSocket)
+	api.GET("/ws", services.Realtime.WebSocket)
 }

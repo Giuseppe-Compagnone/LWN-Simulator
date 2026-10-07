@@ -1,9 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { SimulationRunStatus } from "@lwn-simulator/contracts";
-import { useSimulationService } from "@lwn-simulator/sdk";
+import { useEffect, useRef, useState } from "react";
+import {
+  RealtimeWebSocketMessageType,
+  RealtimeWebSocketMessage,
+  SimulationRun,
+  SimulationRunStatus,
+} from "@lwn-simulator/contracts";
+import { useSimulationService, useWebSocket } from "@lwn-simulator/sdk";
 import { Button, ButtonType, Spinner } from "@lwn-simulator/ui-components";
 import "./logs.scss";
 
@@ -24,17 +29,15 @@ const labelStatus = (value: SimulationRunStatus): string =>
 const LogsPage = () => {
   const simulation = useSimulationService();
   const getLogs = simulation.getLogs;
+  const { connectionState, subscribe } = useWebSocket();
+  const hasConnectedRef = useRef(false);
   const [runs, setRuns] = useState<Awaited<ReturnType<typeof simulation.getLogs>>["runs"]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
-    let firstLoad = true;
-    let nextRefresh: number | undefined;
-
-    const refreshLogs = async () => {
-      let shouldPoll = false;
+    const loadLogs = async () => {
       try {
         const response = await getLogs();
         if (mounted) {
@@ -46,30 +49,78 @@ const LogsPage = () => {
             ),
           );
           setError(null);
-          shouldPoll = response.runs.some(
-            (run) => run.summary.status === "running" || run.summary.status === "paused",
-          );
         }
       } catch {
-        if (mounted && firstLoad) setError("Unable to load simulation history.");
+        if (mounted) setError("Unable to load simulation history.");
       } finally {
-        if (mounted && firstLoad) {
-          firstLoad = false;
-          setLoading(false);
-        }
-        if (mounted && shouldPoll) {
-          nextRefresh = window.setTimeout(() => void refreshLogs(), 1000);
-        }
+        if (mounted) setLoading(false);
       }
     };
 
-    void refreshLogs();
+    void loadLogs();
 
     return () => {
       mounted = false;
-      if (nextRefresh !== undefined) window.clearTimeout(nextRefresh);
     };
   }, [getLogs]);
+
+  useEffect(() => {
+    if (connectionState !== "connected") return;
+    if (!hasConnectedRef.current) {
+      hasConnectedRef.current = true;
+      return;
+    }
+
+    void getLogs().then((response) => {
+      setRuns(
+        [...response.runs].sort(
+          (firstRun, secondRun) =>
+            secondRun.summary.startedAtMilliseconds -
+            firstRun.summary.startedAtMilliseconds,
+        ),
+      );
+    }).catch(() => {
+      setError("Unable to refresh simulation history.");
+    });
+  }, [connectionState, getLogs]);
+
+  useEffect(
+    () =>
+      subscribe((rawMessage) => {
+        try {
+          const message = JSON.parse(rawMessage) as RealtimeWebSocketMessage;
+          if (
+            (message.type === RealtimeWebSocketMessageType.SimulationRunCreated ||
+              message.type === RealtimeWebSocketMessageType.SimulationRunUpdated) &&
+            message.runSummary
+          ) {
+            setRuns((previous) => {
+              const nextRun: SimulationRun = {
+                summary: message.runSummary as SimulationRun["summary"],
+                objects: previous.find(
+                  (run) => run.summary.id === message.runSummary?.id,
+                )?.objects ?? [],
+              };
+              const exists = previous.some(
+                (run) => run.summary.id === nextRun.summary.id,
+              );
+              return [...(exists
+                ? previous.map((run) =>
+                    run.summary.id === nextRun.summary.id ? nextRun : run,
+                  )
+                : [...previous, nextRun])].sort(
+                (firstRun, secondRun) =>
+                  secondRun.summary.startedAtMilliseconds -
+                  firstRun.summary.startedAtMilliseconds,
+              );
+            });
+          }
+        } catch {
+          // Ignore messages owned by other realtime consumers.
+        }
+      }),
+    [subscribe],
+  );
 
   return (
     <section className="logs-page">

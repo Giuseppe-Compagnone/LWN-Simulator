@@ -1,0 +1,41 @@
+title: RealtimeWebSocketMessage
+type: object
+
+properties:
+  type:
+    $ref: "./RealtimeWebSocketMessageType.yaml"
+  timestampMilliseconds:
+    type: integer
+    format: int64
+    x-go-name: TimestampMilliseconds
+    x-oapi-codegen-extra-tags:
+      validate: "min=0"
+  resourceID:
+    type: string
+    x-go-name: ResourceID
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty"
+  runID:
+    type: string
+    x-go-name: RunID
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty"
+  device:
+    $ref: "../Device/Device.yaml"
+  gateway:
+    $ref: "../Gateway/Gateway.yaml"
+  snapshot:
+    $ref: "../Simulation/SimulationSnapshot.yaml"
+  event:
+    $ref: "../Simulation/SimulationEvent.yaml"
+  runSummary:
+    $ref: "../Simulation/SimulationRunSummary.yaml"
+  error:
+    type: string
+    x-go-name: Error
+    x-oapi-codegen-extra-tags:
+      validate: "omitempty"
+
+required:
+  - type
+  - timestampMilliseconds

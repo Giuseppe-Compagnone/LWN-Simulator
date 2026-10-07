@@ -13,11 +13,13 @@ import {
   useState,
 } from "react";
 import {
+  RealtimeWebSocketMessageType,
+  RealtimeWebSocketMessage,
   SimulationEvent,
   SimulationLogObject,
   SimulationRun,
 } from "@lwn-simulator/contracts";
-import { useSimulationService } from "@lwn-simulator/sdk";
+import { useSimulationService, useWebSocket } from "@lwn-simulator/sdk";
 import { Button, Spinner } from "@lwn-simulator/ui-components";
 import "../logs.scss";
 
@@ -186,6 +188,8 @@ const LogDetailsContent = () => {
   const simulation = useSimulationService();
   const getLog = simulation.getLog;
   const getLogEvents = simulation.getLogEvents;
+  const { connectionState, subscribe } = useWebSocket();
+  const hasConnectedRef = useRef(false);
   const runID = useSearchParams().get("runId");
   const [run, setRun] = useState<SimulationRun | null>(null);
   const runRef = useRef<SimulationRun | null>(null);
@@ -193,6 +197,7 @@ const LogDetailsContent = () => {
   const eventsRef = useRef<SimulationEvent[]>([]);
   const latestSequenceRef = useRef(0);
   const [selectedObject, setSelectedObject] = useState<SimulationLogObject | null>(null);
+  const selectedObjectRef = useRef<SimulationLogObject | null>(null);
   const [objectEvents, setObjectEvents] = useState<SimulationEvent[]>([]);
   const objectEventsRef = useRef<SimulationEvent[]>([]);
   const objectLatestSequenceRef = useRef(0);
@@ -203,6 +208,10 @@ const LogDetailsContent = () => {
   const [loadingOlderEvents, setLoadingOlderEvents] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    selectedObjectRef.current = selectedObject;
+  }, [selectedObject]);
 
   const updateEvents = useCallback((incoming: SimulationEvent[], maxEvents?: number) => {
     setEvents((current) => {
@@ -220,15 +229,13 @@ const LogDetailsContent = () => {
     }
 
     let mounted = true;
-    let nextPoll: number | undefined;
-
-    const poll = async () => {
+    const loadInitialState = async () => {
       try {
         const loadedRun = await getLog(runID);
-        const initialLoad = eventsRef.current.length === 0 && latestSequenceRef.current === 0;
-        const loadedEvents = await getLogEvents(runID, initialLoad && loadedRun.summary.eventCount > 0
-          ? { beforeSequence: loadedRun.summary.eventCount + 1, limit: eventPageSize }
-          : { afterSequence: latestSequenceRef.current, limit: eventPageSize });
+        const loadedEvents = await getLogEvents(runID, {
+          beforeSequence: loadedRun.summary.eventCount + 1,
+          limit: eventPageSize,
+        });
         if (!mounted) return;
         runRef.current = loadedRun;
         setRun(loadedRun);
@@ -245,24 +252,118 @@ const LogDetailsContent = () => {
         setSelectedObject((currentObject) => currentObject ?? loadedRun.objects[0] ?? null);
         setError(null);
         setLoading(false);
-        if (loadedRun.summary.status === "running" || loadedRun.summary.status === "paused") {
-          nextPoll = window.setTimeout(() => void poll(), 1000);
-        }
       } catch {
         if (mounted) {
-          setError((currentError) => currentError ?? "Unable to load this simulation log.");
+          setError("Unable to load this simulation log.");
           setLoading(false);
-          nextPoll = window.setTimeout(() => void poll(), 1500);
         }
       }
     };
 
-    void poll();
+    void loadInitialState();
     return () => {
       mounted = false;
-      if (nextPoll !== undefined) window.clearTimeout(nextPoll);
     };
   }, [getLog, getLogEvents, runID, updateEvents]);
+
+  useEffect(() => {
+    if (!runID || connectionState !== "connected") return;
+    if (!hasConnectedRef.current) {
+      hasConnectedRef.current = true;
+      return;
+    }
+
+    let mounted = true;
+    const recoverAfterReconnect = async () => {
+      try {
+        const [loadedRun, loadedEvents] = await Promise.all([
+          getLog(runID),
+          getLogEvents(runID, {
+            afterSequence: latestSequenceRef.current,
+            limit: eventPageSize,
+          }),
+        ]);
+        if (!mounted) return;
+        runRef.current = loadedRun;
+        setRun(loadedRun);
+        latestSequenceRef.current = Math.max(
+          latestSequenceRef.current,
+          loadedEvents.lastSequence,
+        );
+        updateEvents(loadedEvents.events, maxLiveEvents);
+        const selected = selectedObjectRef.current;
+        if (selected) {
+          const objectEventsFromRecovery = loadedEvents.events.filter((event) =>
+            selected.kind === "device"
+              ? event.deviceID === selected.id
+              : event.gatewayID === selected.id,
+          );
+          const merged = mergeEvents(objectEventsRef.current, objectEventsFromRecovery);
+          objectEventsRef.current = merged;
+          setObjectEvents(merged);
+        }
+      } catch {
+        if (mounted) setError("Unable to recover the realtime log stream.");
+      }
+    };
+
+    void recoverAfterReconnect();
+    return () => {
+      mounted = false;
+    };
+  }, [connectionState, getLog, getLogEvents, runID, updateEvents]);
+
+  useEffect(() => {
+    if (!runID) return;
+
+    return subscribe((rawMessage) => {
+      try {
+        const message = JSON.parse(rawMessage) as RealtimeWebSocketMessage;
+        if (message.runID !== runID) return;
+
+        if (
+          message.type === RealtimeWebSocketMessageType.SimulationRunUpdated &&
+          message.runSummary
+        ) {
+          setRun((current) => {
+            if (!current) return current;
+            const next = { ...current, summary: message.runSummary as SimulationRun["summary"] };
+            runRef.current = next;
+            return next;
+          });
+        }
+
+        if (
+          message.type === RealtimeWebSocketMessageType.SimulationEvent &&
+          message.event
+        ) {
+          latestSequenceRef.current = Math.max(
+            latestSequenceRef.current,
+            message.event.sequence,
+          );
+          updateEvents([message.event], maxLiveEvents);
+          if (
+            selectedObjectRef.current &&
+            ((selectedObjectRef.current.kind === "device" &&
+              message.event.deviceID === selectedObjectRef.current.id) ||
+              (selectedObjectRef.current.kind === "gateway" &&
+                message.event.gatewayID === selectedObjectRef.current.id))
+          ) {
+            const nextObjectEvents = mergeEvents(objectEventsRef.current, [message.event]);
+            objectEventsRef.current = nextObjectEvents;
+            objectLatestSequenceRef.current = Math.max(
+              objectLatestSequenceRef.current,
+              message.event.sequence,
+            );
+            setObjectEvents(nextObjectEvents);
+            setObjectLoading(false);
+          }
+        }
+      } catch {
+        // Ignore messages owned by another realtime consumer.
+      }
+    });
+  }, [runID, subscribe, updateEvents]);
 
   const loadOlderEvents = useCallback(async () => {
     if (!runID || loadingOlderEvents || eventsRef.current.length === 0) return;
@@ -315,19 +416,15 @@ const LogDetailsContent = () => {
   useEffect(() => {
     if (!runID || !runRef.current || !selectedObject) return;
     let mounted = true;
-    let nextPoll: number | undefined;
     const filter = selectedObject.kind === "device"
       ? { deviceID: selectedObject.id }
       : { gatewayID: selectedObject.id };
 
-    const pollObjectEvents = async () => {
+    const loadObjectEvents = async () => {
       try {
         const response = await getLogEvents(runID, {
           ...filter,
-          afterSequence: objectLatestSequenceRef.current,
-          beforeSequence: objectLatestSequenceRef.current === 0
-            ? (runRef.current?.summary.eventCount ?? 0) + 1
-            : undefined,
+          beforeSequence: (runRef.current?.summary.eventCount ?? 0) + 1,
           limit: eventPageSize,
         });
         if (!mounted) return;
@@ -339,10 +436,6 @@ const LogDetailsContent = () => {
         );
         setObjectEvents(merged);
         setObjectLoading(false);
-        const status = runRef.current?.summary.status;
-        if (status === "running" || status === "paused") {
-          nextPoll = window.setTimeout(() => void pollObjectEvents(), 1000);
-        }
       } catch {
         if (mounted) setObjectLoading(false);
       }
@@ -350,12 +443,12 @@ const LogDetailsContent = () => {
 
     objectEventsRef.current = [];
     objectLatestSequenceRef.current = 0;
+    selectedObjectRef.current = selectedObject;
     setObjectEvents([]);
     setObjectLoading(true);
-    void pollObjectEvents();
+    void loadObjectEvents();
     return () => {
       mounted = false;
-      if (nextPoll !== undefined) window.clearTimeout(nextPoll);
     };
   }, [getLogEvents, runID, selectedObject]);
 

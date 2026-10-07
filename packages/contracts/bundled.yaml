@@ -6,6 +6,73 @@ info:
 paths: {}
 components:
   schemas:
+    RealtimeWebSocketMessageType:
+      title: RealtimeWebSocketMessageType
+      type: string
+      enum:
+        - device.created
+        - device.updated
+        - device.deleted
+        - gateway.created
+        - gateway.updated
+        - gateway.deleted
+        - simulation.snapshot
+        - simulation.event
+        - simulation.run.created
+        - simulation.run.updated
+        - error
+      x-enum-varnames:
+        - RealtimeDeviceCreatedMessage
+        - RealtimeDeviceUpdatedMessage
+        - RealtimeDeviceDeletedMessage
+        - RealtimeGatewayCreatedMessage
+        - RealtimeGatewayUpdatedMessage
+        - RealtimeGatewayDeletedMessage
+        - RealtimeSimulationSnapshotMessage
+        - RealtimeSimulationEventMessage
+        - RealtimeSimulationRunCreatedMessage
+        - RealtimeSimulationRunUpdatedMessage
+        - RealtimeErrorMessage
+    RealtimeWebSocketMessage:
+      title: RealtimeWebSocketMessage
+      type: object
+      properties:
+        type:
+          $ref: '#/components/schemas/RealtimeWebSocketMessageType'
+        timestampMilliseconds:
+          type: integer
+          format: int64
+          x-go-name: TimestampMilliseconds
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        resourceID:
+          type: string
+          x-go-name: ResourceID
+          x-oapi-codegen-extra-tags:
+            validate: omitempty
+        runID:
+          type: string
+          x-go-name: RunID
+          x-oapi-codegen-extra-tags:
+            validate: omitempty
+        device:
+          $ref: '#/components/schemas/Device'
+        gateway:
+          $ref: '#/components/schemas/Gateway'
+        snapshot:
+          $ref: '#/components/schemas/SimulationSnapshot'
+        event:
+          $ref: '#/components/schemas/SimulationEvent'
+        runSummary:
+          $ref: '#/components/schemas/SimulationRunSummary'
+        error:
+          type: string
+          x-go-name: Error
+          x-oapi-codegen-extra-tags:
+            validate: omitempty
+      required:
+        - type
+        - timestampMilliseconds
     AppInfoResponse:
       title: AppInfoResponse
       type: object

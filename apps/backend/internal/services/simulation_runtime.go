@@ -33,7 +33,9 @@ func (s *SimulationService) SetSpeed(speed float64) (contracts.SimulationSnapsho
 	if err := runtime.SetSpeed(speed); err != nil {
 		return contracts.SimulationSnapshot{}, wrapEngineCommandError("change simulation speed", err)
 	}
-	return runtime.Snapshot(), nil
+	snapshot := runtime.Snapshot()
+	s.publishSnapshot(snapshot)
+	return snapshot, nil
 }
 
 func (s *SimulationService) QueueUplink(req contracts.SimulationUplinkRequest) (contracts.SimulationActionResponse, error) {

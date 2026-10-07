@@ -12,10 +12,10 @@ import (
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
-	"github.com/gorilla/websocket"
 	"lwn-simulator-backend/internal/apperrors"
 	"lwn-simulator-backend/internal/services"
 	"lwn-simulator-backend/internal/telemetry"
+	ws "lwn-simulator-backend/internal/websocket"
 )
 
 type SimulationService interface {
@@ -44,30 +44,30 @@ const maximumSimulationLogLimit = 1000
 type SimulationHandler struct {
 	service   SimulationService
 	validator *validator.Validate
-	upgrader  websocket.Upgrader
+	websocket *ws.Server
 }
 
 func NewSimulationHandler(service SimulationService, validator *validator.Validate) *SimulationHandler {
 	return &SimulationHandler{
 		service:   service,
 		validator: validator,
-		upgrader: websocket.Upgrader{
-			ReadBufferSize:  4096,
-			WriteBufferSize: 8192,
-			CheckOrigin: func(r *http.Request) bool {
-				origin := r.Header.Get("Origin")
-				if origin == "" {
-					return true
-				}
-				parsed, parseErr := url.Parse(origin)
-				if parseErr != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
-					return false
-				}
-				return strings.EqualFold(parsed.Hostname(), "localhost") ||
-					parsed.Hostname() == "127.0.0.1" || parsed.Hostname() == "::1"
-			},
-		},
+		websocket: ws.NewServer(allowWebSocketOrigin),
 	}
+}
+
+func allowWebSocketOrigin(request *http.Request) bool {
+	origin := request.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+
+	parsed, err := url.Parse(origin)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return false
+	}
+
+	return strings.EqualFold(parsed.Hostname(), "localhost") ||
+		parsed.Hostname() == "127.0.0.1" || parsed.Hostname() == "::1"
 }
 
 func (h *SimulationHandler) Start(c *gin.Context) {
@@ -275,7 +275,7 @@ func (h *SimulationHandler) LogEvents(c *gin.Context) {
 }
 
 func (h *SimulationHandler) WebSocket(c *gin.Context) {
-	connection, err := h.upgrader.Upgrade(c.Writer, c.Request, nil)
+	connection, err := h.websocket.Upgrade(c.Writer, c.Request)
 	if err != nil {
 		return
 	}
@@ -283,7 +283,7 @@ func (h *SimulationHandler) WebSocket(c *gin.Context) {
 
 	subscription, err := h.service.Subscribe()
 	if err != nil {
-		_ = writeWebSocketMessage(connection, contracts.SimulationWebSocketMessage{
+		_ = connection.SendJSONAndClose(contracts.SimulationWebSocketMessage{
 			Type:                  contracts.SimulationErrorMessage,
 			TimestampMilliseconds: time.Now().UnixMilli(),
 			Error:                 stringPointer(err.Error()),
@@ -293,7 +293,7 @@ func (h *SimulationHandler) WebSocket(c *gin.Context) {
 	defer subscription.Close()
 
 	if snapshot, snapshotErr := h.service.Snapshot(); snapshotErr == nil {
-		if err := writeWebSocketMessage(connection, contracts.SimulationWebSocketMessage{
+		if err := connection.SendJSON(contracts.SimulationWebSocketMessage{
 			Type:                  contracts.SimulationSnapshotMessage,
 			TimestampMilliseconds: time.Now().UnixMilli(),
 			Snapshot:              &snapshot,
@@ -302,7 +302,7 @@ func (h *SimulationHandler) WebSocket(c *gin.Context) {
 		}
 	}
 
-	done := watchWebSocketConnection(connection)
+	done := connection.Done()
 	for {
 		select {
 		case <-done:
@@ -320,7 +320,7 @@ func (h *SimulationHandler) WebSocket(c *gin.Context) {
 			if update.IncludeSnapshot {
 				message.Snapshot = &update.Snapshot
 			}
-			if err := writeWebSocketMessage(connection, message); err != nil {
+			if err := connection.SendJSON(message); err != nil {
 				return
 			}
 		}
@@ -362,23 +362,6 @@ func parseNonNegativeQuery(c *gin.Context, name string, fallback int64) (int64, 
 		return 0, false
 	}
 	return value, true
-}
-
-func writeWebSocketMessage(connection *websocket.Conn, message contracts.SimulationWebSocketMessage) error {
-	return connection.WriteJSON(message)
-}
-
-func watchWebSocketConnection(connection *websocket.Conn) <-chan struct{} {
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		for {
-			if _, _, err := connection.ReadMessage(); err != nil {
-				return
-			}
-		}
-	}()
-	return done
 }
 
 func stringPointer(value string) *string { return &value }

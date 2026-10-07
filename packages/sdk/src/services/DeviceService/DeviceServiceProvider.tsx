@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DeviceServiceContent,
   DeviceServiceProviderProps,
@@ -9,9 +9,12 @@ import {
   DeleteDeviceRequest,
   Device,
   GetDeviceRequest,
+  RealtimeWebSocketMessage,
+  RealtimeWebSocketMessageType,
   UpdateDeviceRequest,
 } from "@lwn-simulator/contracts";
 import { DeviceService } from "./DeviceService";
+import { useWebSocket } from "../../websocket";
 
 const DeviceServiceProvider = (props: DeviceServiceProviderProps) => {
   // States
@@ -23,6 +26,8 @@ const DeviceServiceProvider = (props: DeviceServiceProviderProps) => {
     () => new DeviceService(props.baseUrl),
     [props.baseUrl],
   );
+  const { connectionState, subscribe } = useWebSocket();
+  const hasConnectedRef = useRef(false);
 
   // Callbacks
   const createDevice = useCallback(
@@ -82,6 +87,53 @@ const DeviceServiceProvider = (props: DeviceServiceProviderProps) => {
     },
     [service],
   );
+
+  const handleRealtimeMessage = useCallback((rawMessage: string) => {
+    try {
+      const message = JSON.parse(rawMessage) as RealtimeWebSocketMessage;
+      if (
+        (message.type === RealtimeWebSocketMessageType.DeviceCreated ||
+          message.type === RealtimeWebSocketMessageType.DeviceUpdated) &&
+        message.device
+      ) {
+        setDevices((previous) => {
+          if (!previous) return [message.device as Device];
+          const exists = previous.some((device) => device.id === message.device?.id);
+          return exists
+            ? previous.map((device) =>
+                device.id === message.device?.id ? message.device as Device : device,
+              )
+            : [...previous, message.device as Device];
+        });
+      } else if (
+        message.type === RealtimeWebSocketMessageType.DeviceDeleted &&
+        message.resourceID
+      ) {
+        setDevices((previous) =>
+          previous?.filter((device) => device.id !== message.resourceID) ?? null,
+        );
+      }
+    } catch {
+      // Ignore messages owned by another realtime consumer or malformed data.
+    }
+  }, []);
+
+  useEffect(
+    () => subscribe(handleRealtimeMessage),
+    [handleRealtimeMessage, subscribe],
+  );
+
+  useEffect(() => {
+    if (connectionState !== "connected") return;
+    if (!hasConnectedRef.current) {
+      hasConnectedRef.current = true;
+      return;
+    }
+
+    void getDevices().catch(() => {
+      setError(new Error("Failed to recover devices after websocket reconnect"));
+    });
+  }, [connectionState, getDevices]);
 
   // Effects
   useEffect(() => {

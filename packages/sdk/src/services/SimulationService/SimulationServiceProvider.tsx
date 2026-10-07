@@ -7,11 +7,11 @@ import {
   SimulationEventsResponse,
   SimulationMACCommandRequest,
   SimulationSnapshot,
-  SimulationStatus,
   SimulationUplinkRequest,
-  SimulationWebSocketMessage,
-  SimulationWebSocketMessageType,
+  RealtimeWebSocketMessageType,
+  RealtimeWebSocketMessage,
 } from "@lwn-simulator/contracts";
+import { useWebSocket } from "../../websocket";
 import SimulationServiceContext from "./SimulationServiceContext";
 import {
   GetSimulationEventsOptions,
@@ -22,28 +22,27 @@ import {
 import { SimulationService } from "./SimulationService";
 
 const realtimeRenderIntervalMilliseconds = 100;
-
 const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
   const [snapshot, setSnapshot] = useState<SimulationSnapshot | null>(null);
   const [events, setEvents] = useState<Array<SimulationEvent>>([]);
-  const [connectionState, setConnectionState] =
-    useState<SimulationConnectionState>("disconnected");
   const [error, setError] = useState<Error | null>(null);
   const service = useMemo(
     () => new SimulationService(props.baseUrl),
     [props.baseUrl],
   );
-  const socketRef = useRef<WebSocket | null>(null);
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const shouldReconnectRef = useRef(false);
-  const snapshotRef = useRef<SimulationSnapshot | null>(null);
+  const {
+    subscribe: subscribeWebSocket,
+    connectionState,
+    error: websocketError,
+  } = useWebSocket();
   const eventsRef = useRef<Array<SimulationEvent>>([]);
   const pendingSnapshotRef = useRef<SimulationSnapshot | null>(null);
   const pendingEventsRef = useRef<Array<SimulationEvent>>([]);
   const renderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasSnapshotRef = useRef(false);
 
   const updateSnapshot = useCallback((next: SimulationSnapshot) => {
-    snapshotRef.current = next;
+    hasSnapshotRef.current = true;
     setSnapshot(next);
   }, []);
 
@@ -98,94 +97,72 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
     [service, updateEvents],
   );
 
-  const disconnect = useCallback(() => {
-    shouldReconnectRef.current = false;
-    if (reconnectTimerRef.current) {
-      clearTimeout(reconnectTimerRef.current);
-      reconnectTimerRef.current = null;
-    }
-    socketRef.current?.close();
-    socketRef.current = null;
-    if (renderTimerRef.current) {
-      clearTimeout(renderTimerRef.current);
-      flushRealtimeUpdates();
-    }
-    setConnectionState("disconnected");
-  }, [flushRealtimeUpdates]);
-
-  const connect = useCallback(() => {
-    if (socketRef.current || connectionState === "connecting") {
-      return;
-    }
-
-    shouldReconnectRef.current = true;
-    setConnectionState("connecting");
-    const socket = new WebSocket(service.getWebSocketUrl());
-    socketRef.current = socket;
-
-    socket.onopen = () => {
-      setError(null);
-      setConnectionState("connected");
-      void getEvents().catch((eventsError: unknown) => {
-        setError(
-          eventsError instanceof Error
-            ? eventsError
-            : new Error("Unable to recover simulation events"),
-        );
-      });
-    };
-    socket.onmessage = (message) => {
+  const handleWebSocketMessage = useCallback(
+    (rawMessage: string) => {
       try {
-        const update = JSON.parse(message.data as string) as SimulationWebSocketMessage;
-        if (update.type === SimulationWebSocketMessageType.Error) {
-          setError(new Error(update.error ?? "Simulation websocket error"));
+        const update = JSON.parse(rawMessage) as RealtimeWebSocketMessage;
+        if (update.type === RealtimeWebSocketMessageType.Error) {
+          setError(new Error(update.error ?? "Realtime websocket error"));
           return;
         }
         if (update.snapshot) {
           pendingSnapshotRef.current = update.snapshot;
         }
         if (
-          update.type === SimulationWebSocketMessageType.Event &&
+          update.type === RealtimeWebSocketMessageType.SimulationEvent &&
           update.event
         ) {
-          pendingEventsRef.current.push(update.event as SimulationEvent);
+          pendingEventsRef.current.push(update.event);
         }
         scheduleRealtimeRender();
       } catch (parseError) {
         setError(
           parseError instanceof Error
             ? parseError
-            : new Error("Invalid simulation websocket message"),
+            : new Error("Invalid realtime websocket message"),
         );
       }
-    };
-    socket.onerror = () => {
-      setError(new Error("Simulation websocket connection failed"));
-    };
-    socket.onclose = () => {
-      socketRef.current = null;
-      setConnectionState("disconnected");
-      const status = snapshotRef.current?.state.status;
-      if (
-        shouldReconnectRef.current &&
-        status !== "stopped" &&
-        status !== "failed"
-      ) {
-        reconnectTimerRef.current = setTimeout(connect, 1000);
-      }
-    };
-  }, [connectionState, getEvents, scheduleRealtimeRender, service]);
+    },
+    [scheduleRealtimeRender],
+  );
+
+  useEffect(
+    () => subscribeWebSocket(handleWebSocketMessage),
+    [handleWebSocketMessage, subscribeWebSocket],
+  );
+
+  useEffect(() => {
+    if (connectionState !== "connected" || !hasSnapshotRef.current) return;
+
+    void getEvents().catch((eventsError: unknown) => {
+      setError(
+        eventsError instanceof Error
+          ? eventsError
+          : new Error("Unable to recover simulation events"),
+      );
+    });
+  }, [connectionState, getEvents]);
+
+  const disconnect = useCallback(() => {
+    if (renderTimerRef.current) {
+      clearTimeout(renderTimerRef.current);
+      flushRealtimeUpdates();
+    }
+  }, [flushRealtimeUpdates]);
+
+  const connect = useCallback(() => undefined, []);
 
   const start = useCallback(
     async (config: SimulationConfig) => {
       const next = await service.start(config);
+      pendingSnapshotRef.current = null;
+      pendingEventsRef.current = [];
       updateEvents([]);
       setError(null);
       updateSnapshot(next);
-      connect();
       return next;
     },
-    [connect, service, updateEvents, updateSnapshot],
+    [service, updateEvents, updateSnapshot],
   );
 
   const pause = useCallback(async () => {
@@ -214,14 +191,8 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
     const next = await service.getSnapshot();
     updateSnapshot(next);
     setError(null);
-    if (
-      next.state.status === SimulationStatus.Running ||
-      next.state.status === SimulationStatus.Paused
-    ) {
-      connect();
-    }
     return next;
-  }, [connect, service, updateSnapshot]);
+  }, [service, updateSnapshot]);
 
   const queueUplink = useCallback(
     async (
@@ -270,12 +241,15 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
     [service],
   );
 
-  const setSpeed = useCallback(async (request: Parameters<SimulationService["setSpeed"]>[0]) => {
-    const response = await service.setSpeed(request);
-    updateSnapshot(response);
-    setError(null);
-    return response;
-  }, [service, updateSnapshot]);
+  const setSpeed = useCallback(
+    async (request: Parameters<SimulationService["setSpeed"]>[0]) => {
+      const response = await service.setSpeed(request);
+      updateSnapshot(response);
+      setError(null);
+      return response;
+    },
+    [service, updateSnapshot],
+  );
 
   useEffect(() => disconnect, [disconnect]);
 
@@ -299,8 +273,8 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
       disconnect,
       snapshot,
       events,
-      connectionState,
-      error,
+      connectionState: connectionState as SimulationConnectionState,
+      error: error ?? websocketError,
     }),
     [
       start,
@@ -322,6 +296,7 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
       snapshot,
       events,
       connectionState,
+      websocketError,
       error,
     ],
   );

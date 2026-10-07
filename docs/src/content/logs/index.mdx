@@ -64,8 +64,18 @@ gateway or bridge connectivity changes.
 
 ## Live run history
 
-The Logs page and the run detail page refresh automatically while a simulation
-is running or paused. New events are added without requiring a manual reload.
+The Logs page and the run detail page update automatically while a simulation
+is running or paused. New events, the run status, duration, event count, and
+packet-success value appear without requiring a manual reload.
+
+This also works when the same simulation is open in more than one browser tab
+or by more than one user connected to the same simulator. Starting, pausing,
+resuming, or stopping a run is reflected in the other open views.
+
+The connection indicator in the application header shows whether live updates
+are available. If it temporarily shows **Reconnecting**, keep the page open:
+the application restores the live view and recovers the latest available state
+when the connection returns.
 
 The event stream follows new entries only when you are already close to the end
 of the list. If you scroll away to inspect older entries, incoming events do

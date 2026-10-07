@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"lwn-simulator-backend/internal/database"
 	"lwn-simulator-backend/internal/frontend"
+	"lwn-simulator-backend/internal/handlers"
+	"lwn-simulator-backend/internal/realtime"
 	"lwn-simulator-backend/internal/repositories"
 	"lwn-simulator-backend/internal/services"
 	"net/http"
@@ -97,6 +99,10 @@ func New(port string) (*gin.Engine, error) {
 		services.NewFileSimulationCheckpointStore(filepath.Join(dataDir, "simulation-checkpoint.json")),
 		services.NewFileSimulationLogStore(filepath.Join(dataDir, "simulation-logs.json")),
 	)
+	realtimeHub := realtime.NewHub()
+	deviceService.SetRealtimePublisher(realtimeHub)
+	gatewayService.SetRealtimePublisher(realtimeHub)
+	simulationService.SetRealtimePublisher(realtimeHub)
 	deviceService.SetRuntimeSynchronizer(simulationService)
 	gatewayService.SetRuntimeSynchronizer(simulationService)
 	if err := simulationService.RestorePersisted(context.Background()); err != nil {
@@ -109,6 +115,7 @@ func New(port string) (*gin.Engine, error) {
 		Device:     deviceService,
 		Gateway:    gatewayService,
 		Simulation: simulationService,
+		Realtime:   handlers.NewRealtimeHandler(realtimeHub),
 	})
 
 	if err := registerFrontend(r); err != nil {

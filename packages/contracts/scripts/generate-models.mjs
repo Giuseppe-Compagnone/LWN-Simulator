@@ -6,8 +6,8 @@ const output = "generated/models.ts";
 const content = fs.readFileSync(input, "utf8");
 
 const toPascalCase = (str) =>
-  str
-    .split("-")
+    str
+    .split(/[^a-zA-Z0-9]+/)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join("");
 

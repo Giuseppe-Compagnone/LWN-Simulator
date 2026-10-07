@@ -12,11 +12,9 @@ import {
   SimulationUplinkRequest,
 } from "@lwn-simulator/contracts";
 import { PropsWithChildren } from "react";
+import { WebSocketConnectionState } from "../../websocket";
 
-export type SimulationConnectionState =
-  | "disconnected"
-  | "connecting"
-  | "connected";
+export type SimulationConnectionState = WebSocketConnectionState;
 
 export interface GetSimulationEventsOptions {
   afterSequence?: number;

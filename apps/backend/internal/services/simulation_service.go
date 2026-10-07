@@ -66,9 +66,16 @@ type SimulationService struct {
 	activeRunID                    string
 	activeRunStartedAtMilliseconds int64
 	subscribers                    map[uint64]chan SimulationUpdate
+	realtimePublisher              RealtimePublisher
 
 	persistenceQueue chan simulationPersistenceCommand
 	lastSnapshotAt   time.Time
+}
+
+func (s *SimulationService) SetRealtimePublisher(publisher RealtimePublisher) {
+	s.mu.Lock()
+	s.realtimePublisher = publisher
+	s.mu.Unlock()
 }
 
 func NewSimulationService(
@@ -249,10 +256,12 @@ func (s *SimulationService) Start(
 			objects = append(objects, contracts.SimulationLogObject{Id: gateway.ID, Name: gateway.Name, Kind: contracts.SimulationLogObjectKindGateway, Identifier: gateway.GatewayEUI})
 		}
 		seed := config.Seed
-		if err := s.logStore.Create(contracts.SimulationRun{Summary: contracts.SimulationRunSummary{Id: runID, StartedAtMilliseconds: runStartedAtMilliseconds, Status: contracts.SimulationRunStatusRunning, Speed: config.Speed, Seed: seed, DeviceCount: int32(len(devices.Devices)), GatewayCount: int32(len(gateways.Gateways))}, Objects: objects}); err != nil {
+		run := contracts.SimulationRun{Summary: contracts.SimulationRunSummary{Id: runID, StartedAtMilliseconds: runStartedAtMilliseconds, Status: contracts.SimulationRunStatusRunning, Speed: config.Speed, Seed: seed, DeviceCount: int32(len(devices.Devices)), GatewayCount: int32(len(gateways.Gateways))}, Objects: objects}
+		if err := s.logStore.Create(run); err != nil {
 			s.resetRuntimeAfterStartFailure(runtime)
 			return contracts.SimulationSnapshot{}, fmt.Errorf("create simulation log: %w", err)
 		}
+		s.publishRunSummary(contracts.RealtimeSimulationRunCreatedMessage, run.Summary)
 	}
 
 	// The service owns the simulation lifecycle. In particular, an HTTP request
@@ -277,7 +286,9 @@ func (s *SimulationService) Start(
 		return contracts.SimulationSnapshot{}, failure
 	}
 
-	return runtime.Snapshot(), nil
+	snapshot := runtime.Snapshot()
+	s.publishSnapshot(snapshot)
+	return snapshot, nil
 }
 
 func (s *SimulationService) Pause() (contracts.SimulationSnapshot, error) {
@@ -290,7 +301,9 @@ func (s *SimulationService) Pause() (contracts.SimulationSnapshot, error) {
 	if err := runtime.Pause(); err != nil {
 		return contracts.SimulationSnapshot{}, err
 	}
-	return runtime.Snapshot(), nil
+	snapshot := runtime.Snapshot()
+	s.publishSnapshot(snapshot)
+	return snapshot, nil
 }
 
 func (s *SimulationService) Resume() (contracts.SimulationSnapshot, error) {
@@ -303,7 +316,9 @@ func (s *SimulationService) Resume() (contracts.SimulationSnapshot, error) {
 	if err := runtime.Resume(); err != nil {
 		return contracts.SimulationSnapshot{}, err
 	}
-	return runtime.Snapshot(), nil
+	snapshot := runtime.Snapshot()
+	s.publishSnapshot(snapshot)
+	return snapshot, nil
 }
 
 func (s *SimulationService) Stop(ctx context.Context) (contracts.SimulationSnapshot, error) {
@@ -330,8 +345,11 @@ func (s *SimulationService) Stop(ctx context.Context) (contracts.SimulationSnaps
 		if err := s.logStore.Finalize(runID, summary); err != nil {
 			return contracts.SimulationSnapshot{}, err
 		}
+		s.publishRunSummary(contracts.RealtimeSimulationRunUpdatedMessage, summary)
 	}
-	return runtime.Snapshot(), nil
+	snapshot := runtime.Snapshot()
+	s.publishSnapshot(snapshot)
+	return snapshot, nil
 }
 
 func (s *SimulationService) Snapshot() (contracts.SimulationSnapshot, error) {
@@ -399,6 +417,63 @@ func (s *SimulationService) currentRunID() string {
 	return s.activeRunID
 }
 
+func (s *SimulationService) publishEvent(runID string, event contracts.SimulationEvent, update SimulationUpdate) {
+	s.mu.RLock()
+	publisher := s.realtimePublisher
+	s.mu.RUnlock()
+	if publisher == nil {
+		return
+	}
+	message := contracts.RealtimeWebSocketMessage{
+		Type:                  contracts.RealtimeSimulationEventMessage,
+		TimestampMilliseconds: time.Now().UnixMilli(),
+		RunID:                 stringPointerOrNil(runID),
+		Event:                 &event,
+	}
+	if update.IncludeSnapshot {
+		message.Snapshot = &update.Snapshot
+	}
+	publisher.Publish(message)
+}
+
+func (s *SimulationService) publishSnapshot(snapshot contracts.SimulationSnapshot) {
+	s.mu.RLock()
+	publisher := s.realtimePublisher
+	runID := s.activeRunID
+	s.mu.RUnlock()
+	if publisher == nil {
+		return
+	}
+	publisher.Publish(contracts.RealtimeWebSocketMessage{
+		Type:                  contracts.RealtimeSimulationSnapshotMessage,
+		TimestampMilliseconds: time.Now().UnixMilli(),
+		RunID:                 stringPointerOrNil(runID),
+		Snapshot:              &snapshot,
+	})
+}
+
+func (s *SimulationService) publishRunSummary(messageType contracts.RealtimeWebSocketMessageType, summary contracts.SimulationRunSummary) {
+	s.mu.RLock()
+	publisher := s.realtimePublisher
+	s.mu.RUnlock()
+	if publisher == nil {
+		return
+	}
+	publisher.Publish(contracts.RealtimeWebSocketMessage{
+		Type:                  messageType,
+		TimestampMilliseconds: time.Now().UnixMilli(),
+		RunID:                 stringPointerOrNil(summary.Id),
+		RunSummary:            &summary,
+	})
+}
+
+func stringPointerOrNil(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
 func (s *SimulationService) handleEvent(event contracts.SimulationEvent) {
 	s.mu.Lock()
 	runtime := s.engine
@@ -407,7 +482,7 @@ func (s *SimulationService) handleEvent(event contracts.SimulationEvent) {
 	for _, channel := range s.subscribers {
 		updates = append(updates, channel)
 	}
-	includeSnapshot := len(updates) > 0 && (s.lastSnapshotAt.IsZero() || time.Since(s.lastSnapshotAt) >= simulationSnapshotInterval || isLifecycleEvent(event.Type))
+	includeSnapshot := (len(updates) > 0 || s.realtimePublisher != nil) && (s.lastSnapshotAt.IsZero() || time.Since(s.lastSnapshotAt) >= simulationSnapshotInterval || isLifecycleEvent(event.Type))
 	if includeSnapshot {
 		s.lastSnapshotAt = time.Now()
 	}
@@ -425,6 +500,7 @@ func (s *SimulationService) handleEvent(event contracts.SimulationEvent) {
 	if includeSnapshot {
 		update.Snapshot = runtime.Snapshot()
 	}
+	s.publishEvent(runID, event, update)
 	for _, channel := range updates {
 		select {
 		case channel <- update:
@@ -465,6 +541,7 @@ func (s *SimulationService) runPersistenceWorker() {
 			if err := s.logStore.AppendBatch(activeRunID, pending, &summary); err != nil {
 				persistenceErr = errors.Join(persistenceErr, fmt.Errorf("append simulation log batch: %w", err))
 			} else {
+				s.publishRunSummary(contracts.RealtimeSimulationRunUpdatedMessage, summary)
 				pending = pending[:0]
 			}
 		} else if s.logStore == nil {
@@ -484,6 +561,8 @@ func (s *SimulationService) runPersistenceWorker() {
 			if s.logStore != nil {
 				if err := s.logStore.Finalize(activeRunID, s.runSummaryFor(activeRunID, snapshot, status)); err != nil {
 					persistenceErr = errors.Join(persistenceErr, fmt.Errorf("finalize simulation log: %w", err))
+				} else {
+					s.publishRunSummary(contracts.RealtimeSimulationRunUpdatedMessage, s.runSummaryFor(activeRunID, snapshot, status))
 				}
 			}
 			if s.checkpointStore != nil && persistenceErr == nil {

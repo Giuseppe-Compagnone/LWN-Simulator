@@ -123,6 +123,44 @@ func TestSimulationServiceOutlivesStartRequestContext(t *testing.T) {
 	}
 }
 
+func TestSimulationServiceBroadcastsUpdatesToMultipleSubscribers(t *testing.T) {
+	service := NewSimulationService(
+		simulationDeviceSource{},
+		simulationGatewaySource{},
+		types.Options{EventBuffer: 32},
+	)
+
+	if _, err := service.Start(context.Background(), contracts.SimulationConfig{Speed: 1}); err != nil {
+		t.Fatalf("start simulation: %v", err)
+	}
+	defer service.Stop(context.Background())
+	publisher := &recordingRealtimePublisher{messages: make(chan contracts.RealtimeWebSocketMessage, 8)}
+	service.SetRealtimePublisher(publisher)
+
+	first, err := service.Subscribe()
+	if err != nil {
+		t.Fatalf("subscribe first frontend: %v", err)
+	}
+	defer first.Close()
+	second, err := service.Subscribe()
+	if err != nil {
+		t.Fatalf("subscribe second frontend: %v", err)
+	}
+	defer second.Close()
+
+	if _, err := service.Pause(); err != nil {
+		t.Fatalf("pause simulation: %v", err)
+	}
+	firstUpdate := receiveSimulationUpdate(t, first.Updates)
+	secondUpdate := receiveSimulationUpdate(t, second.Updates)
+	if firstUpdate.Event.Type != contracts.SimulationPaused || secondUpdate.Event.Type != contracts.SimulationPaused {
+		t.Fatalf("frontends received different lifecycle updates: %s, %s", firstUpdate.Event.Type, secondUpdate.Event.Type)
+	}
+	if message := receiveRealtimeMessage(t, publisher.messages); message.Type != contracts.RealtimeSimulationEventMessage || message.Event == nil || message.Event.Type != contracts.SimulationPaused {
+		t.Fatalf("shared websocket did not receive pause event: %+v", message)
+	}
+}
+
 func TestSimulationServicePersistsAndFinalizesSimulationLog(t *testing.T) {
 	logStore := NewFileSimulationLogStore(t.TempDir() + "/simulation-logs.json")
 	service := NewSimulationService(
