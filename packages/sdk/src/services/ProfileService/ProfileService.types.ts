@@ -18,6 +18,7 @@ export interface ProfileServiceContent {
   updateProfile: (request: UpdateProfileRequest) => Promise<Profile>;
   deleteProfile: (id: string) => Promise<void>;
   exportProfile: (id?: string) => Promise<ProfileArchive>;
+  getExportProfileURL: (id?: string) => string;
   importProfile: (archive: ProfileArchive) => Promise<Profile>;
 }
 

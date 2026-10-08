@@ -54,7 +54,13 @@ export class ProfileService extends BaseService {
   public exportProfile = async (id: string): Promise<ProfileArchive> =>
     this.apiCaller.get<ProfileArchive>(
       `/export-profile/${encodeURIComponent(id)}`,
+      { timeout: 120000 },
     );
+
+  public getExportProfileURL = (id: string): string =>
+    `${this.apiCaller.buildUrl(
+      `/export-profile/${encodeURIComponent(id)}`,
+    )}?download=1`;
 
   public importProfile = async (archive: ProfileArchive): Promise<Profile> => {
     const request: ImportProfileRequest = { archive };

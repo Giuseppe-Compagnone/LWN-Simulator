@@ -16,12 +16,19 @@ export class ApiCaller {
     ).toString();
   }
 
+  public buildUrl(path: string): string {
+    return ApiCaller.joinUrl(
+      this.baseUrl,
+      `${this.serviceName}/${path.replace(/^\/+/, "")}`,
+    );
+  }
+
   private async request<T>(config: AxiosRequestConfig): Promise<T> {
     try {
       const response = await axios<T>({
         ...config,
         baseURL: ApiCaller.joinUrl(this.baseUrl, this.serviceName),
-        timeout: 10000,
+        timeout: config.timeout ?? 10000,
       });
 
       return response.data;

@@ -44,21 +44,23 @@ const Navbar = (props: NavbarProps) => {
           );
         })}
       </div>
-      <ProfileMenu />
-      <Button
-        value={
-          <span className="material-symbols-outlined icon">
-            {themeLogic.theme === Theme.Light ? "bedtime" : "sunny"}
-          </span>
-        }
-        layout={ButtonLayout.Icon}
-        type={ButtonType.Outlined}
-        onClick={() => {
-          themeLogic.setTheme(
-            themeLogic.theme === Theme.Light ? Theme.Dark : Theme.Light,
-          );
-        }}
-      />
+      <div className="actions">
+        <Button
+          value={
+            <span className="material-symbols-outlined icon">
+              {themeLogic.theme === Theme.Light ? "bedtime" : "sunny"}
+            </span>
+          }
+          layout={ButtonLayout.Icon}
+          type={ButtonType.Outlined}
+          onClick={() => {
+            themeLogic.setTheme(
+              themeLogic.theme === Theme.Light ? Theme.Dark : Theme.Light,
+            );
+          }}
+        />
+        <ProfileMenu />
+      </div>
     </header>
   );
 };

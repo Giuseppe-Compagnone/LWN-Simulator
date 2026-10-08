@@ -84,6 +84,13 @@ export interface ButtonProps {
   disabled?: boolean;
 
   /**
+   * Displays the loading state while an external asynchronous operation is in progress.
+   *
+   * @default false
+   */
+  loading?: boolean;
+
+  /**
    * Callback executed when the button is clicked.
    *
    * Supports both synchronous and asynchronous handlers.

@@ -3,10 +3,22 @@
 import {
   Button,
   ButtonType,
+  Form,
+  FormValue,
   NotificationHandler,
+  Popup,
+  selectField,
+  textField,
+  usePopup,
 } from "@lwn-simulator/ui-components";
 import { useProfileService } from "@lwn-simulator/sdk";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+
+type ProfileDialogMode = "create" | "rename" | null;
+type ProfileDeleteTarget = {
+  id: string;
+  name: string;
+};
 
 const readFile = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -20,73 +32,166 @@ const ProfileMenu = () => {
   const profileService = useProfileService();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [profileDialogMode, setProfileDialogMode] =
+    useState<ProfileDialogMode>(null);
+  const [profileDeleteTarget, setProfileDeleteTarget] =
+    useState<ProfileDeleteTarget | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const profilePopup = usePopup({});
+  const deletePopup = usePopup({});
   const notification = NotificationHandler.instance;
+  const profileOptions = useMemo(
+    () =>
+      profileService.profiles.map((profile) => ({
+        value: profile.id,
+        displayed: <>{profile.name}</>,
+      })),
+    [profileService.profiles],
+  );
+  const profileFields = useMemo(
+    () => [
+      selectField({
+        name: "profile",
+        label: "Active profile",
+        value: profileService.activeProfileID,
+        placeholder: "Select a profile",
+        error: null,
+        options: profileOptions,
+        onChange: (logic) => {
+          const nextProfileID = logic.fieldsState.profile.value;
+          if (typeof nextProfileID !== "string") return;
+          profileService.selectProfile(nextProfileID);
+          setOpen(false);
+        },
+      }),
+    ],
+    [profileOptions, profileService],
+  );
+  const profileFormKey = `${profileService.activeProfileID}:${profileService.profiles
+    .map((profile) => `${profile.id}:${profile.name}`)
+    .join("|")}`;
 
-  const runAction = async (action: () => Promise<void>, success: string) => {
+  const runAction = async (
+    action: () => Promise<void>,
+    success: string,
+  ): Promise<boolean> => {
     setBusy(true);
     try {
       await action();
       notification.success(success);
+      return true;
     } catch (error) {
       notification.error(
         error instanceof Error ? error.message : "The profile action failed",
       );
+      return false;
     } finally {
       setBusy(false);
     }
   };
 
-  const createProfile = () => {
-    const name = window.prompt("Profile name");
-    if (!name?.trim()) return;
-    void runAction(
-      () => profileService.createProfile({ name: name.trim() }).then(() => undefined),
-      "Profile created",
-    );
+  const openCreateProfile = () => {
+    setOpen(false);
+    setProfileDialogMode("create");
+    profilePopup.openPopup();
   };
 
-  const renameProfile = () => {
+  const openRenameProfile = () => {
     if (!profileService.activeProfile) return;
-    const name = window.prompt("New profile name", profileService.activeProfile.name);
-    if (!name?.trim()) return;
-    void runAction(
-      () =>
-        profileService
-          .updateProfile({ id: profileService.activeProfileID, name: name.trim() })
-          .then(() => undefined),
-      "Profile renamed",
-    );
+    setOpen(false);
+    setProfileDialogMode("rename");
+    profilePopup.openPopup();
   };
 
-  const deleteProfile = () => {
-    if (!profileService.activeProfile) return;
-    if (
-      !window.confirm(
-        `Delete profile “${profileService.activeProfile.name}”? This also removes its devices, gateways and logs.`,
-      )
-    ) {
-      return;
+  const profileDialogFields = useMemo(() => {
+    const isRename = profileDialogMode === "rename";
+    return [
+      textField({
+        name: "name",
+        label: "Profile name",
+        value: isRename ? profileService.activeProfile?.name ?? "" : "",
+        placeholder: "Enter a profile name",
+        error: null,
+        required: true,
+      }),
+    ];
+  }, [profileDialogMode, profileService.activeProfile]);
+
+  const submitProfileDialog = async (values: Record<string, FormValue>) => {
+    const name = typeof values.name === "string" ? values.name.trim() : "";
+    if (!name || !profileDialogMode) return;
+
+    const succeeded = await runAction(
+      async () => {
+        if (profileDialogMode === "create") {
+          await profileService.createProfile({ name });
+          return;
+        }
+        await profileService.updateProfile({
+          id: profileService.activeProfileID,
+          name,
+        });
+      },
+      profileDialogMode === "create" ? "Profile created" : "Profile renamed",
+    );
+    if (succeeded) {
+      profilePopup.closePopup();
+      setProfileDialogMode(null);
     }
-    void runAction(
-      () => profileService.deleteProfile(profileService.activeProfileID),
+  };
+
+  const openDeleteConfirmation = () => {
+    if (!profileService.activeProfile) return;
+    setOpen(false);
+    setProfileDeleteTarget({
+      id: profileService.activeProfileID,
+      name: profileService.activeProfile.name,
+    });
+    deletePopup.openPopup();
+  };
+
+  const confirmDeleteProfile = async () => {
+    if (!profileDeleteTarget) return;
+    const succeeded = await runAction(
+      () => profileService.deleteProfile(profileDeleteTarget.id),
       "Profile deleted",
     );
+    if (succeeded) {
+      deletePopup.closePopup();
+      setProfileDeleteTarget(null);
+    }
   };
 
-  const exportProfile = () => {
-    void runAction(
+  const exportProfile = async () => {
+    if (!profileService.activeProfile) return;
+    await runAction(
       async () => {
-        const archive = await profileService.exportProfile();
-        const blob = new Blob([JSON.stringify(archive, null, 2)], {
-          type: "application/json",
-        });
+        const response = await fetch(profileService.getExportProfileURL());
+        if (!response.ok) {
+          let message = "Unable to export the profile";
+          try {
+            const error = (await response.json()) as { error?: string };
+            if (error.error) message = error.error;
+          } catch {
+            // Keep the generic message when the server response is not JSON.
+          }
+          throw new Error(message);
+        }
+
+        const blob = await response.blob();
         const url = URL.createObjectURL(blob);
         const anchor = document.createElement("a");
         anchor.href = url;
         anchor.download = `${profileService.activeProfile?.name ?? "lwn-profile"}.lwn-profile.json`;
+        anchor.style.position = "fixed";
+        anchor.style.left = "-9999px";
+        document.body.appendChild(anchor);
         anchor.click();
-        URL.revokeObjectURL(url);
+        window.setTimeout(() => {
+          anchor.remove();
+          URL.revokeObjectURL(url);
+        }, 1000);
       },
       "Profile exported",
     );
@@ -98,20 +203,26 @@ const ProfileMenu = () => {
 
   const handleFile = async (file: File | undefined) => {
     if (!file) return;
-    await runAction(
-      async () => {
-        const archive = JSON.parse(await readFile(file));
-        await profileService.importProfile(archive);
-      },
-      "Profile imported",
-    );
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    setImporting(true);
+    try {
+      await runAction(
+        async () => {
+          const archive = JSON.parse(await readFile(file));
+          await profileService.importProfile(archive);
+        },
+        "Profile imported",
+      );
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   return (
-    <div className="profile-menu">
+    <>
+      <div className="profile-menu">
       <button
-        className="profile-menu-trigger"
+        className={`profile-menu-trigger${open ? " is-open" : ""}`}
         type="button"
         aria-expanded={open}
         aria-label="Select profile"
@@ -123,68 +234,103 @@ const ProfileMenu = () => {
           {profileService.activeProfile?.name ?? "Profiles"}
         </span>
         <span className="material-symbols-outlined expand-icon">
-          expand_more
+          keyboard_arrow_down
         </span>
       </button>
-      {open && (
-        <div className="profile-menu-panel">
-          <label htmlFor="active-profile">Active profile</label>
-          <select
-            id="active-profile"
-            value={profileService.activeProfileID}
-            onChange={(event) => {
-              profileService.selectProfile(event.target.value);
-              setOpen(false);
-            }}
-          >
-            {profileService.profiles.map((profile) => (
-              <option key={profile.id} value={profile.id}>
-                {profile.name}
-              </option>
-            ))}
-          </select>
-          <div className="profile-menu-actions">
-            <Button
-              value="New profile"
-              type={ButtonType.Outlined}
-              onClick={createProfile}
-              disabled={busy}
-            />
-            <Button
-              value="Rename"
-              type={ButtonType.Outlined}
-              onClick={renameProfile}
-              disabled={busy || !profileService.activeProfile}
-            />
-            <Button
-              value="Delete"
-              type={ButtonType.Outlined}
-              onClick={deleteProfile}
-              disabled={busy || profileService.profiles.length <= 1}
-            />
-            <Button
-              value="Export"
-              type={ButtonType.Outlined}
-              onClick={exportProfile}
-              disabled={busy || !profileService.activeProfile}
-            />
-            <Button
-              value="Import"
-              type={ButtonType.Outlined}
-              onClick={importProfile}
-              disabled={busy}
-            />
-          </div>
-          <input
-            ref={fileInputRef}
-            className="profile-menu-file"
-            type="file"
-            accept="application/json,.json"
-            onChange={(event) => void handleFile(event.target.files?.[0])}
+      <div
+        className={`profile-menu-panel${open ? " is-open" : ""}`}
+        aria-hidden={!open}
+      >
+        <div className="profile-menu-selector">
+          <Form
+            key={profileFormKey}
+            fields={profileFields}
+            onSubmit={() => undefined}
+            showSubmitButton={false}
           />
         </div>
-      )}
-    </div>
+        <div className="profile-menu-actions">
+          <Button
+            value="New profile"
+            type={ButtonType.Outlined}
+            onClick={openCreateProfile}
+            disabled={busy}
+          />
+          <Button
+            value="Rename"
+            type={ButtonType.Outlined}
+            onClick={openRenameProfile}
+            disabled={busy || !profileService.activeProfile}
+          />
+          <Button
+            value="Delete"
+            type={ButtonType.Outlined}
+            onClick={openDeleteConfirmation}
+            disabled={busy || profileService.profiles.length <= 1}
+          />
+          <Button
+            value="Export"
+            type={ButtonType.Outlined}
+            onClick={exportProfile}
+            disabled={busy || !profileService.activeProfile}
+          />
+          <Button
+            value="Import"
+            type={ButtonType.Outlined}
+            onClick={importProfile}
+            disabled={busy || importing}
+            loading={importing}
+          />
+        </div>
+        <input
+          ref={fileInputRef}
+          className="profile-menu-file"
+          type="file"
+          accept="application/json,.json"
+          onChange={(event) => void handleFile(event.target.files?.[0])}
+        />
+      </div>
+      </div>
+      <Popup
+        logic={profilePopup}
+        title={profileDialogMode === "rename" ? "Rename profile" : "New profile"}
+      >
+        <Form
+          key={`${profileDialogMode}:${profileService.activeProfileID}`}
+          fields={profileDialogFields}
+          onSubmit={submitProfileDialog}
+          submitButton={{
+            value:
+              profileDialogMode === "rename"
+                ? "Rename profile"
+                : "Create profile",
+            disabled: busy,
+          }}
+        />
+      </Popup>
+      <Popup logic={deletePopup} title="Delete profile">
+        <div className="profile-delete-dialog">
+          <p>
+            Delete profile <strong>{profileDeleteTarget?.name}</strong>? This
+            also removes its devices, gateways and logs.
+          </p>
+          <div className="profile-delete-dialog-actions">
+            <Button
+              value="Cancel"
+              type={ButtonType.Outlined}
+              onClick={deletePopup.closePopup}
+              disabled={busy}
+            />
+            <Button
+              value="Delete profile"
+              onClick={confirmDeleteProfile}
+              disabled={busy || !profileDeleteTarget}
+              loading={busy}
+            />
+          </div>
+        </div>
+      </Popup>
+    </>
   );
 };
 

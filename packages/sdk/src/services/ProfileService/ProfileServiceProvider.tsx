@@ -43,6 +43,20 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
     setProfiles(nextProfiles);
   }, []);
 
+  const upsertProfile = useCallback(
+    (nextProfile: Profile) => {
+      const nextProfiles = profilesRef.current.some(
+        (profile) => profile.id === nextProfile.id,
+      )
+        ? profilesRef.current.map((profile) =>
+            profile.id === nextProfile.id ? nextProfile : profile,
+          )
+        : [...profilesRef.current, nextProfile];
+      commitProfiles(nextProfiles);
+    },
+    [commitProfiles],
+  );
+
   const persistActiveProfile = useCallback((id: string) => {
     activeProfileIDRef.current = id;
     setActiveProfileID(id);
@@ -97,14 +111,7 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
           message.profile
         ) {
           const nextProfile = message.profile as Profile;
-          const nextProfiles = profilesRef.current.some(
-            (profile) => profile.id === nextProfile.id,
-          )
-            ? profilesRef.current.map((profile) =>
-                profile.id === nextProfile.id ? nextProfile : profile,
-              )
-            : [...profilesRef.current, nextProfile];
-          commitProfiles(nextProfiles);
+          upsertProfile(nextProfile);
         }
         if (
           message.type === RealtimeWebSocketMessageType.ProfileDeleted &&
@@ -125,7 +132,7 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
         // Other realtime consumers may share this websocket stream.
       }
     },
-    [commitProfiles, persistActiveProfile],
+    [commitProfiles, persistActiveProfile, upsertProfile],
   );
 
   useEffect(
@@ -137,8 +144,7 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
     async (request: CreateProfileRequest) => {
       try {
         const profile = await service.createProfile(request);
-        const nextProfiles = [...profilesRef.current, profile];
-        commitProfiles(nextProfiles);
+        upsertProfile(profile);
         persistActiveProfile(profile.id);
         setError(null);
         return profile;
@@ -147,7 +153,7 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
         throw requestError;
       }
     },
-    [commitProfiles, persistActiveProfile, service],
+    [persistActiveProfile, service, upsertProfile],
   );
 
   const updateProfile = useCallback(
@@ -190,16 +196,21 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
     [service],
   );
 
+  const getExportProfileURL = useCallback(
+    (id = activeProfileIDRef.current): string =>
+      service.getExportProfileURL(id),
+    [service],
+  );
+
   const importProfile = useCallback(
     async (archive: ProfileArchive) => {
       const profile = await service.importProfile(archive);
-      const nextProfiles = [...profilesRef.current, profile];
-      commitProfiles(nextProfiles);
+      upsertProfile(profile);
       persistActiveProfile(profile.id);
       setError(null);
       return profile;
     },
-    [commitProfiles, persistActiveProfile, service],
+    [persistActiveProfile, service, upsertProfile],
   );
 
   const activeProfile =
@@ -218,6 +229,7 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
       updateProfile,
       deleteProfile,
       exportProfile,
+      getExportProfileURL,
       importProfile,
     }),
     [
@@ -232,6 +244,7 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
       updateProfile,
       deleteProfile,
       exportProfile,
+      getExportProfileURL,
       importProfile,
     ],
   );

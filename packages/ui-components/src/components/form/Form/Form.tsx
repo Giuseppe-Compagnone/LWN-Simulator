@@ -47,40 +47,42 @@ const Form = (props: FormProps) => {
         />
       ))}
 
-      <Button
-        {...(props.submitButton || { value: "Submit" })}
-        className={cn("form-button", props.submitButton?.className)}
-        onClick={(e) => {
-          e?.preventDefault();
+      {props.showSubmitButton !== false && (
+        <Button
+          {...(props.submitButton || { value: "Submit" })}
+          className={cn("form-button", props.submitButton?.className)}
+          onClick={(e) => {
+            e?.preventDefault();
 
-          const isValid = formLogic.validate();
+            const isValid = formLogic.validate();
 
-          if (isValid) {
-            props.onSubmit(
-              Object.fromEntries(
-                Object.values(formLogic.fieldsState)
-                  .filter(
-                    (field) =>
-                      !formLogic.isFieldDisabled(
-                        field,
-                        formLogic.fieldsState,
-                      ) &&
-                      formLogic.isFieldDisplayed(field, formLogic.fieldsState),
-                  )
-                  .map((field) => [field.name, field.value]),
-              ),
-            );
+            if (isValid) {
+              props.onSubmit(
+                Object.fromEntries(
+                  Object.values(formLogic.fieldsState)
+                    .filter(
+                      (field) =>
+                        !formLogic.isFieldDisabled(
+                          field,
+                          formLogic.fieldsState,
+                        ) &&
+                        formLogic.isFieldDisplayed(field, formLogic.fieldsState),
+                    )
+                    .map((field) => [field.name, field.value]),
+                ),
+              );
+            }
+          }}
+          disabled={
+            props.submitButton?.disabled ||
+            !!Object.values(formLogic.fieldsState).find(
+              (field) =>
+                !formLogic.isFieldDisabled(field, formLogic.fieldsState) &&
+                field.error,
+            )
           }
-        }}
-        disabled={
-          props.submitButton?.disabled ||
-          !!Object.values(formLogic.fieldsState).find(
-            (field) =>
-              !formLogic.isFieldDisabled(field, formLogic.fieldsState) &&
-              field.error,
-          )
-        }
-      />
+        />
+      )}
     </form>
   );
 };

@@ -107,6 +107,10 @@ func (h *ProfileHandler) ExportProfile(c *gin.Context) {
 		writeServiceError(c, err)
 		return
 	}
+	if c.Query("download") == "1" {
+		c.Header("Content-Disposition", `attachment; filename="lwn-profile.json"`)
+		c.Header("Content-Type", "application/json")
+	}
 	c.JSON(http.StatusOK, archive)
 }
 
