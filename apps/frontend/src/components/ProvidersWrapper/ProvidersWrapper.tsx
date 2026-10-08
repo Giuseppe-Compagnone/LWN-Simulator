@@ -6,6 +6,7 @@ import {
   AppInfoServiceProvider,
   DeviceServiceProvider,
   GatewayServiceProvider,
+  ProfileConfigurationServiceProvider,
   ProfileServiceProvider,
   useProfileService,
   SimulationServiceProvider,
@@ -25,23 +26,27 @@ const ProfileScopedServices = (props: ProfileScopedServicesProps) => {
   const profileService = useProfileService();
 
   return (
-    <DeviceServiceProvider
+    <ProfileConfigurationServiceProvider
       key={profileService.activeProfileID}
       baseUrl={profileService.profileBaseUrl}
-      profileID={profileService.activeProfileID}
     >
-      <GatewayServiceProvider
+      <DeviceServiceProvider
         baseUrl={profileService.profileBaseUrl}
         profileID={profileService.activeProfileID}
       >
-        <SimulationServiceProvider
+        <GatewayServiceProvider
           baseUrl={profileService.profileBaseUrl}
           profileID={profileService.activeProfileID}
         >
-          {props.children}
-        </SimulationServiceProvider>
-      </GatewayServiceProvider>
-    </DeviceServiceProvider>
+          <SimulationServiceProvider
+            baseUrl={profileService.profileBaseUrl}
+            profileID={profileService.activeProfileID}
+          >
+            {props.children}
+          </SimulationServiceProvider>
+        </GatewayServiceProvider>
+      </DeviceServiceProvider>
+    </ProfileConfigurationServiceProvider>
   );
 };
 

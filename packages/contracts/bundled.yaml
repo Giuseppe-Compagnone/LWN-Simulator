@@ -125,6 +125,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Gateway'
+        gatewayBridge:
+          $ref: '#/components/schemas/GatewayBridgeConfig'
         logs:
           type: array
           items:

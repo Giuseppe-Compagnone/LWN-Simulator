@@ -95,6 +95,8 @@ func registerRoutes(r *gin.Engine, port string, services Services) {
 		profileScoped.GET("/gateway/get-gateways", profileScopedHandler.GetGateways)
 		profileScoped.PUT("/gateway/update-gateway/:id", profileScopedHandler.UpdateGateway)
 		profileScoped.DELETE("/gateway/delete-gateway/:id", profileScopedHandler.DeleteGateway)
+		profileScoped.GET("/configuration/gateway-bridge", profileScopedHandler.GetGatewayBridge)
+		profileScoped.PUT("/configuration/gateway-bridge", profileScopedHandler.UpdateGatewayBridge)
 
 		profileScoped.POST("/simulation/start", profileScopedHandler.StartSimulation)
 		profileScoped.POST("/simulation/speed", profileScopedHandler.SetSimulationSpeed)

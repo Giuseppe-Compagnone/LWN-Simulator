@@ -152,7 +152,13 @@ func (storage ProfileStorage) EnsureDataFiles() error {
 	if err := storage.Ensure(); err != nil {
 		return err
 	}
-	for _, name := range []string{"devices.json", "gateways.json", "simulation-logs.json"} {
+	initialContents := map[string]string{
+		"devices.json":         "[]\n",
+		"gateways.json":        "[]\n",
+		"simulation-logs.json": "[]\n",
+		"gateway-bridge.json":  "{\"enabled\":false,\"address\":\"0.0.0.0\",\"port\":1700}\n",
+	}
+	for name, contents := range initialContents {
 		path, err := storage.File(name)
 		if err != nil {
 			return err
@@ -164,7 +170,7 @@ func (storage ProfileStorage) EnsureDataFiles() error {
 		if err != nil {
 			return fmt.Errorf("create profile data file %s: %w", name, err)
 		}
-		if _, err := file.WriteString("[]\n"); err != nil {
+		if _, err := file.WriteString(contents); err != nil {
 			_ = file.Close()
 			return fmt.Errorf("initialize profile data file %s: %w", name, err)
 		}

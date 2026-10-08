@@ -25,10 +25,11 @@ const (
 // Runtime instances are created lazily and remain cached for the lifetime of
 // the backend so websocket subscriptions and simulation state stay stable.
 type ProfileRuntime struct {
-	Profile    contracts.Profile
-	Device     *DeviceService
-	Gateway    *GatewayService
-	Simulation *ProfileSimulationService
+	Profile       contracts.Profile
+	Device        *DeviceService
+	Gateway       *GatewayService
+	Configuration *ProfileConfigurationService
+	Simulation    *ProfileSimulationService
 }
 
 type ProfileRuntimeManager struct {
@@ -102,9 +103,10 @@ func (m *ProfileRuntimeManager) Runtime(profileID string) (*ProfileRuntime, erro
 	gatewayService.SetRuntimeSynchronizer(innerSimulation)
 
 	runtime := &ProfileRuntime{
-		Profile: profile,
-		Device:  deviceService,
-		Gateway: gatewayService,
+		Profile:       profile,
+		Device:        deviceService,
+		Gateway:       gatewayService,
+		Configuration: NewProfileConfigurationService(filepath.Join(storage.Directory(), "gateway-bridge.json")),
 		Simulation: &ProfileSimulationService{
 			profileID: profile.ID,
 			inner:     innerSimulation,
@@ -163,6 +165,10 @@ func (m *ProfileRuntimeManager) ExportArchive(profileID string) (contracts.Profi
 	if err != nil {
 		return contracts.ProfileArchive{}, fmt.Errorf("export gateways: %w", err)
 	}
+	gatewayBridge, err := runtime.Configuration.GetGatewayBridge()
+	if err != nil {
+		return contracts.ProfileArchive{}, fmt.Errorf("export gateway bridge configuration: %w", err)
+	}
 	runs, err := runtime.Simulation.ListLogs()
 	if err != nil {
 		return contracts.ProfileArchive{}, fmt.Errorf("export simulation logs: %w", err)
@@ -176,12 +182,13 @@ func (m *ProfileRuntimeManager) ExportArchive(profileID string) (contracts.Profi
 		logs = append(logs, contracts.ProfileLog{Run: storedRun, Events: events})
 	}
 	return contracts.ProfileArchive{
-		Format:   profileArchiveFormat,
-		Version:  profileArchiveVersion,
-		Profile:  runtime.Profile,
-		Devices:  devices.Devices,
-		Gateways: gateways.Gateways,
-		Logs:     logs,
+		Format:        profileArchiveFormat,
+		Version:       profileArchiveVersion,
+		Profile:       runtime.Profile,
+		Devices:       devices.Devices,
+		Gateways:      gateways.Gateways,
+		GatewayBridge: &gatewayBridge,
+		Logs:          logs,
 	}, nil
 }
 
@@ -210,6 +217,9 @@ func (m *ProfileRuntimeManager) ImportArchive(archive contracts.ProfileArchive) 
 	}
 	if err == nil {
 		err = runtime.Gateway.ImportGateways(archive.Gateways)
+	}
+	if err == nil && archive.GatewayBridge != nil {
+		_, err = runtime.Configuration.UpdateGatewayBridge(*archive.GatewayBridge)
 	}
 	if err == nil {
 		for index := range archive.Logs {

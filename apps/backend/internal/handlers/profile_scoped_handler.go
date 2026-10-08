@@ -1,6 +1,9 @@
 package handlers
 
 import (
+	"net/http"
+
+	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"lwn-simulator-backend/internal/services"
@@ -86,6 +89,34 @@ func (h *ProfileScopedHandler) DeleteGateway(c *gin.Context) {
 	if runtime, ok := h.runtime(c); ok {
 		NewGatewayHandler(runtime.Gateway, h.validator).DeleteGateway(c)
 	}
+}
+
+func (h *ProfileScopedHandler) GetGatewayBridge(c *gin.Context) {
+	if runtime, ok := h.runtime(c); ok {
+		config, err := runtime.Configuration.GetGatewayBridge()
+		if err != nil {
+			writeServiceError(c, err)
+			return
+		}
+		c.JSON(http.StatusOK, config)
+	}
+}
+
+func (h *ProfileScopedHandler) UpdateGatewayBridge(c *gin.Context) {
+	var config contracts.GatewayBridgeConfig
+	if !bindJSONAndValidate(c, h.validator, &config) {
+		return
+	}
+	runtime, ok := h.runtime(c)
+	if !ok {
+		return
+	}
+	updated, err := runtime.Configuration.UpdateGatewayBridge(config)
+	if err != nil {
+		writeServiceError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, updated)
 }
 
 func (h *ProfileScopedHandler) StartSimulation(c *gin.Context) {

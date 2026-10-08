@@ -30,8 +30,22 @@ func TestProfileRuntimeManagerIsolatesProfilesAndAllowsOneSimulation(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if first.Device == second.Device || first.Gateway == second.Gateway || first.Simulation == second.Simulation {
+	if first.Device == second.Device || first.Gateway == second.Gateway || first.Configuration == second.Configuration || first.Simulation == second.Simulation {
 		t.Fatal("profiles share runtime services")
+	}
+	if _, err := first.Configuration.UpdateGatewayBridge(contracts.GatewayBridgeConfig{
+		Enabled: true,
+		Address: "127.0.0.1",
+		Port:    1701,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	secondBridge, err := second.Configuration.GetGatewayBridge()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if secondBridge != defaultGatewayBridgeConfig {
+		t.Fatalf("profiles share gateway bridge configuration: %+v", secondBridge)
 	}
 	firstStorage, err := database.NewProfileStorage(dataDir, defaultProfile.ID)
 	if err != nil {
@@ -96,6 +110,13 @@ func TestProfileRuntimeManagerExportsAndImportsAProfileAsANewProfile(t *testing.
 	}}); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := runtime.Configuration.UpdateGatewayBridge(contracts.GatewayBridgeConfig{
+		Enabled: true,
+		Address: "bridge.example.test",
+		Port:    1701,
+	}); err != nil {
+		t.Fatal(err)
+	}
 
 	archive, err := manager.ExportArchive(defaultProfile.ID)
 	if err != nil {
@@ -103,6 +124,9 @@ func TestProfileRuntimeManagerExportsAndImportsAProfileAsANewProfile(t *testing.
 	}
 	if len(archive.Logs) != 1 || len(archive.Logs[0].Events) != 1 {
 		t.Fatalf("simulation history was not exported: %+v", archive.Logs)
+	}
+	if archive.GatewayBridge == nil || archive.GatewayBridge.Address != "bridge.example.test" {
+		t.Fatalf("gateway bridge configuration was not exported: %+v", archive.GatewayBridge)
 	}
 	imported, err := manager.ImportArchive(archive)
 	if err != nil {
@@ -117,5 +141,8 @@ func TestProfileRuntimeManagerExportsAndImportsAProfileAsANewProfile(t *testing.
 	}
 	if importedArchive.Profile.ID != imported.ID {
 		t.Fatalf("archive kept the source profile id: %+v", importedArchive.Profile)
+	}
+	if importedArchive.GatewayBridge == nil || importedArchive.GatewayBridge.Port != 1701 {
+		t.Fatalf("gateway bridge configuration was not imported: %+v", importedArchive.GatewayBridge)
 	}
 }

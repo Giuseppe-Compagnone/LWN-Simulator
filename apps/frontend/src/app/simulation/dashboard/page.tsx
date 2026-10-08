@@ -20,6 +20,7 @@ import {
 import {
   useDeviceService,
   useGatewayService,
+  useProfileConfigurationService,
   useSimulationService,
 } from "@lwn-simulator/sdk";
 import {
@@ -29,7 +30,7 @@ import {
   SensorMapLink,
   useSensorMap,
 } from "@/components";
-import { readGatewayBridgeConfig } from "@/utils/gatewayBridge";
+import { defaultGatewayBridgeConfig } from "@/utils/gatewayBridge";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DeviceRuntimeList, GatewayRuntimeList } from "./RuntimeLists";
 
@@ -90,6 +91,7 @@ const linkActivityWindowMilliseconds = 15_000;
 
 const SimulationDashboardPage = () => {
   const simulation = useSimulationService();
+  const profileConfiguration = useProfileConfigurationService();
   const deviceService = useDeviceService();
   const gatewayService = useGatewayService();
   const devices = useMemo(
@@ -243,18 +245,22 @@ const SimulationDashboardPage = () => {
     }
   };
 
-  const start = (values: Record<string, FormValue>) => {
+  const start = async (values: Record<string, FormValue>) => {
     const speed = Number(values.speed);
     const seed = typeof values.seed === "string" ? values.seed.trim() : "";
-    const gatewayBridge = readGatewayBridgeConfig();
 
     return runControl(
-      () =>
-        simulation.start({
+      async () => {
+        const gatewayBridge =
+          await profileConfiguration.getGatewayBridge().catch(() =>
+            profileConfiguration.gatewayBridgeConfig ?? defaultGatewayBridgeConfig,
+          );
+        await simulation.start({
           speed,
-        ...(seed ? { seed: Number(seed) } : {}),
-        gatewayBridge,
-      }),
+          ...(seed ? { seed: Number(seed) } : {}),
+          gatewayBridge,
+        });
+      },
       "Simulation started",
     );
   };
