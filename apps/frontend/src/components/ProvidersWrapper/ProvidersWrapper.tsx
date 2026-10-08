@@ -29,6 +29,7 @@ const ProfileScopedServices = (props: ProfileScopedServicesProps) => {
     <ProfileConfigurationServiceProvider
       key={profileService.activeProfileID}
       baseUrl={profileService.profileBaseUrl}
+      profileID={profileService.activeProfileID}
     >
       <DeviceServiceProvider
         baseUrl={profileService.profileBaseUrl}

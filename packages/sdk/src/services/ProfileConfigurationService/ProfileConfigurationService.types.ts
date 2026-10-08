@@ -12,4 +12,5 @@ export interface ProfileConfigurationServiceContent {
 export interface ProfileConfigurationServiceProviderProps
   extends PropsWithChildren {
   baseUrl: string;
+  profileID: string;
 }

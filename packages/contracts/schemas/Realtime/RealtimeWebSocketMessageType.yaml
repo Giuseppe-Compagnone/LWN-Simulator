@@ -5,6 +5,7 @@ enum:
   - profile.created
   - profile.updated
   - profile.deleted
+  - profile.gateway-bridge.updated
   - device.created
   - device.updated
   - device.deleted
@@ -21,6 +22,7 @@ x-enum-varnames:
   - RealtimeProfileCreatedMessage
   - RealtimeProfileUpdatedMessage
   - RealtimeProfileDeletedMessage
+  - RealtimeProfileGatewayBridgeUpdatedMessage
   - RealtimeDeviceCreatedMessage
   - RealtimeDeviceUpdatedMessage
   - RealtimeDeviceDeletedMessage

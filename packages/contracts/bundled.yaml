@@ -161,6 +161,7 @@ components:
         - profile.created
         - profile.updated
         - profile.deleted
+        - profile.gateway-bridge.updated
         - device.created
         - device.updated
         - device.deleted
@@ -176,6 +177,7 @@ components:
         - RealtimeProfileCreatedMessage
         - RealtimeProfileUpdatedMessage
         - RealtimeProfileDeletedMessage
+        - RealtimeProfileGatewayBridgeUpdatedMessage
         - RealtimeDeviceCreatedMessage
         - RealtimeDeviceUpdatedMessage
         - RealtimeDeviceDeletedMessage
@@ -220,6 +222,8 @@ components:
           $ref: '#/components/schemas/Gateway'
         profile:
           $ref: '#/components/schemas/Profile'
+        gatewayBridge:
+          $ref: '#/components/schemas/GatewayBridgeConfig'
         snapshot:
           $ref: '#/components/schemas/SimulationSnapshot'
         event:

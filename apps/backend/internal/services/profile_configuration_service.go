@@ -21,11 +21,22 @@ var defaultGatewayBridgeConfig = contracts.GatewayBridgeConfig{
 // profile and must be shared by every frontend connected to the backend.
 type ProfileConfigurationService struct {
 	gatewayBridgePath string
+	profileID         string
+	realtime          RealtimePublisher
 	mu                sync.Mutex
 }
 
-func NewProfileConfigurationService(gatewayBridgePath string) *ProfileConfigurationService {
-	return &ProfileConfigurationService{gatewayBridgePath: gatewayBridgePath}
+func NewProfileConfigurationService(gatewayBridgePath string, profileID string) *ProfileConfigurationService {
+	return &ProfileConfigurationService{
+		gatewayBridgePath: gatewayBridgePath,
+		profileID:         profileID,
+	}
+}
+
+func (s *ProfileConfigurationService) SetRealtimePublisher(publisher RealtimePublisher) {
+	s.mu.Lock()
+	s.realtime = publisher
+	s.mu.Unlock()
 }
 
 func (s *ProfileConfigurationService) GetGatewayBridge() (contracts.GatewayBridgeConfig, error) {
@@ -79,6 +90,14 @@ func (s *ProfileConfigurationService) UpdateGatewayBridge(config contracts.Gatew
 	}
 	if err := os.Rename(temporaryName, s.gatewayBridgePath); err != nil {
 		return contracts.GatewayBridgeConfig{}, fmt.Errorf("replace gateway bridge configuration: %w", err)
+	}
+	if s.realtime != nil {
+		profileID := s.profileID
+		s.realtime.Publish(contracts.RealtimeWebSocketMessage{
+			Type:          contracts.RealtimeProfileGatewayBridgeUpdatedMessage,
+			ProfileID:     &profileID,
+			GatewayBridge: &config,
+		})
 	}
 	return config, nil
 }

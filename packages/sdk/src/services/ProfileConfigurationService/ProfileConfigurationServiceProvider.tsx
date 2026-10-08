@@ -1,7 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { GatewayBridgeConfig } from "@lwn-simulator/contracts";
+import {
+  GatewayBridgeConfig,
+  RealtimeWebSocketMessage,
+  RealtimeWebSocketMessageType,
+} from "@lwn-simulator/contracts";
+import { useWebSocket } from "../../websocket";
 import { ProfileConfigurationService } from "./ProfileConfigurationService";
 import ProfileConfigurationServiceContext from "./ProfileConfigurationServiceContext";
 import { ProfileConfigurationServiceProviderProps } from "./ProfileConfigurationService.types";
@@ -15,6 +20,7 @@ const ProfileConfigurationServiceProvider = (
   );
   const [gatewayBridgeConfig, setGatewayBridgeConfig] =
     useState<GatewayBridgeConfig | null>(null);
+  const { subscribe } = useWebSocket();
 
   const getGatewayBridge = useCallback(async () => {
     const config = await service.getGatewayBridge();
@@ -36,6 +42,30 @@ const ProfileConfigurationServiceProvider = (
       .then(getGatewayBridge)
       .catch(() => setGatewayBridgeConfig(null));
   }, [getGatewayBridge]);
+
+  const handleRealtimeMessage = useCallback(
+    (rawMessage: string) => {
+      try {
+        const message = JSON.parse(rawMessage) as RealtimeWebSocketMessage;
+        if (message.profileID && message.profileID !== props.profileID) return;
+        if (
+          message.type ===
+            RealtimeWebSocketMessageType.ProfileGatewayBridgeUpdated &&
+          message.gatewayBridge
+        ) {
+          setGatewayBridgeConfig(message.gatewayBridge);
+        }
+      } catch {
+        // Ignore messages owned by another realtime consumer.
+      }
+    },
+    [props.profileID],
+  );
+
+  useEffect(
+    () => subscribe(handleRealtimeMessage),
+    [handleRealtimeMessage, subscribe],
+  );
 
   const value = useMemo(
     () => ({

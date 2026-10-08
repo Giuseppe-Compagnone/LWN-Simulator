@@ -31,6 +31,8 @@ properties:
     $ref: "../Gateway/Gateway.yaml"
   profile:
     $ref: "../Profile/Profile.yaml"
+  gatewayBridge:
+    $ref: "../Simulation/GatewayBridgeConfig.yaml"
   snapshot:
     $ref: "../Simulation/SimulationSnapshot.yaml"
   event:

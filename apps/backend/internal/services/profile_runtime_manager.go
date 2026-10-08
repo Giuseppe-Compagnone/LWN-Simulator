@@ -99,6 +99,11 @@ func (m *ProfileRuntimeManager) Runtime(profileID string) (*ProfileRuntime, erro
 	deviceService.SetRealtimePublisher(profilePublisher)
 	gatewayService.SetRealtimePublisher(profilePublisher)
 	innerSimulation.SetRealtimePublisher(profilePublisher)
+	configurationService := NewProfileConfigurationService(
+		filepath.Join(storage.Directory(), "gateway-bridge.json"),
+		profile.ID,
+	)
+	configurationService.SetRealtimePublisher(profilePublisher)
 	deviceService.SetRuntimeSynchronizer(innerSimulation)
 	gatewayService.SetRuntimeSynchronizer(innerSimulation)
 
@@ -106,7 +111,7 @@ func (m *ProfileRuntimeManager) Runtime(profileID string) (*ProfileRuntime, erro
 		Profile:       profile,
 		Device:        deviceService,
 		Gateway:       gatewayService,
-		Configuration: NewProfileConfigurationService(filepath.Join(storage.Directory(), "gateway-bridge.json")),
+		Configuration: configurationService,
 		Simulation: &ProfileSimulationService{
 			profileID: profile.ID,
 			inner:     innerSimulation,
