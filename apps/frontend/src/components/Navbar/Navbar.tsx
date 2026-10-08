@@ -12,6 +12,7 @@ import Link from "next/link";
 import { Theme, useThemeService } from "@lwn-simulator/ui-components";
 import cn from "classnames";
 import { usePathname } from "next/navigation";
+import { ProfileMenu } from "../ProfileMenu";
 
 const Navbar = (props: NavbarProps) => {
   const pages = [
@@ -43,6 +44,7 @@ const Navbar = (props: NavbarProps) => {
           );
         })}
       </div>
+      <ProfileMenu />
       <Button
         value={
           <span className="material-symbols-outlined icon">

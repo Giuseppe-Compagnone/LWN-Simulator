@@ -101,6 +101,7 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
     (rawMessage: string) => {
       try {
         const update = JSON.parse(rawMessage) as RealtimeWebSocketMessage;
+        if (update.profileID && update.profileID !== props.profileID) return;
         if (update.type === RealtimeWebSocketMessageType.Error) {
           setError(new Error(update.error ?? "Realtime websocket error"));
           return;
@@ -123,12 +124,12 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
         );
       }
     },
-    [scheduleRealtimeRender],
+    [props.profileID, scheduleRealtimeRender],
   );
 
   useEffect(
     () => subscribeWebSocket(handleWebSocketMessage),
-    [handleWebSocketMessage, subscribeWebSocket],
+    [handleWebSocketMessage, props.profileID, subscribeWebSocket],
   );
 
   useEffect(() => {

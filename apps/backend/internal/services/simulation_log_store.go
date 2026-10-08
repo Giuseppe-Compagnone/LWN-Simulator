@@ -26,6 +26,7 @@ type SimulationLogStore interface {
 	AppendBatch(string, []contracts.SimulationEvent, *contracts.SimulationRunSummary) error
 	UpdateSummary(string, contracts.SimulationRunSummary) error
 	Finalize(string, contracts.SimulationRunSummary) error
+	Import(contracts.SimulationRun, []contracts.SimulationEvent) error
 }
 
 type SimulationLogEventQuery struct {
@@ -192,6 +193,16 @@ func (store *FileSimulationLogStore) Create(run contracts.SimulationRun) error {
 	}
 	runs = append(runs, persistedSimulationRun{Run: run, Events: []contracts.SimulationEvent{}})
 	return store.saveLocked(runs)
+}
+
+func (store *FileSimulationLogStore) Import(run contracts.SimulationRun, events []contracts.SimulationEvent) error {
+	if err := store.Create(run); err != nil {
+		return err
+	}
+	if len(events) == 0 {
+		return nil
+	}
+	return store.AppendBatch(run.Summary.Id, events, &run.Summary)
 }
 
 func (store *FileSimulationLogStore) Append(id string, event contracts.SimulationEvent) error {

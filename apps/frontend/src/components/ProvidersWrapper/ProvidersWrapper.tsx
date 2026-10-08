@@ -6,6 +6,8 @@ import {
   AppInfoServiceProvider,
   DeviceServiceProvider,
   GatewayServiceProvider,
+  ProfileServiceProvider,
+  useProfileService,
   SimulationServiceProvider,
   WebSocketProvider,
 } from "@lwn-simulator/sdk";
@@ -14,6 +16,34 @@ import Sidebar from "../Sidebar";
 import Footer from "../Footer";
 import { useEffect, useState } from "react";
 import { ToastContainer } from "react-toastify";
+
+interface ProfileScopedServicesProps {
+  children: React.ReactNode;
+}
+
+const ProfileScopedServices = (props: ProfileScopedServicesProps) => {
+  const profileService = useProfileService();
+
+  return (
+    <DeviceServiceProvider
+      key={profileService.activeProfileID}
+      baseUrl={profileService.profileBaseUrl}
+      profileID={profileService.activeProfileID}
+    >
+      <GatewayServiceProvider
+        baseUrl={profileService.profileBaseUrl}
+        profileID={profileService.activeProfileID}
+      >
+        <SimulationServiceProvider
+          baseUrl={profileService.profileBaseUrl}
+          profileID={profileService.activeProfileID}
+        >
+          {props.children}
+        </SimulationServiceProvider>
+      </GatewayServiceProvider>
+    </DeviceServiceProvider>
+  );
+};
 
 const ProvidersWrapper = (props: ProvidersWrapperProps) => {
   // States
@@ -29,21 +59,19 @@ const ProvidersWrapper = (props: ProvidersWrapperProps) => {
       <ThemeServiceProvider>
         <AppInfoServiceProvider baseUrl={origin}>
           <WebSocketProvider baseUrl={origin}>
-            <DeviceServiceProvider baseUrl={origin}>
-              <GatewayServiceProvider baseUrl={origin}>
-                <SimulationServiceProvider baseUrl={origin}>
+            <ProfileServiceProvider baseUrl={origin}>
+              <ProfileScopedServices>
                 <Navbar />
                 <Sidebar>
                   {props.children}
                   <Footer />
                 </Sidebar>
                 <ToastContainer />
-                </SimulationServiceProvider>
-              </GatewayServiceProvider>
-            </DeviceServiceProvider>
+              </ProfileScopedServices>
+            </ProfileServiceProvider>
           </WebSocketProvider>
         </AppInfoServiceProvider>
-    </ThemeServiceProvider>
+      </ThemeServiceProvider>
   );
 };
 

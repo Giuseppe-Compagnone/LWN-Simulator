@@ -91,6 +91,67 @@ components:
           $ref: '#/components/schemas/Profile'
       required:
         - profile
+    ProfileLog:
+      title: ProfileLog
+      type: object
+      properties:
+        run:
+          $ref: '#/components/schemas/SimulationRun'
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/SimulationEvent'
+      required:
+        - run
+        - events
+    ProfileArchive:
+      title: ProfileArchive
+      type: object
+      properties:
+        format:
+          type: string
+          minLength: 1
+        version:
+          type: integer
+          format: int32
+          minimum: 1
+        profile:
+          $ref: '#/components/schemas/Profile'
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/Device'
+        gateways:
+          type: array
+          items:
+            $ref: '#/components/schemas/Gateway'
+        logs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfileLog'
+      required:
+        - format
+        - version
+        - profile
+        - devices
+        - gateways
+        - logs
+    ImportProfileRequest:
+      title: ImportProfileRequest
+      type: object
+      properties:
+        archive:
+          $ref: '#/components/schemas/ProfileArchive'
+      required:
+        - archive
+    ImportProfileResponse:
+      title: ImportProfileResponse
+      type: object
+      properties:
+        profile:
+          $ref: '#/components/schemas/Profile'
+      required:
+        - profile
     RealtimeWebSocketMessageType:
       title: RealtimeWebSocketMessageType
       type: string

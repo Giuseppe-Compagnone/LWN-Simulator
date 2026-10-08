@@ -62,3 +62,35 @@ func TestProfileRuntimeManagerIsolatesProfilesAndAllowsOneSimulation(t *testing.
 		t.Fatal(err)
 	}
 }
+
+func TestProfileRuntimeManagerExportsAndImportsAProfileAsANewProfile(t *testing.T) {
+	dataDir := t.TempDir()
+	profiles := NewProfileService(repositories.NewProfileRepository(dataDir), dataDir)
+	defaultProfile, err := profiles.EnsureDefaultProfile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager := NewProfileRuntimeManager(dataDir, profiles, engineTypes.Options{}, nil)
+	if _, err := manager.Runtime(defaultProfile.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	archive, err := manager.ExportArchive(defaultProfile.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	imported, err := manager.ImportArchive(archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if imported.ID == defaultProfile.ID || imported.Name == defaultProfile.Name {
+		t.Fatalf("imported profile was not recreated: %+v", imported)
+	}
+	importedArchive, err := manager.ExportArchive(imported.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if importedArchive.Profile.ID != imported.ID {
+		t.Fatalf("archive kept the source profile id: %+v", importedArchive.Profile)
+	}
+}

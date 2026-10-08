@@ -52,12 +52,14 @@ func registerRoutes(r *gin.Engine, port string, services Services) {
 	gateway.DELETE("/delete-gateway/:id", gatewayHandler.DeleteGateway)
 
 	profile := api.Group("/profile")
-	profileHandler := handlers.NewProfileHandler(services.Profile, validator)
+	profileHandler := handlers.NewProfileHandler(services.Profile, validator, services.Profiles)
 	profile.GET("/get-profiles", profileHandler.GetProfiles)
 	profile.GET("/get-profile/:id", profileHandler.GetProfile)
 	profile.POST("/create-profile", profileHandler.CreateProfile)
 	profile.PUT("/update-profile/:id", profileHandler.UpdateProfile)
 	profile.DELETE("/delete-profile/:id", profileHandler.DeleteProfile)
+	profile.GET("/export-profile/:id", profileHandler.ExportProfile)
+	profile.POST("/import-profile", profileHandler.ImportProfile)
 
 	simulation := api.Group("/simulation")
 	simulationHandler := handlers.NewSimulationHandlerForProfile(services.Simulation, validator, services.ProfileID)

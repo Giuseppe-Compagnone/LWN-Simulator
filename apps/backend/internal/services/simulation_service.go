@@ -686,6 +686,18 @@ func (s *SimulationService) GetLogEvents(id string, query SimulationLogEventQuer
 	return s.logStore.Events(id, query)
 }
 
+func (s *SimulationService) ImportLogs(logs []contracts.ProfileLog) error {
+	if s.logStore == nil {
+		return errors.New("simulation log store is not configured")
+	}
+	for _, log := range logs {
+		if err := s.logStore.Import(log.Run, log.Events); err != nil {
+			return fmt.Errorf("import simulation log %q: %w", log.Run.Summary.Id, err)
+		}
+	}
+	return nil
+}
+
 func (s *SimulationService) runSummary(snapshot contracts.SimulationSnapshot, status contracts.SimulationRunStatus) contracts.SimulationRunSummary {
 	return s.runSummaryFor(s.activeRunID, snapshot, status)
 }

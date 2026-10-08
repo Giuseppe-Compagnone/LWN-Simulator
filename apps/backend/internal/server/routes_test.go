@@ -20,6 +20,8 @@ func TestRegisterRoutesIncludesSimulationRuntimeAPI(t *testing.T) {
 		"POST /api/profile/create-profile",
 		"PUT /api/profile/update-profile/:id",
 		"DELETE /api/profile/delete-profile/:id",
+		"GET /api/profile/export-profile/:id",
+		"POST /api/profile/import-profile",
 		"POST /api/simulation/start",
 		"POST /api/simulation/pause",
 		"POST /api/simulation/resume",

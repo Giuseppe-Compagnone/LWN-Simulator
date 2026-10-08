@@ -1,4 +1,5 @@
 export * from "./Navbar";
+export * from "./ProfileMenu";
 export * from "./Footer";
 export * from "./Sidebar";
 export * from "./ProvidersWrapper";

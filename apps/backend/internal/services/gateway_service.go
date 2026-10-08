@@ -128,6 +128,54 @@ func (s *GatewayService) GetGateways(req contracts.GetGatewaysRequest) (contract
 	return contracts.GetGatewaysResponse{Gateways: gateways}, nil
 }
 
+// ImportGateways replaces the gateways in a newly created profile while
+// preserving their IDs for historical event references.
+func (s *GatewayService) ImportGateways(gateways []contracts.Gateway) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	releaseRuntime := func() {}
+	if s.runtime != nil {
+		releaseRuntime = s.runtime.AcquireHardwareMutation()
+	}
+	defer releaseRuntime()
+
+	seenIDs := make(map[string]struct{}, len(gateways))
+	seenEUIs := make(map[string]struct{}, len(gateways))
+	seenMACs := make(map[string]struct{}, len(gateways))
+	for _, gateway := range gateways {
+		if _, err := uuid.Parse(gateway.ID); err != nil {
+			return apperrors.Invalid("gateway %q has an invalid id", gateway.ID)
+		}
+		if err := ValidateGateway(gateway); err != nil {
+			return err
+		}
+		if _, exists := seenIDs[gateway.ID]; exists {
+			return apperrors.Conflict("duplicate gateway id %q", gateway.ID)
+		}
+		if _, exists := seenEUIs[gateway.GatewayEUI]; exists {
+			return apperrors.Conflict("duplicate gateway EUI %q", gateway.GatewayEUI)
+		}
+		if _, exists := seenMACs[gateway.MacAddress]; exists {
+			return apperrors.Conflict("duplicate gateway MAC address %q", gateway.MacAddress)
+		}
+		seenIDs[gateway.ID] = struct{}{}
+		seenEUIs[gateway.GatewayEUI] = struct{}{}
+		seenMACs[gateway.MacAddress] = struct{}{}
+	}
+
+	if err := s.repository.Save(gateways); err != nil {
+		return fmt.Errorf("import gateways: %w", err)
+	}
+	if s.runtime != nil {
+		for _, gateway := range gateways {
+			if err := s.runtime.RegisterGatewayLocked(gateway); err != nil {
+				return fmt.Errorf("synchronize imported gateway %q: %w", gateway.ID, err)
+			}
+		}
+	}
+	return nil
+}
+
 func (s *GatewayService) UpdateGateway(req contracts.UpdateGatewayRequest) (contracts.UpdateGatewayResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -6,12 +6,19 @@ import (
 	"fmt"
 	"path/filepath"
 	"sync"
+	"time"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
+	"github.com/google/uuid"
 	"lwn-simulator-backend/internal/apperrors"
 	"lwn-simulator-backend/internal/database"
 	"lwn-simulator-backend/internal/repositories"
+)
+
+const (
+	profileArchiveFormat  = "lwn-simulator-profile"
+	profileArchiveVersion = int32(1)
 )
 
 // ProfileRuntime contains the services backed by one profile directory.
@@ -138,6 +145,86 @@ func (m *ProfileRuntimeManager) RestorePersisted(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (m *ProfileRuntimeManager) ExportArchive(profileID string) (contracts.ProfileArchive, error) {
+	runtime, err := m.Runtime(profileID)
+	if err != nil {
+		return contracts.ProfileArchive{}, err
+	}
+	devices, err := runtime.Device.GetDevices(contracts.GetDevicesRequest{})
+	if err != nil {
+		return contracts.ProfileArchive{}, fmt.Errorf("export devices: %w", err)
+	}
+	gateways, err := runtime.Gateway.GetGateways(contracts.GetGatewaysRequest{})
+	if err != nil {
+		return contracts.ProfileArchive{}, fmt.Errorf("export gateways: %w", err)
+	}
+	runs, err := runtime.Simulation.ListLogs()
+	if err != nil {
+		return contracts.ProfileArchive{}, fmt.Errorf("export simulation logs: %w", err)
+	}
+	logs := make([]contracts.ProfileLog, 0, len(runs.Runs))
+	for _, run := range runs.Runs {
+		storedRun, events, err := runtime.Simulation.GetLog(run.Summary.Id)
+		if err != nil {
+			return contracts.ProfileArchive{}, fmt.Errorf("export simulation log %q: %w", run.Summary.Id, err)
+		}
+		logs = append(logs, contracts.ProfileLog{Run: storedRun, Events: events})
+	}
+	return contracts.ProfileArchive{
+		Format:   profileArchiveFormat,
+		Version:  profileArchiveVersion,
+		Profile:  runtime.Profile,
+		Devices:  devices.Devices,
+		Gateways: gateways.Gateways,
+		Logs:     logs,
+	}, nil
+}
+
+func (m *ProfileRuntimeManager) ImportArchive(archive contracts.ProfileArchive) (contracts.Profile, error) {
+	if archive.Format != profileArchiveFormat || archive.Version != profileArchiveVersion {
+		return contracts.Profile{}, apperrors.Invalid("unsupported profile archive format or version")
+	}
+	if _, err := uuid.Parse(archive.Profile.ID); err != nil {
+		return contracts.Profile{}, apperrors.Invalid("profile archive contains an invalid profile id")
+	}
+	if archive.Profile.Name == "" {
+		return contracts.Profile{}, apperrors.Invalid("profile archive name cannot be empty")
+	}
+	profile, err := m.profiles.Create(archive.Profile.Name)
+	if errors.Is(err, apperrors.ErrConflict) {
+		for suffix := 2; suffix <= 1000 && errors.Is(err, apperrors.ErrConflict); suffix++ {
+			profile, err = m.profiles.Create(fmt.Sprintf("%s (imported %d)", archive.Profile.Name, suffix))
+		}
+	}
+	if err != nil {
+		return contracts.Profile{}, err
+	}
+	runtime, err := m.Runtime(profile.ID)
+	if err == nil {
+		err = runtime.Device.ImportDevices(archive.Devices)
+	}
+	if err == nil {
+		err = runtime.Gateway.ImportGateways(archive.Gateways)
+	}
+	if err == nil {
+		for index := range archive.Logs {
+			archive.Logs[index].Run.Summary.Status = contracts.SimulationRunStatusStopped
+			if archive.Logs[index].Run.Summary.EndedAtMilliseconds == nil {
+				endedAt := time.Now().UnixMilli()
+				archive.Logs[index].Run.Summary.EndedAtMilliseconds = &endedAt
+			}
+		}
+		err = runtime.Simulation.inner.ImportLogs(archive.Logs)
+	}
+	if err != nil {
+		if deleteErr := m.profiles.Delete(profile.ID); deleteErr != nil {
+			return contracts.Profile{}, fmt.Errorf("import profile: %w; rollback failed: %v", err, deleteErr)
+		}
+		return contracts.Profile{}, fmt.Errorf("import profile: %w", err)
+	}
+	return profile, nil
 }
 
 func (m *ProfileRuntimeManager) acquireSimulation(profileID string) error {
@@ -285,6 +372,10 @@ func (s *ProfileSimulationService) GetLogRun(id string) (contracts.SimulationRun
 
 func (s *ProfileSimulationService) GetLogEvents(id string, query SimulationLogEventQuery) (contracts.SimulationEventsResponse, error) {
 	return s.inner.GetLogEvents(id, query)
+}
+
+func (s *ProfileSimulationService) ImportLogs(logs []contracts.ProfileLog) error {
+	return s.inner.ImportLogs(logs)
 }
 
 func (s *ProfileSimulationService) RestorePersisted(ctx context.Context) error {

@@ -17,13 +17,23 @@ type ProfileService interface {
 	Delete(string) error
 }
 
-type ProfileHandler struct {
-	service   ProfileService
-	validator *validator.Validate
+type ProfileArchiveService interface {
+	ExportArchive(string) (contracts.ProfileArchive, error)
+	ImportArchive(contracts.ProfileArchive) (contracts.Profile, error)
 }
 
-func NewProfileHandler(service ProfileService, validator *validator.Validate) *ProfileHandler {
-	return &ProfileHandler{service: service, validator: validator}
+type ProfileHandler struct {
+	service        ProfileService
+	archiveService ProfileArchiveService
+	validator      *validator.Validate
+}
+
+func NewProfileHandler(service ProfileService, validator *validator.Validate, archiveServices ...ProfileArchiveService) *ProfileHandler {
+	var archiveService ProfileArchiveService
+	if len(archiveServices) > 0 {
+		archiveService = archiveServices[0]
+	}
+	return &ProfileHandler{service: service, archiveService: archiveService, validator: validator}
 }
 
 func (h *ProfileHandler) GetProfiles(c *gin.Context) {
@@ -85,6 +95,36 @@ func (h *ProfileHandler) DeleteProfile(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
+}
+
+func (h *ProfileHandler) ExportProfile(c *gin.Context) {
+	if h.archiveService == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "profile archive service is not configured"})
+		return
+	}
+	archive, err := h.archiveService.ExportArchive(c.Param("id"))
+	if err != nil {
+		writeServiceError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, archive)
+}
+
+func (h *ProfileHandler) ImportProfile(c *gin.Context) {
+	if h.archiveService == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "profile archive service is not configured"})
+		return
+	}
+	var req contracts.ImportProfileRequest
+	if !bindJSONAndValidate(c, h.validator, &req) {
+		return
+	}
+	profile, err := h.archiveService.ImportArchive(req.Archive)
+	if err != nil {
+		writeServiceError(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, contracts.ImportProfileResponse{Profile: profile})
 }
 
 var _ ProfileService = (*services.ProfileService)(nil)

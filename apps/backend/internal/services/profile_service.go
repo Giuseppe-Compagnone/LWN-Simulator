@@ -225,9 +225,10 @@ func (s *ProfileService) publishRealtime(messageType contracts.RealtimeWebSocket
 	}
 	id := profile.ID
 	publisher.Publish(contracts.RealtimeWebSocketMessage{
-		Type:      messageType,
-		ProfileID: &id,
-		Profile:   profile,
+		Type:       messageType,
+		ProfileID:  &id,
+		ResourceID: &id,
+		Profile:    profile,
 	})
 }
 
