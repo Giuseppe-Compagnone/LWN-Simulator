@@ -69,6 +69,8 @@ type SimulationService struct {
 	realtimePublisher              RealtimePublisher
 
 	persistenceQueue chan simulationPersistenceCommand
+	persistenceDone  chan struct{}
+	persistenceOnce  sync.Once
 	lastSnapshotAt   time.Time
 }
 
@@ -102,9 +104,20 @@ func NewSimulationService(
 		persistenceQueue: make(chan simulationPersistenceCommand, simulationPersistenceQueue),
 	}
 	if checkpointStore != nil || logStore != nil {
+		service.persistenceDone = make(chan struct{})
 		go service.runPersistenceWorker()
 	}
 	return service
+}
+
+// Close releases the persistence worker for a profile runtime that is no
+// longer reachable. It is safe to call more than once.
+func (s *SimulationService) Close() {
+	s.persistenceOnce.Do(func() {
+		if s.persistenceDone != nil {
+			close(s.persistenceDone)
+		}
+	})
 }
 
 // RestorePersisted resumes a simulation that was active when the backend
@@ -582,6 +595,8 @@ func (s *SimulationService) runPersistenceWorker() {
 
 	for {
 		select {
+		case <-s.persistenceDone:
+			return
 		case command := <-s.persistenceQueue:
 			if command.event != nil {
 				if runID == "" {

@@ -15,6 +15,11 @@ func TestRegisterRoutesIncludesSimulationRuntimeAPI(t *testing.T) {
 		routes[route.Method+" "+route.Path] = struct{}{}
 	}
 	for _, expected := range []string{
+		"GET /api/profile/get-profiles",
+		"GET /api/profile/get-profile/:id",
+		"POST /api/profile/create-profile",
+		"PUT /api/profile/update-profile/:id",
+		"DELETE /api/profile/delete-profile/:id",
 		"POST /api/simulation/start",
 		"POST /api/simulation/pause",
 		"POST /api/simulation/resume",

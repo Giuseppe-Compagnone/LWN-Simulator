@@ -11,6 +11,18 @@ components:
   schemas:
     Profile:
       $ref: "./schemas/Profile/Profile.yaml"
+    CreateProfileRequest:
+      $ref: "./schemas/Profile/CreateProfileRequest.yaml"
+    CreateProfileResponse:
+      $ref: "./schemas/Profile/CreateProfileResponse.yaml"
+    GetProfileResponse:
+      $ref: "./schemas/Profile/GetProfileResponse.yaml"
+    GetProfilesResponse:
+      $ref: "./schemas/Profile/GetProfilesResponse.yaml"
+    UpdateProfileRequest:
+      $ref: "./schemas/Profile/UpdateProfileRequest.yaml"
+    UpdateProfileResponse:
+      $ref: "./schemas/Profile/UpdateProfileResponse.yaml"
     RealtimeWebSocketMessageType:
       $ref: "./schemas/Realtime/RealtimeWebSocketMessageType.yaml"
     RealtimeWebSocketMessage:

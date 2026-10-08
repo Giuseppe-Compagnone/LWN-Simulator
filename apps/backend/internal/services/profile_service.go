@@ -26,13 +26,34 @@ type ProfileRepository interface {
 }
 
 type ProfileService struct {
-	repository ProfileRepository
-	dataDir    string
-	mu         sync.Mutex
+	repository     ProfileRepository
+	dataDir        string
+	realtime       RealtimePublisher
+	deleteGuard    func(string) error
+	deleteObserver func(string)
+	mu             sync.Mutex
 }
 
 func NewProfileService(repository ProfileRepository, dataDir string) *ProfileService {
 	return &ProfileService{repository: repository, dataDir: dataDir}
+}
+
+func (s *ProfileService) SetRealtimePublisher(publisher RealtimePublisher) {
+	s.mu.Lock()
+	s.realtime = publisher
+	s.mu.Unlock()
+}
+
+func (s *ProfileService) SetDeleteGuard(guard func(string) error) {
+	s.mu.Lock()
+	s.deleteGuard = guard
+	s.mu.Unlock()
+}
+
+func (s *ProfileService) SetDeleteObserver(observer func(string)) {
+	s.mu.Lock()
+	s.deleteObserver = observer
+	s.mu.Unlock()
 }
 
 // EnsureDefaultProfile bootstraps the stable default profile and is safe to
@@ -81,6 +102,9 @@ func (s *ProfileService) Get(id string) (contracts.Profile, error) {
 	defer s.mu.Unlock()
 	profile, err := s.repository.GetByID(id)
 	if err != nil {
+		if errors.Is(err, database.ErrNotFound) {
+			return contracts.Profile{}, apperrors.NotFound("profile %q not found", id)
+		}
 		return contracts.Profile{}, fmt.Errorf("get profile: %w", err)
 	}
 	return profile, nil
@@ -109,6 +133,7 @@ func (s *ProfileService) Create(name string) (contracts.Profile, error) {
 		rollbackErr := s.repository.Delete(profile)
 		return contracts.Profile{}, formatRollbackError("create profile storage", err, rollbackErr)
 	}
+	s.publishRealtime(contracts.RealtimeProfileCreatedMessage, &profile)
 	return profile, nil
 }
 
@@ -142,12 +167,18 @@ func (s *ProfileService) Rename(id string, name string) (contracts.Profile, erro
 	if err := s.repository.Update(current); err != nil {
 		return contracts.Profile{}, fmt.Errorf("rename profile: %w", err)
 	}
+	s.publishRealtime(contracts.RealtimeProfileUpdatedMessage, &current)
 	return current, nil
 }
 
 func (s *ProfileService) Delete(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.deleteGuard != nil {
+		if err := s.deleteGuard(id); err != nil {
+			return err
+		}
+	}
 	profiles, err := s.repository.GetAll()
 	if err != nil {
 		return fmt.Errorf("load profiles: %w", err)
@@ -180,7 +211,24 @@ func (s *ProfileService) Delete(id string) error {
 		}
 		return fmt.Errorf("delete profile storage: %w", err)
 	}
+	s.publishRealtime(contracts.RealtimeProfileDeletedMessage, &profile)
+	if s.deleteObserver != nil {
+		s.deleteObserver(profile.ID)
+	}
 	return nil
+}
+
+func (s *ProfileService) publishRealtime(messageType contracts.RealtimeWebSocketMessageType, profile *contracts.Profile) {
+	publisher := s.realtime
+	if publisher == nil || profile == nil {
+		return
+	}
+	id := profile.ID
+	publisher.Publish(contracts.RealtimeWebSocketMessage{
+		Type:      messageType,
+		ProfileID: &id,
+		Profile:   profile,
+	})
 }
 
 func (s *ProfileService) ensureStorage(id string) error {

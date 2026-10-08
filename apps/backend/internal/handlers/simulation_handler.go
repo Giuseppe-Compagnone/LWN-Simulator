@@ -45,6 +45,7 @@ type SimulationHandler struct {
 	service   SimulationService
 	validator *validator.Validate
 	websocket *ws.Server
+	profileID string
 }
 
 func NewSimulationHandler(service SimulationService, validator *validator.Validate) *SimulationHandler {
@@ -53,6 +54,12 @@ func NewSimulationHandler(service SimulationService, validator *validator.Valida
 		validator: validator,
 		websocket: ws.NewServer(allowWebSocketOrigin),
 	}
+}
+
+func NewSimulationHandlerForProfile(service SimulationService, validator *validator.Validate, profileID string) *SimulationHandler {
+	handler := NewSimulationHandler(service, validator)
+	handler.profileID = profileID
+	return handler
 }
 
 func allowWebSocketOrigin(request *http.Request) bool {
@@ -286,6 +293,7 @@ func (h *SimulationHandler) WebSocket(c *gin.Context) {
 		_ = connection.SendJSONAndClose(contracts.SimulationWebSocketMessage{
 			Type:                  contracts.SimulationErrorMessage,
 			TimestampMilliseconds: time.Now().UnixMilli(),
+			ProfileID:             stringPointerOrNil(h.profileID),
 			Error:                 stringPointer(err.Error()),
 		})
 		return
@@ -296,6 +304,7 @@ func (h *SimulationHandler) WebSocket(c *gin.Context) {
 		if err := connection.SendJSON(contracts.SimulationWebSocketMessage{
 			Type:                  contracts.SimulationSnapshotMessage,
 			TimestampMilliseconds: time.Now().UnixMilli(),
+			ProfileID:             stringPointerOrNil(h.profileID),
 			Snapshot:              &snapshot,
 		}); err != nil {
 			return
@@ -315,6 +324,7 @@ func (h *SimulationHandler) WebSocket(c *gin.Context) {
 			message := contracts.SimulationWebSocketMessage{
 				Type:                  contracts.SimulationEventMessage,
 				TimestampMilliseconds: time.Now().UnixMilli(),
+				ProfileID:             stringPointerOrNil(h.profileID),
 				Event:                 &event,
 			}
 			if update.IncludeSnapshot {
@@ -365,6 +375,13 @@ func parseNonNegativeQuery(c *gin.Context, name string, fallback int64) (int64, 
 }
 
 func stringPointer(value string) *string { return &value }
+
+func stringPointerOrNil(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
+}
 
 func stringValue(value *string) string {
 	if value == nil {
