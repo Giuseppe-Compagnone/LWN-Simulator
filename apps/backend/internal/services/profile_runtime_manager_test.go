@@ -74,10 +74,35 @@ func TestProfileRuntimeManagerExportsAndImportsAProfileAsANewProfile(t *testing.
 	if _, err := manager.Runtime(defaultProfile.ID); err != nil {
 		t.Fatal(err)
 	}
+	runtime, err := manager.Runtime(defaultProfile.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	run := contracts.SimulationRun{
+		Summary: contracts.SimulationRunSummary{
+			Id:                    "550e8400-e29b-41d4-a716-446655440100",
+			StartedAtMilliseconds: 100,
+			EndedAtMilliseconds:   int64Pointer(200),
+			Status:                contracts.SimulationRunStatusStopped,
+			EventCount:            1,
+			PacketSuccessRate:     100,
+		},
+		Objects: []contracts.SimulationLogObject{},
+	}
+	if err := runtime.Simulation.inner.logStore.Import(run, []contracts.SimulationEvent{{
+		ID:       "550e8400-e29b-41d4-a716-446655440101",
+		Sequence: 1,
+		Type:     contracts.SimulationStarted,
+	}}); err != nil {
+		t.Fatal(err)
+	}
 
 	archive, err := manager.ExportArchive(defaultProfile.ID)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if len(archive.Logs) != 1 || len(archive.Logs[0].Events) != 1 {
+		t.Fatalf("simulation history was not exported: %+v", archive.Logs)
 	}
 	imported, err := manager.ImportArchive(archive)
 	if err != nil {

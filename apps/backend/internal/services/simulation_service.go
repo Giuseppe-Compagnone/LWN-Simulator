@@ -686,6 +686,12 @@ func (s *SimulationService) GetLogEvents(id string, query SimulationLogEventQuer
 	return s.logStore.Events(id, query)
 }
 
+// FlushPersistence makes the current simulation history durable before a
+// snapshot such as a profile export is read.
+func (s *SimulationService) FlushPersistence(ctx context.Context) error {
+	return s.flushPersistence(ctx)
+}
+
 func (s *SimulationService) ImportLogs(logs []contracts.ProfileLog) error {
 	if s.logStore == nil {
 		return errors.New("simulation log store is not configured")

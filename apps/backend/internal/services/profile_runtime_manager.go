@@ -152,6 +152,9 @@ func (m *ProfileRuntimeManager) ExportArchive(profileID string) (contracts.Profi
 	if err != nil {
 		return contracts.ProfileArchive{}, err
 	}
+	if err := runtime.Simulation.FlushPersistence(context.Background()); err != nil {
+		return contracts.ProfileArchive{}, fmt.Errorf("flush simulation history: %w", err)
+	}
 	devices, err := runtime.Device.GetDevices(contracts.GetDevicesRequest{})
 	if err != nil {
 		return contracts.ProfileArchive{}, fmt.Errorf("export devices: %w", err)
@@ -376,6 +379,10 @@ func (s *ProfileSimulationService) GetLogEvents(id string, query SimulationLogEv
 
 func (s *ProfileSimulationService) ImportLogs(logs []contracts.ProfileLog) error {
 	return s.inner.ImportLogs(logs)
+}
+
+func (s *ProfileSimulationService) FlushPersistence(ctx context.Context) error {
+	return s.inner.FlushPersistence(ctx)
 }
 
 func (s *ProfileSimulationService) RestorePersisted(ctx context.Context) error {
