@@ -112,7 +112,7 @@ func TestProfileRuntimeManagerExportsAndImportsAProfileAsANewProfile(t *testing.
 	}
 	if _, err := runtime.Configuration.UpdateGatewayBridge(contracts.GatewayBridgeConfig{
 		Enabled: true,
-		Address: "bridge.example.test",
+		Address: "127.0.0.1",
 		Port:    1701,
 	}); err != nil {
 		t.Fatal(err)
@@ -125,7 +125,7 @@ func TestProfileRuntimeManagerExportsAndImportsAProfileAsANewProfile(t *testing.
 	if len(archive.Logs) != 1 || len(archive.Logs[0].Events) != 1 {
 		t.Fatalf("simulation history was not exported: %+v", archive.Logs)
 	}
-	if archive.GatewayBridge == nil || archive.GatewayBridge.Address != "bridge.example.test" {
+	if archive.GatewayBridge == nil || archive.GatewayBridge.Address != "127.0.0.1" {
 		t.Fatalf("gateway bridge configuration was not exported: %+v", archive.GatewayBridge)
 	}
 	imported, err := manager.ImportArchive(archive)
@@ -144,5 +144,33 @@ func TestProfileRuntimeManagerExportsAndImportsAProfileAsANewProfile(t *testing.
 	}
 	if importedArchive.GatewayBridge == nil || importedArchive.GatewayBridge.Port != 1701 {
 		t.Fatalf("gateway bridge configuration was not imported: %+v", importedArchive.GatewayBridge)
+	}
+}
+
+func TestProfileRuntimeManagerRejectsInvalidArchiveBeforeCreatingProfile(t *testing.T) {
+	dataDir := t.TempDir()
+	profiles := NewProfileService(repositories.NewProfileRepository(dataDir), dataDir)
+	defaultProfile, err := profiles.EnsureDefaultProfile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager := NewProfileRuntimeManager(dataDir, profiles, engineTypes.Options{}, nil)
+
+	_, err = manager.ImportArchive(contracts.ProfileArchive{
+		Format:  profileArchiveFormat,
+		Version: profileArchiveVersion,
+		Profile: contracts.Profile{ID: "550e8400-e29b-41d4-a716-446655440000", Name: "Invalid import"},
+		Devices: []contracts.Device{{ID: "not-a-uuid"}},
+	})
+	if err == nil {
+		t.Fatal("invalid archive was accepted")
+	}
+
+	stored, err := profiles.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stored) != 1 || stored[0].ID != defaultProfile.ID {
+		t.Fatalf("invalid import created a profile: %+v", stored)
 	}
 }

@@ -25,7 +25,7 @@ func TestProfileConfigurationServicePersistsConfigurationAtomically(t *testing.T
 	service := NewProfileConfigurationService(path, "")
 	wanted := contracts.GatewayBridgeConfig{
 		Enabled: true,
-		Address: "bridge.example.test",
+		Address: "127.0.0.1",
 		Port:    1701,
 	}
 
@@ -74,6 +74,19 @@ func TestProfileConfigurationServiceRejectsMalformedConfiguration(t *testing.T) 
 	_, err := NewProfileConfigurationService(path, "").GetGatewayBridge()
 	if err == nil {
 		t.Fatal("expected malformed configuration to fail")
+	}
+}
+
+func TestProfileConfigurationServiceRejectsUnresolvableEnabledAddress(t *testing.T) {
+	service := NewProfileConfigurationService(filepath.Join(t.TempDir(), "gateway-bridge.json"), "")
+
+	_, err := service.UpdateGatewayBridge(contracts.GatewayBridgeConfig{
+		Enabled: true,
+		Address: "not/an-address",
+		Port:    1700,
+	})
+	if err == nil {
+		t.Fatal("unresolvable gateway bridge address was accepted")
 	}
 }
 

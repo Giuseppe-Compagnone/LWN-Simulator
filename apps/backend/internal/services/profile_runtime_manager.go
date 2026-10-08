@@ -10,6 +10,7 @@ import (
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
+	engineValidation "github.com/Giuseppe-Compagnone/lwn-engine/validation"
 	"github.com/google/uuid"
 	"lwn-simulator-backend/internal/apperrors"
 	"lwn-simulator-backend/internal/database"
@@ -198,14 +199,8 @@ func (m *ProfileRuntimeManager) ExportArchive(profileID string) (contracts.Profi
 }
 
 func (m *ProfileRuntimeManager) ImportArchive(archive contracts.ProfileArchive) (contracts.Profile, error) {
-	if archive.Format != profileArchiveFormat || archive.Version != profileArchiveVersion {
-		return contracts.Profile{}, apperrors.Invalid("unsupported profile archive format or version")
-	}
-	if _, err := uuid.Parse(archive.Profile.ID); err != nil {
-		return contracts.Profile{}, apperrors.Invalid("profile archive contains an invalid profile id")
-	}
-	if archive.Profile.Name == "" {
-		return contracts.Profile{}, apperrors.Invalid("profile archive name cannot be empty")
+	if err := validateProfileArchive(archive); err != nil {
+		return contracts.Profile{}, err
 	}
 	profile, err := m.profiles.Create(archive.Profile.Name)
 	if errors.Is(err, apperrors.ErrConflict) {
@@ -243,6 +238,30 @@ func (m *ProfileRuntimeManager) ImportArchive(archive contracts.ProfileArchive) 
 		return contracts.Profile{}, fmt.Errorf("import profile: %w", err)
 	}
 	return profile, nil
+}
+
+func validateProfileArchive(archive contracts.ProfileArchive) error {
+	if archive.Format != profileArchiveFormat || archive.Version != profileArchiveVersion {
+		return apperrors.Invalid("unsupported profile archive format or version")
+	}
+	if _, err := uuid.Parse(archive.Profile.ID); err != nil {
+		return apperrors.Invalid("profile archive contains an invalid profile id")
+	}
+	if _, err := normalizeProfileName(archive.Profile.Name); err != nil {
+		return err
+	}
+	if err := engineValidation.ValidateHardware(archive.Devices, archive.Gateways); err != nil {
+		return apperrors.Invalid("profile archive contains invalid hardware: %s", err)
+	}
+	if archive.GatewayBridge != nil {
+		if err := engineValidation.ValidateSimulationConfig(contracts.SimulationConfig{
+			Speed:         1,
+			GatewayBridge: archive.GatewayBridge,
+		}); err != nil {
+			return apperrors.Invalid("profile archive contains invalid gateway bridge configuration: %s", err)
+		}
+	}
+	return nil
 }
 
 func (m *ProfileRuntimeManager) acquireSimulation(profileID string) error {

@@ -9,6 +9,8 @@ import (
 	"sync"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
+	engineValidation "github.com/Giuseppe-Compagnone/lwn-engine/validation"
+	"lwn-simulator-backend/internal/apperrors"
 )
 
 var defaultGatewayBridgeConfig = contracts.GatewayBridgeConfig{
@@ -60,6 +62,14 @@ func (s *ProfileConfigurationService) UpdateGatewayBridge(config contracts.Gatew
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	config = normalizeGatewayBridgeConfig(config)
+	if config.Enabled {
+		if err := engineValidation.ValidateSimulationConfig(contracts.SimulationConfig{
+			Speed:         1,
+			GatewayBridge: &config,
+		}); err != nil {
+			return contracts.GatewayBridgeConfig{}, apperrors.Invalid("invalid gateway bridge configuration: %s", err)
+		}
+	}
 	data, err := json.Marshal(config)
 	if err != nil {
 		return contracts.GatewayBridgeConfig{}, fmt.Errorf("encode gateway bridge configuration: %w", err)
