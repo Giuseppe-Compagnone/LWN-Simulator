@@ -101,7 +101,9 @@ func TestUDPAdapterImplementsSemtechIngressAndEgress(t *testing.T) {
 		t.Fatalf("unexpected timed transmission timestamp: got=%q target=%s err=%v", timedBody.TXPK.Time, target, err)
 	}
 	txAckBody := []byte(`{"txpk_ack":{"error":"TOO_LATE"}}`)
-	txAck := append([]byte{protocolVersion, timedResponse[1], timedResponse[2], txAckType}, txAckBody...)
+	// Semtech TX_ACK includes the gateway EUI before its optional JSON body.
+	txAck := append([]byte{protocolVersion, timedResponse[1], timedResponse[2], txAckType}, eui...)
+	txAck = append(txAck, txAckBody...)
 	if _, err := gatewaySocket.WriteToUDP(txAck, serverAddress); err != nil {
 		t.Fatalf("send TX_ACK: %v", err)
 	}
@@ -119,6 +121,77 @@ func TestUDPAdapterImplementsSemtechIngressAndEgress(t *testing.T) {
 		case <-deadline:
 			t.Fatal("timed out waiting for correlated TX_ACK error")
 		}
+	}
+}
+
+func TestUDPAdapterAcceptsSemtechGatewayAcknowledgements(t *testing.T) {
+	gatewaySocket, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("listen fake gateway: %v", err)
+	}
+	defer gatewaySocket.Close()
+
+	gateway := testRealGateway(gatewaySocket.LocalAddr().(*net.UDPAddr).Port)
+	factory := NewUDPFactory(UDPOptions{LocalAddress: "127.0.0.1:0", Timeout: time.Second})
+	adapter, err := factory.NewGatewayAdapter(gateway)
+	if err != nil {
+		t.Fatalf("create adapter: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	defer adapter.Close()
+	if err := adapter.Start(ctx); err != nil {
+		t.Fatalf("start adapter: %v", err)
+	}
+	rawAdapter := adapter.(*udpAdapter)
+	factory.mu.Lock()
+	serverAddress := factory.runtime.conn.LocalAddr().(*net.UDPAddr)
+	factory.mu.Unlock()
+	eui, _ := hexBytes(gateway.GatewayEUI)
+
+	pullToken := [2]byte{0x20, 0x21}
+	if _, err := gatewaySocket.WriteToUDP(append(packetHeader(pullToken, pullAckType), nil...), serverAddress); err != nil {
+		t.Fatalf("send PULL_ACK: %v", err)
+	}
+	waitHeartbeat(t, adapter.Events())
+
+	pushToken := [2]byte{0x22, 0x23}
+	pushAck := append(packetHeader(pushToken, pushAckType), nil...)
+	if _, err := gatewaySocket.WriteToUDP(pushAck, serverAddress); err != nil {
+		t.Fatalf("send PUSH_ACK: %v", err)
+	}
+	waitHeartbeat(t, adapter.Events())
+
+	emptyTXAck := append(packetHeader([2]byte{0x24, 0x25}, txAckType), eui...)
+	if err := rawAdapter.handleDatagram(ctx, udpDatagram{data: emptyTXAck, remote: gatewaySocket.LocalAddr().(*net.UDPAddr)}); err != nil {
+		t.Fatalf("empty TX_ACK should be accepted: %v", err)
+	}
+}
+
+func TestUDPAdapterRejectsTXAckWithMissingGatewayEUI(t *testing.T) {
+	gatewaySocket, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("listen fake gateway: %v", err)
+	}
+	defer gatewaySocket.Close()
+
+	gateway := testRealGateway(gatewaySocket.LocalAddr().(*net.UDPAddr).Port)
+	factory := NewUDPFactory(UDPOptions{LocalAddress: "127.0.0.1:0", Timeout: time.Second})
+	adapter, err := factory.NewGatewayAdapter(gateway)
+	if err != nil {
+		t.Fatalf("create adapter: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	defer adapter.Close()
+	if err := adapter.Start(ctx); err != nil {
+		t.Fatalf("start adapter: %v", err)
+	}
+	udpAdapter := adapter.(*udpAdapter)
+
+	malformed := append(packetHeader([2]byte{0x30, 0x31}, txAckType), []byte(`{"txpk_ack":{"error":"NONE"}}`)...)
+	if err := udpAdapter.handleDatagram(ctx, udpDatagram{data: malformed, remote: gatewaySocket.LocalAddr().(*net.UDPAddr)}); err == nil {
+		t.Fatal("TX_ACK without the gateway EUI should be rejected")
 	}
 }
 

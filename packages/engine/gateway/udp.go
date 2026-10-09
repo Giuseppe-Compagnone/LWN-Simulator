@@ -588,8 +588,21 @@ func (adapter *udpAdapter) handleDatagram(ctx context.Context, datagram udpDatag
 			return err
 		}
 		return adapter.handlePushData(ctx, data[12:])
+	case pushAckType, pullAckType:
+		// PUSH_ACK and PULL_ACK are the acknowledgements for the two
+		// gateway-to-server keepalive/data messages. They carry no payload;
+		// receiving either one proves that the UDP path is usable.
+		return adapter.emitHeartbeat(ctx)
 	case txAckType:
-		packet, err := adapter.handleTXAck(data[1:3], data[4:])
+		if len(data) < 12 {
+			return errors.New("invalid TX_ACK packet")
+		}
+		if err := adapter.validateGatewayEUI(data[4:12]); err != nil {
+			return err
+		}
+		// The Semtech protocol reserves bytes 4..11 for the gateway EUI.
+		// The JSON acknowledgement is optional and starts at byte 12.
+		packet, err := adapter.handleTXAck(data[1:3], data[12:])
 		if err != nil && !adapter.emitErrorForPacket(ctx, err, false, packet) {
 			return ctx.Err()
 		}
