@@ -21,7 +21,9 @@ locations, choose the required device classes and activation modes, and make
 sure their antenna ranges overlap the gateways that should receive them.
 
 If you are testing real gateways, configure the [Gateway Bridge](../hardware/gateway-bridge)
-before starting the simulation.
+and the real gateway records before starting the simulation. The bridge
+endpoint is the simulator’s local UDP listener; each real gateway record still
+needs its own Gateway EUI, address, and port.
 
 Only one simulation can be active on a simulator server at a time. This rule
 applies across all profiles, so stop or finish the current run before starting

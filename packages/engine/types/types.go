@@ -224,6 +224,8 @@ type GatewayPacket struct {
 	Frequency       int64
 	Bandwidth       int64
 	SpreadingFactor int
+	RSSI            float64
+	SNR             float64
 	Power           int
 	DataRate        string
 	// TransmitAt requests a timed downlink. A zero value keeps the existing
@@ -236,6 +238,7 @@ type GatewayPacketKind string
 
 const (
 	GatewayPacketGeneric        GatewayPacketKind = "generic"
+	GatewayPacketUplink         GatewayPacketKind = "uplink"
 	GatewayPacketClassBBeacon   GatewayPacketKind = "class-b-beacon"
 	GatewayPacketClassBDownlink GatewayPacketKind = "class-b-downlink"
 	GatewayPacketDownlink       GatewayPacketKind = "downlink"
@@ -257,6 +260,20 @@ type GatewayAdapter interface {
 	Packets() <-chan GatewayPacket
 	Events() <-chan GatewayAdapterEvent
 	Close() error
+}
+
+// GatewayUplinkAdapter is implemented by transports that can expose the
+// simulator as a gateway to an external network server. Downlinks continue to
+// use GatewayAdapter.Send; uplinks use this separate method so the transport
+// can encode the Semtech PUSH_DATA envelope correctly.
+type GatewayUplinkAdapter interface {
+	SendUplink(context.Context, GatewayPacket) error
+}
+
+// VirtualGatewayAdapterFactory identifies factories that can transport
+// in-process virtual gateways to an external Gateway Bridge.
+type VirtualGatewayAdapterFactory interface {
+	SupportsVirtualGateways() bool
 }
 
 type GatewayAdapterFactory interface {
@@ -551,6 +568,7 @@ type RadioTransmission struct {
 	GatewayIDs       []string
 	Collision        bool
 	FPendingPoll     bool
+	Payload          []byte
 }
 
 type ValidationIssue struct {

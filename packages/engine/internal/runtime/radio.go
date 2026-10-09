@@ -40,6 +40,7 @@ func (e *Engine) startRadioTransmissionLocked(
 		transmitPower = float64(session.CurrentTxPower)
 	}
 	rssi, snr := calculateSignal(device, gateways, channel.Frequency, transmitPower)
+	payload := e.buildUplinkPayloadLocked(device, session, frameCounter, confirmed, scheduled.FragmentIndex, dataRate)
 	transmission := &types.RadioTransmission{
 		PacketID:         packetID,
 		DeviceID:         device.ID,
@@ -61,6 +62,7 @@ func (e *Engine) startRadioTransmissionLocked(
 		RSSI:             rssi,
 		SNR:              snr,
 		GatewayIDs:       gatewayIDs(gateways),
+		Payload:          append([]byte(nil), payload...),
 	}
 	for _, active := range e.radio {
 		if active.EndAt > transmission.StartAt &&
@@ -157,6 +159,21 @@ func (e *Engine) processRadioTransmissionCompletedLocked(scheduled types.Schedul
 			gatewayEventType(transmission), "virtual gateway received radio packet", transmission.DeviceID,
 			gatewayID, scheduled.ID, transmission.PacketID, transmission, false, "",
 		))
+		if len(transmission.Payload) > 0 {
+			if gateway, ok := e.registry.Gateway(gatewayID); ok && gateway.Type == contracts.Virtual {
+				if _, connected := e.gatewayAdapters[gatewayID]; connected {
+					e.gatewayPackets = append(e.gatewayPackets, types.GatewayPacket{
+						GatewayID:       gatewayID,
+						Kind:            types.GatewayPacketUplink,
+						Payload:         append([]byte(nil), transmission.Payload...),
+						Frequency:       transmission.ChannelFrequency,
+						Bandwidth:       transmission.Bandwidth,
+						SpreadingFactor: transmission.SpreadingFactor,
+						DataRate:        dataRateString(transmission.SpreadingFactor, transmission.Bandwidth),
+					})
+				}
+			}
+		}
 	}
 	return append(events, e.completeRadioSuccessLocked(transmission, scheduled.ID)...)
 }

@@ -22,7 +22,12 @@ func (e *Engine) startGatewayAdapters(ctx context.Context) {
 	}
 
 	for _, gateway := range e.registry.ActiveGateways() {
-		if gateway.Type != contracts.Real {
+		if gateway.Type == contracts.Virtual {
+			virtualFactory, ok := e.gatewayAdapterFactory.(types.VirtualGatewayAdapterFactory)
+			if !ok || !virtualFactory.SupportsVirtualGateways() {
+				continue
+			}
+		} else if gateway.Type != contracts.Real {
 			continue
 		}
 		e.startGatewayAdapter(ctx, gateway)
@@ -145,7 +150,7 @@ func (e *Engine) handleGatewayAdapterEvent(adapterEvent types.GatewayAdapterEven
 		if adapterEvent.Timeout {
 			e.metrics.GatewayTimeouts++
 		}
-		if adapterEvent.Packet != nil && adapterEvent.Packet.Kind != types.GatewayPacketGeneric {
+		if adapterEvent.Packet != nil {
 			copyPacket := *adapterEvent.Packet
 			copyPacket.Payload = append([]byte(nil), adapterEvent.Packet.Payload...)
 			e.gatewayPackets = append(e.gatewayPackets, copyPacket)
@@ -190,7 +195,7 @@ func (e *Engine) handleGatewayPacket(packet types.GatewayPacket) {
 	payloadSize := int64(len(packet.Payload))
 	event := e.newGatewayEventLocked(
 		contracts.GatewayPacketIngress,
-		"packet received from real gateway",
+		"packet received from gateway transport",
 		packet.GatewayID,
 		contracts.Connected,
 		&payloadSize,
@@ -207,8 +212,26 @@ func (e *Engine) handleGatewayPacket(packet types.GatewayPacket) {
 		spreadingFactor := int32(packet.SpreadingFactor)
 		event.SpreadingFactor = &spreadingFactor
 	}
+	if packet.RSSI != 0 {
+		rssi := packet.RSSI
+		event.RSSI = &rssi
+	}
+	if packet.SNR != 0 {
+		snr := packet.SNR
+		event.SNR = &snr
+	}
 	events := []contracts.SimulationEvent{event}
-	if decoded, err := lorawan.Parse(packet.Payload); err == nil {
+	if packet.Kind == types.GatewayPacketDownlink || packet.Kind == types.GatewayPacketClassBDownlink {
+		if decoded, err := lorawan.Parse(packet.Payload); err == nil {
+			events = append(events, e.processExternalDownlinkLocked(packet, decoded)...)
+		} else {
+			events = append(events, e.newPacketEventLocked(
+				contracts.DeviceDownlinkDropped,
+				"downlink received from gateway transport is not a valid LoRaWAN frame",
+				"", packet.GatewayID, "", uuid.NewString(),
+			))
+		}
+	} else if decoded, err := lorawan.Parse(packet.Payload); err == nil {
 		events = append(events, e.processRealUplinkLocked(packet, decoded)...)
 	}
 	pendingPackets := e.takeGatewayPacketsLocked(packet.GatewayID)
@@ -219,6 +242,85 @@ func (e *Engine) handleGatewayPacket(packet types.GatewayPacket) {
 	if len(pendingPackets) > 0 {
 		e.dispatchGatewayPackets(pendingPackets)
 	}
+}
+
+func (e *Engine) processExternalDownlinkLocked(packet types.GatewayPacket, decoded lorawan.Packet) []contracts.SimulationEvent {
+	if decoded.MType != lorawan.MTypeUnconfirmedDataDown && decoded.MType != lorawan.MTypeConfirmedDataDown {
+		return []contracts.SimulationEvent{e.newPacketEventLocked(
+			contracts.DeviceDownlinkDropped,
+			"external gateway downlink is not a data frame",
+			"", packet.GatewayID, "", uuid.NewString(),
+		)}
+	}
+	device, session := e.realDeviceSessionLocked(decoded.DevAddr)
+	if session == nil {
+		return []contracts.SimulationEvent{e.newPacketEventLocked(
+			contracts.DeviceDownlinkDropped,
+			"external gateway downlink targets an unknown device address",
+			"", packet.GatewayID, "", uuid.NewString(),
+		)}
+	}
+	if len(session.NwkSKey) != 16 || !lorawan.VerifyDataMIC(decoded, session.NwkSKey, 1) {
+		e.metrics.FrameCounterErrors++
+		return []contracts.SimulationEvent{e.newPacketEventLocked(
+			contracts.DeviceDownlinkDropped,
+			"external gateway downlink has an invalid MIC",
+			device.ID, packet.GatewayID, "", uuid.NewString(),
+		)}
+	}
+	if decoded.FCnt <= uint32(session.FrameCounterDown) {
+		e.metrics.FrameCounterErrors++
+		return []contracts.SimulationEvent{e.newProtocolEventLocked(
+			contracts.FrameCounterRejected,
+			"external gateway downlink frame counter is not newer",
+			device.ID, packet.GatewayID, "", uuid.NewString(), int64(decoded.FCnt), 1, decoded.Confirmed, nil,
+		)}
+	}
+	downlink := types.Downlink{
+		ID:        uuid.NewString(),
+		DeviceID:  device.ID,
+		DataRate:  gatewayPacketDataRate(device, packet),
+		Confirmed: decoded.Confirmed,
+		FPending:  decoded.FPending,
+		ACK:       decoded.ACK,
+	}
+	if decoded.FPort != nil {
+		downlink.FPort = int(*decoded.FPort)
+		key := session.AppSKey
+		if *decoded.FPort == 0 {
+			key = session.NwkSKey
+		}
+		payload, err := lorawan.DecryptPayload(decoded, key, 1)
+		if err != nil {
+			return []contracts.SimulationEvent{e.newPacketEventLocked(
+				contracts.DeviceDownlinkDropped,
+				"external gateway downlink payload could not be decrypted",
+				device.ID, packet.GatewayID, "", uuid.NewString(),
+			)}
+		}
+		downlink.Payload = payload
+	}
+	session.FrameCounterDown = int64(decoded.FCnt)
+	event := e.newDownlinkEventLocked(
+		contracts.DeviceDownlinkTransmitted,
+		"downlink received from external gateway transport",
+		device, session, downlink, "",
+	)
+	event.GatewayID = &packet.GatewayID
+	if packet.Frequency > 0 {
+		event.ChannelFrequency = &packet.Frequency
+	}
+	if packet.SpreadingFactor > 0 {
+		spreadingFactor := int32(packet.SpreadingFactor)
+		event.SpreadingFactor = &spreadingFactor
+	}
+	if packet.Bandwidth > 0 {
+		event.Bandwidth = &packet.Bandwidth
+	}
+	e.eventLog[len(e.eventLog)-1] = event
+	events := []contracts.SimulationEvent{event}
+	events = append(events, e.applyDownlinkEffectsLocked(device, session, downlink, e.clock.Now())...)
+	return events
 }
 
 func (e *Engine) processRealUplinkLocked(packet types.GatewayPacket, decoded lorawan.Packet) []contracts.SimulationEvent {
@@ -321,6 +423,23 @@ func (e *Engine) processRealUplinkLocked(packet types.GatewayPacket, decoded lor
 	e.metrics.SuccessfulUplinks++
 	e.metrics.TotalPacketsReceived++
 	e.metrics.PacketSuccessRate = e.packetSuccessRate()
+	if packet.RSSI != 0 {
+		session.LastRSSI = packet.RSSI
+	}
+	if packet.SNR != 0 {
+		session.LastSNR = packet.SNR
+	}
+	if packet.Frequency > 0 {
+		session.LastChannel = packet.Frequency
+	}
+	session.LastPayloadSize = len(decoded.FRMPayload)
+	if decoded.FPort != nil {
+		session.LastFPort = int(*decoded.FPort)
+	}
+	if dataRate := gatewayPacketDataRate(device, packet); dataRate >= 0 {
+		session.CurrentDataRate = dataRate
+		session.CurrentSpreadingFactor = spreadingFactorForDataRate(device.LocationConfig.Region, dataRate)
+	}
 	packetID := uuid.NewString()
 	events := []contracts.SimulationEvent{e.newProtocolEventLocked(
 		contracts.DeviceUplinkTransmitted,
@@ -637,17 +756,32 @@ func (e *Engine) sendGatewayPacket(ctx context.Context, packet types.GatewayPack
 
 	e.mu.RLock()
 	adapter, ok := e.gatewayAdapters[packet.GatewayID]
+	gateway, gatewayExists := e.registry.Gateway(packet.GatewayID)
 	e.mu.RUnlock()
+	// Virtual gateways are externalized in phase 2 only for uplinks. Their
+	// downlinks and Class-B beacons are still simulated in-process; the
+	// Gateway Bridge receive path is introduced with the downlink phase.
+	if gatewayExists && gateway.Type == contracts.Virtual && packet.Kind != types.GatewayPacketUplink {
+		return nil
+	}
 	if !ok || adapter == nil {
 		return fmt.Errorf("%w: %s", ErrGatewayTransportUnavailable, packet.GatewayID)
 	}
 
-	if err := adapter.Send(ctx, packet); err != nil {
-		if packet.Kind != types.GatewayPacketGeneric {
-			e.mu.Lock()
-			e.gatewayPackets = append(e.gatewayPackets, cloneGatewayPackets([]types.GatewayPacket{packet})...)
-			e.mu.Unlock()
+	var err error
+	if packet.Kind == types.GatewayPacketUplink {
+		uplinkAdapter, ok := adapter.(types.GatewayUplinkAdapter)
+		if !ok {
+			return fmt.Errorf("gateway %s does not support uplink transport", packet.GatewayID)
 		}
+		err = uplinkAdapter.SendUplink(ctx, packet)
+	} else {
+		err = adapter.Send(ctx, packet)
+	}
+	if err != nil {
+		e.mu.Lock()
+		e.gatewayPackets = append(e.gatewayPackets, cloneGatewayPackets([]types.GatewayPacket{packet})...)
+		e.mu.Unlock()
 		e.publishGatewayError(packet.GatewayID, err, false)
 		return err
 	}
@@ -661,7 +795,7 @@ func (e *Engine) sendGatewayPacket(ctx context.Context, packet types.GatewayPack
 	payloadSize := int64(len(packet.Payload))
 	event := e.newGatewayEventLocked(
 		contracts.GatewayPacketEgress,
-		"packet sent to real gateway",
+		"packet sent to gateway transport",
 		packet.GatewayID,
 		contracts.Connected,
 		&payloadSize,

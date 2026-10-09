@@ -8,6 +8,12 @@ The Gateway Bridge page configures the UDP endpoint used by real gateways and
 packet-forwarder software. It is separate from virtual gateways: virtual
 gateways stay entirely inside the simulator and do not use this endpoint.
 
+The integration uses the Semtech UDP packet-forwarder protocol. A ChirpStack
+Gateway Bridge can therefore be used as the external transport between a
+real gateway and the simulator. The simulator remains responsible for the
+configured device sessions, radio decisions, packet processing, and runtime
+status; the Gateway Bridge only carries packets between the two sides.
+
 ## Configuration fields
 
 | Field | Meaning | Value |
@@ -20,6 +26,10 @@ The address and port are disabled while the bridge checkbox is off. Click
 **Save settings** to store the configuration locally. The page shows the
 effective endpoint, protocol, and whether the settings have been saved.
 
+The address and port identify the local listener used by the simulator. They
+are not the address and port of an individual real gateway. Configure those
+gateway-specific values on the gateway’s **Real** hardware record.
+
 Use **Reset to default** to restore the default address, port, and disabled
 state.
 
@@ -29,13 +39,37 @@ state.
 2. Enable the bridge and set the address and UDP port.
 3. Save the settings.
 4. Make sure at least one active gateway with type **Real** is configured in Hardware.
-5. Configure the gateway’s packet forwarder or ChirpStack Gateway Bridge to send Semtech UDP traffic to the saved endpoint.
-6. Start the simulation and monitor the **Connectivity** panel.
+5. Set the real gateway’s IPv4 address and UDP port to the endpoint where that gateway can be reached.
+6. Configure the gateway’s packet forwarder or ChirpStack Gateway Bridge to send Semtech UDP traffic to the saved bridge endpoint.
+7. Start the simulation and monitor the **Connectivity** panel.
 
 The gateway should move from connecting/reconnecting to connected after its
 heartbeat is received. The runtime panel reports incoming and outgoing packet
 counts. The event stream reports connection changes, heartbeats, UDP ingress,
 UDP egress, and network errors.
+
+The Gateway EUI configured for the real gateway must match the EUI announced by
+the packet forwarder. This is how packets are associated with the correct
+gateway when several real gateways share the simulator’s UDP listener.
+
+## During a simulation
+
+Use the dashboard to verify the connection:
+
+- **Connectivity** shows the gateway state and `in / out` packet counters.
+- **Engine activity** reports heartbeats, packet ingress and egress, timeouts,
+  reconnects, and validation errors.
+- **Propagation map** draws a device-to-gateway link only when the device is
+  inside its configured antenna range and the communication event is current.
+- **Logs** keeps the events after the run has stopped, including events linked
+  to a specific device or gateway.
+
+Uplinks received from a real gateway update the matching device session. A
+valid confirmed uplink can produce an acknowledgement through the gateway.
+Downlinks queued from the dashboard are sent back through the gateway when the
+device has an appropriate receive opportunity. If the gateway temporarily
+disconnects, pending traffic is retained for the next available connection
+when possible.
 
 ## Supported traffic
 
@@ -51,6 +85,11 @@ gateways:
 The bridge does not make gateways communicate directly with one another. Each
 gateway communicates with the network side independently. Coverage and packet
 delivery still depend on the device-to-gateway radio relationship.
+
+The simulator does not require a physical gateway for local testing. You can
+use a packet forwarder or ChirpStack Gateway Bridge pointed at the configured
+endpoint, then observe the same connection, packet, and error panels in the
+application.
 
 ## Troubleshooting
 
@@ -68,12 +107,22 @@ Check that:
 
 Confirm that the packet-forwarder is sending `PUSH_DATA`, that its Gateway EUI
 matches the configured Gateway EUI, and that the transmitted LoRaWAN frame is
-valid for the configured device session. Check the event stream for ingress or
-validation errors.
+valid for the configured device session. Also confirm that the packet
+forwarder targets the Gateway Bridge address and port, not the individual
+gateway endpoint. Check the event stream for ingress or validation errors.
 
 ### No downlink is visible at the gateway
 
 Make sure the device is in range, the downlink is valid for its regional plan,
-and that the packet-forwarder answers the bridge’s transmission request. For
-Class A devices, a downlink normally requires a receive window after an
+and that the packet-forwarder answers the bridge’s transmission request. Check
+that the real gateway’s IPv4 address and port are reachable from the simulator.
+For Class A devices, a downlink normally requires a receive window after an
 uplink.
+
+### The bridge cannot start
+
+Check that no other process is using the selected local UDP port. If the
+server is running on another machine, use an address reachable from the
+packet-forwarder and allow the UDP port through the host firewall. Save the
+settings before starting a new simulation; bridge configuration changes apply
+to the next run.
