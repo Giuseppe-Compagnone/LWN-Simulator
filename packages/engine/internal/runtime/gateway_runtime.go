@@ -150,7 +150,7 @@ func (e *Engine) handleGatewayAdapterEvent(adapterEvent types.GatewayAdapterEven
 		if adapterEvent.Timeout {
 			e.metrics.GatewayTimeouts++
 		}
-		if adapterEvent.Packet != nil && adapterEvent.Packet.Kind != types.GatewayPacketGeneric {
+		if adapterEvent.Packet != nil {
 			copyPacket := *adapterEvent.Packet
 			copyPacket.Payload = append([]byte(nil), adapterEvent.Packet.Payload...)
 			e.gatewayPackets = append(e.gatewayPackets, copyPacket)
@@ -779,11 +779,9 @@ func (e *Engine) sendGatewayPacket(ctx context.Context, packet types.GatewayPack
 		err = adapter.Send(ctx, packet)
 	}
 	if err != nil {
-		if packet.Kind != types.GatewayPacketGeneric {
-			e.mu.Lock()
-			e.gatewayPackets = append(e.gatewayPackets, cloneGatewayPackets([]types.GatewayPacket{packet})...)
-			e.mu.Unlock()
-		}
+		e.mu.Lock()
+		e.gatewayPackets = append(e.gatewayPackets, cloneGatewayPackets([]types.GatewayPacket{packet})...)
+		e.mu.Unlock()
 		e.publishGatewayError(packet.GatewayID, err, false)
 		return err
 	}

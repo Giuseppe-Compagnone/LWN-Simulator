@@ -271,9 +271,10 @@ func (factory *UDPFactory) send(adapter *udpAdapter, data []byte, destination *n
 
 func (factory *UDPFactory) Close() error {
 	factory.mu.Lock()
+	runtime := factory.runtime
 	adapters := make([]*udpAdapter, 0)
-	if factory.runtime != nil {
-		for _, adapter := range factory.runtime.adapters {
+	if runtime != nil {
+		for _, adapter := range runtime.adapters {
 			adapters = append(adapters, adapter)
 		}
 	}
@@ -282,15 +283,14 @@ func (factory *UDPFactory) Close() error {
 		_ = adapter.Close()
 	}
 
-	factory.mu.Lock()
-	runtime := factory.runtime
-	factory.runtime = nil
 	if runtime != nil {
-		runtime.cancel()
-		_ = runtime.conn.Close()
-	}
-	factory.mu.Unlock()
-	if runtime != nil {
+		factory.mu.Lock()
+		if factory.runtime == runtime {
+			factory.runtime = nil
+			runtime.cancel()
+			_ = runtime.conn.Close()
+		}
+		factory.mu.Unlock()
 		<-runtime.done
 	}
 	return nil
@@ -657,6 +657,9 @@ func (adapter *udpAdapter) run(ctx context.Context) {
 			if err == nil {
 				continue
 			}
+			if !adapter.emitPendingFailures(ctx, err, false) {
+				return
+			}
 			if !adapter.emitError(ctx, err, false) || !adapter.emitState(ctx, contracts.Disconnected) || !adapter.emitState(ctx, contracts.Reconnecting) {
 				return
 			}
@@ -672,6 +675,9 @@ func (adapter *udpAdapter) run(ctx context.Context) {
 				lastKeepAlive = now
 			}
 			if now.Sub(lastActivity) >= adapter.options.Timeout {
+				if !adapter.emitPendingFailures(ctx, ErrGatewayHeartbeat, true) {
+					return
+				}
 				if !adapter.emitError(ctx, ErrGatewayHeartbeat, true) || !adapter.emitState(ctx, contracts.Disconnected) || !adapter.emitState(ctx, contracts.Reconnecting) {
 					return
 				}
@@ -1005,6 +1011,28 @@ func (adapter *udpAdapter) emitHeartbeat(ctx context.Context) error {
 
 func (adapter *udpAdapter) emitError(ctx context.Context, err error, timeout bool) bool {
 	return adapter.emitErrorForPacket(ctx, err, timeout, nil)
+}
+
+// emitPendingFailures hands packets without a TX_ACK back to the engine. The
+// engine keeps them queued and dispatches them after the adapter reconnects.
+// Clearing the transport-side map before emitting the events makes this
+// operation idempotent when a socket failure and a heartbeat timeout overlap.
+func (adapter *udpAdapter) emitPendingFailures(ctx context.Context, err error, timeout bool) bool {
+	adapter.mu.Lock()
+	packets := make([]types.GatewayPacket, 0, len(adapter.pending))
+	for _, packet := range adapter.pending {
+		packet.Payload = append([]byte(nil), packet.Payload...)
+		packets = append(packets, packet)
+	}
+	adapter.pending = make(map[string]types.GatewayPacket)
+	adapter.mu.Unlock()
+
+	for index := range packets {
+		if !adapter.emitErrorForPacket(ctx, err, timeout, &packets[index]) {
+			return false
+		}
+	}
+	return true
 }
 
 func (adapter *udpAdapter) emitErrorForPacket(ctx context.Context, err error, timeout bool, packet *types.GatewayPacket) bool {

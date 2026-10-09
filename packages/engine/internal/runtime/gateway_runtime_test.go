@@ -80,6 +80,70 @@ func TestPhaseFiveEngineTracksRealGatewayLifecycleAndPackets(t *testing.T) {
 	}
 }
 
+func TestPhaseFiveEngineRequeuesDownlinkAfterGatewayFailure(t *testing.T) {
+	adapter := newFakeGatewayAdapter()
+	gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c45")
+	gateway.Type = contracts.Real
+	gateway.KeepAlive = nil
+	gateway.GatewayEUI = "A840410001000145"
+	gateway.MacAddress = "02:00:00:10:00:45"
+	gateway.GatewayIPv4 = engineStringPtr("127.0.0.1")
+	gateway.GatewayPort = engineInt32Ptr(1745)
+
+	engine, err := New(
+		contracts.SimulationConfig{Speed: 1},
+		nil,
+		[]contracts.Gateway{gateway},
+		types.Options{EventBuffer: 256, GatewayAdapterFactory: &fakeGatewayFactory{adapter: adapter}},
+	)
+	if err != nil {
+		t.Fatalf("create engine: %v", err)
+	}
+	startEngine(t, engine)
+	defer stopEngine(t, engine)
+	waitForEventType(t, engine.Events(), contracts.GatewayConnecting)
+	adapter.emit(types.GatewayAdapterEvent{GatewayID: gateway.ID, State: contracts.Connected})
+	waitForEventType(t, engine.Events(), contracts.GatewayConnected)
+
+	packet := types.GatewayPacket{
+		GatewayID: gateway.ID,
+		Payload:   []byte("retry after reconnect"),
+	}
+	if err := engine.SendGatewayPacket(context.Background(), gateway.ID, packet.Payload); err != nil {
+		t.Fatalf("send gateway packet: %v", err)
+	}
+	select {
+	case sent := <-adapter.sends:
+		if string(sent.Payload) != string(packet.Payload) {
+			t.Fatalf("unexpected initial downlink: %q", sent.Payload)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for initial downlink")
+	}
+
+	adapter.emit(types.GatewayAdapterEvent{
+		GatewayID: gateway.ID,
+		State:     contracts.Error,
+		Error:     "gateway heartbeat timeout",
+		Timeout:   true,
+		Packet:    &packet,
+	})
+	waitForEventType(t, engine.Events(), contracts.GatewayNetworkError)
+	adapter.emit(types.GatewayAdapterEvent{GatewayID: gateway.ID, State: contracts.Reconnecting})
+	waitForEventType(t, engine.Events(), contracts.GatewayReconnecting)
+	adapter.emit(types.GatewayAdapterEvent{GatewayID: gateway.ID, State: contracts.Connected})
+	waitForEventType(t, engine.Events(), contracts.GatewayConnected)
+
+	select {
+	case resent := <-adapter.sends:
+		if string(resent.Payload) != string(packet.Payload) {
+			t.Fatalf("unexpected requeued downlink: %q", resent.Payload)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for downlink resend after reconnect")
+	}
+}
+
 func TestPhaseFiveRealUplinkUpdatesDeviceAndSchedulesConfirmedACK(t *testing.T) {
 	adapter := newFakeGatewayAdapter()
 	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000041")

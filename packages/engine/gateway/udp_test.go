@@ -290,6 +290,66 @@ func TestUDPAdapterReportsTimeoutAndReconnectState(t *testing.T) {
 	waitAdapterEvent(t, adapter.Events(), contracts.Reconnecting)
 }
 
+func TestUDPAdapterRequeuesDownlinkWhenGatewayTimesOut(t *testing.T) {
+	gatewaySocket, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("listen fake gateway: %v", err)
+	}
+	defer gatewaySocket.Close()
+
+	gateway := testRealGateway(gatewaySocket.LocalAddr().(*net.UDPAddr).Port)
+	factory := NewUDPFactory(UDPOptions{
+		LocalAddress:     "127.0.0.1:0",
+		Timeout:          50 * time.Millisecond,
+		ReconnectInitial: 10 * time.Millisecond,
+		ReconnectMax:     20 * time.Millisecond,
+	})
+	adapter, err := factory.NewGatewayAdapter(gateway)
+	if err != nil {
+		t.Fatalf("create adapter: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	defer adapter.Close()
+	if err := adapter.Start(ctx); err != nil {
+		t.Fatalf("start adapter: %v", err)
+	}
+	factory.mu.Lock()
+	serverAddress := factory.runtime.conn.LocalAddr().(*net.UDPAddr)
+	factory.mu.Unlock()
+	eui, _ := hexBytes(gateway.GatewayEUI)
+	if _, err := gatewaySocket.WriteToUDP(append(packetHeader([2]byte{0x01, 0x02}, pullDataType), eui...), serverAddress); err != nil {
+		t.Fatalf("send PULL_DATA: %v", err)
+	}
+	readSemtechPacket(t, gatewaySocket, pullAckType)
+	waitAdapterEvent(t, adapter.Events(), contracts.Connected)
+	waitHeartbeat(t, adapter.Events())
+
+	if err := adapter.Send(ctx, types.GatewayPacket{GatewayID: gateway.ID, Payload: []byte("retry-me")}); err != nil {
+		t.Fatalf("send downlink: %v", err)
+	}
+	readSemtechPacket(t, gatewaySocket, pullResponseType)
+
+	deadline := time.After(time.Second)
+	for {
+		select {
+		case event := <-adapter.Events():
+			if event.State != contracts.Error {
+				continue
+			}
+			if event.Packet == nil || string(event.Packet.Payload) != "retry-me" {
+				t.Fatalf("expected timed-out downlink to be requeued, got %+v", event)
+			}
+			if !event.Timeout {
+				t.Fatal("expected a timeout flag for a downlink lost with the gateway connection")
+			}
+			return
+		case <-deadline:
+			t.Fatal("timed out waiting for requeued downlink event")
+		}
+	}
+}
+
 func TestSemtechDataRateParsing(t *testing.T) {
 	if got := parseSpreadingFactor("SF7BW125"); got != 7 {
 		t.Fatalf("expected SF7, got %d", got)
