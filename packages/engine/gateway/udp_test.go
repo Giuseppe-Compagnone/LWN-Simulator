@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net"
 	"testing"
 	"time"
@@ -290,6 +291,159 @@ func TestUDPAdapterReportsTimeoutAndReconnectState(t *testing.T) {
 	waitAdapterEvent(t, adapter.Events(), contracts.Reconnecting)
 }
 
+func TestUDPAdapterRecoversAfterHeartbeatTimeout(t *testing.T) {
+	gatewaySocket, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("listen fake gateway: %v", err)
+	}
+	defer gatewaySocket.Close()
+
+	gateway := testRealGateway(gatewaySocket.LocalAddr().(*net.UDPAddr).Port)
+	factory := NewUDPFactory(UDPOptions{
+		LocalAddress:     "127.0.0.1:0",
+		Timeout:          50 * time.Millisecond,
+		ReconnectInitial: 10 * time.Millisecond,
+		ReconnectMax:     20 * time.Millisecond,
+	})
+	adapter, err := factory.NewGatewayAdapter(gateway)
+	if err != nil {
+		t.Fatalf("create adapter: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	defer adapter.Close()
+	if err := adapter.Start(ctx); err != nil {
+		t.Fatalf("start adapter: %v", err)
+	}
+	eui, _ := hexBytes(gateway.GatewayEUI)
+	sendPullData := func(address *net.UDPAddr, token [2]byte) {
+		t.Helper()
+		if _, writeErr := gatewaySocket.WriteToUDP(append(packetHeader(token, pullDataType), eui...), address); writeErr != nil {
+			t.Fatalf("send PULL_DATA: %v", writeErr)
+		}
+	}
+	factory.mu.Lock()
+	serverAddress := cloneUDPAddr(factory.runtime.conn.LocalAddr().(*net.UDPAddr))
+	factory.mu.Unlock()
+	sendPullData(serverAddress, [2]byte{0x01, 0x02})
+	readSemtechPacket(t, gatewaySocket, pullAckType)
+	waitAdapterEvent(t, adapter.Events(), contracts.Connected)
+	waitHeartbeat(t, adapter.Events())
+	waitAdapterEvent(t, adapter.Events(), contracts.Error)
+	waitAdapterEvent(t, adapter.Events(), contracts.Disconnected)
+	waitAdapterEvent(t, adapter.Events(), contracts.Reconnecting)
+
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		factory.mu.Lock()
+		if factory.runtime != nil {
+			serverAddress = cloneUDPAddr(factory.runtime.conn.LocalAddr().(*net.UDPAddr))
+		}
+		factory.mu.Unlock()
+		if serverAddress != nil {
+			sendPullData(serverAddress, [2]byte{0x03, 0x04})
+			if packet, readErr := readSemtechPacketWithDeadline(gatewaySocket, pullAckType, 50*time.Millisecond); readErr == nil && len(packet) == 4 {
+				waitAdapterEvent(t, adapter.Events(), contracts.Connected)
+				waitHeartbeat(t, adapter.Events())
+				return
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("gateway adapter did not recover after heartbeat timeout")
+}
+
+func TestUDPFactoryRoutesMultipleRealGatewaysThroughSharedListener(t *testing.T) {
+	firstSocket, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("listen first fake gateway: %v", err)
+	}
+	defer firstSocket.Close()
+	secondSocket, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("listen second fake gateway: %v", err)
+	}
+	defer secondSocket.Close()
+
+	firstGateway := testRealGateway(firstSocket.LocalAddr().(*net.UDPAddr).Port)
+	firstGateway.ID = "6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c61"
+	firstGateway.GatewayEUI = "A840410001000161"
+	secondGateway := testRealGateway(secondSocket.LocalAddr().(*net.UDPAddr).Port)
+	secondGateway.ID = "6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c62"
+	secondGateway.GatewayEUI = "A840410001000162"
+	factory := NewUDPFactory(UDPOptions{LocalAddress: "127.0.0.1:0", Timeout: time.Second})
+	firstAdapter, err := factory.NewGatewayAdapter(firstGateway)
+	if err != nil {
+		t.Fatalf("create first adapter: %v", err)
+	}
+	secondAdapter, err := factory.NewGatewayAdapter(secondGateway)
+	if err != nil {
+		t.Fatalf("create second adapter: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	defer firstAdapter.Close()
+	defer secondAdapter.Close()
+	if err := firstAdapter.Start(ctx); err != nil {
+		t.Fatalf("start first adapter: %v", err)
+	}
+	if err := secondAdapter.Start(ctx); err != nil {
+		t.Fatalf("start second adapter: %v", err)
+	}
+	factory.mu.Lock()
+	serverAddress := cloneUDPAddr(factory.runtime.conn.LocalAddr().(*net.UDPAddr))
+	factory.mu.Unlock()
+
+	firstEUI, _ := hexBytes(firstGateway.GatewayEUI)
+	secondEUI, _ := hexBytes(secondGateway.GatewayEUI)
+	if _, err := firstSocket.WriteToUDP(append(packetHeader([2]byte{0x10, 0x11}, pullDataType), firstEUI...), serverAddress); err != nil {
+		t.Fatalf("send first PULL_DATA: %v", err)
+	}
+	if _, err := secondSocket.WriteToUDP(append(packetHeader([2]byte{0x12, 0x13}, pullDataType), secondEUI...), serverAddress); err != nil {
+		t.Fatalf("send second PULL_DATA: %v", err)
+	}
+	readSemtechPacket(t, firstSocket, pullAckType)
+	readSemtechPacket(t, secondSocket, pullAckType)
+	waitAdapterEvent(t, firstAdapter.Events(), contracts.Connected)
+	waitAdapterEvent(t, secondAdapter.Events(), contracts.Connected)
+
+	sendUplink := func(socket *net.UDPConn, eui []byte, token [2]byte, payload string) {
+		t.Helper()
+		body, marshalErr := json.Marshal(pushDataPayload{RXPK: []rxPacket{{
+			Data: base64.StdEncoding.EncodeToString([]byte(payload)), Frequency: 868.1,
+			DataRate: "SF7BW125", Modulation: "LORA", Size: len(payload),
+		}}})
+		if marshalErr != nil {
+			t.Fatalf("encode %s PUSH_DATA: %v", payload, marshalErr)
+		}
+		packet := append(packetHeader(token, pushDataType), eui...)
+		packet = append(packet, body...)
+		if _, writeErr := socket.WriteToUDP(packet, serverAddress); writeErr != nil {
+			t.Fatalf("send %s PUSH_DATA: %v", payload, writeErr)
+		}
+	}
+	sendUplink(firstSocket, firstEUI, [2]byte{0x14, 0x15}, "first")
+	sendUplink(secondSocket, secondEUI, [2]byte{0x16, 0x17}, "second")
+	readSemtechPacket(t, firstSocket, pushAckType)
+	readSemtechPacket(t, secondSocket, pushAckType)
+	select {
+	case packet := <-firstAdapter.Packets():
+		if packet.GatewayID != firstGateway.ID || string(packet.Payload) != "first" {
+			t.Fatalf("first gateway received the wrong packet: %+v", packet)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for first gateway packet")
+	}
+	select {
+	case packet := <-secondAdapter.Packets():
+		if packet.GatewayID != secondGateway.ID || string(packet.Payload) != "second" {
+			t.Fatalf("second gateway received the wrong packet: %+v", packet)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for second gateway packet")
+	}
+}
+
 func TestUDPAdapterRequeuesDownlinkWhenGatewayTimesOut(t *testing.T) {
 	gatewaySocket, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
 	if err != nil {
@@ -539,6 +693,22 @@ func readSemtechPacket(t *testing.T, socket *net.UDPConn, expectedType byte) []b
 		t.Fatalf("unexpected Semtech packet: %x", packet)
 	}
 	return packet
+}
+
+func readSemtechPacketWithDeadline(socket *net.UDPConn, expectedType byte, timeout time.Duration) ([]byte, error) {
+	if err := socket.SetReadDeadline(time.Now().Add(timeout)); err != nil {
+		return nil, err
+	}
+	buffer := make([]byte, 4096)
+	size, _, err := socket.ReadFromUDP(buffer)
+	if err != nil {
+		return nil, err
+	}
+	packet := buffer[:size]
+	if len(packet) < 4 || packet[0] != protocolVersion || packet[3] != expectedType {
+		return nil, errors.New("unexpected Semtech packet")
+	}
+	return packet, nil
 }
 
 func waitAdapterEvent(t *testing.T, events <-chan types.GatewayAdapterEvent, state contracts.GatewayConnectionState) {
