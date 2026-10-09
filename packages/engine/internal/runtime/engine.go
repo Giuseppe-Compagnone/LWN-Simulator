@@ -181,6 +181,7 @@ func (e *Engine) restoreCheckpoint(checkpoint *types.EngineCheckpoint) error {
 	for packetID, transmission := range checkpoint.Radio {
 		copyTransmission := transmission
 		copyTransmission.GatewayIDs = append([]string(nil), transmission.GatewayIDs...)
+		copyTransmission.Payload = append([]byte(nil), transmission.Payload...)
 		e.radio[packetID] = &copyTransmission
 	}
 	for _, packet := range checkpoint.GatewayPackets {
@@ -693,6 +694,7 @@ func (e *Engine) Checkpoint() types.EngineCheckpoint {
 		}
 		copyTransmission := *transmission
 		copyTransmission.GatewayIDs = append([]string(nil), transmission.GatewayIDs...)
+		copyTransmission.Payload = append([]byte(nil), transmission.Payload...)
 		checkpoint.Radio[packetID] = copyTransmission
 	}
 	return checkpoint

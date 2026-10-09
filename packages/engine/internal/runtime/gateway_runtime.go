@@ -22,7 +22,12 @@ func (e *Engine) startGatewayAdapters(ctx context.Context) {
 	}
 
 	for _, gateway := range e.registry.ActiveGateways() {
-		if gateway.Type != contracts.Real {
+		if gateway.Type == contracts.Virtual {
+			virtualFactory, ok := e.gatewayAdapterFactory.(types.VirtualGatewayAdapterFactory)
+			if !ok || !virtualFactory.SupportsVirtualGateways() {
+				continue
+			}
+		} else if gateway.Type != contracts.Real {
 			continue
 		}
 		e.startGatewayAdapter(ctx, gateway)
@@ -190,7 +195,7 @@ func (e *Engine) handleGatewayPacket(packet types.GatewayPacket) {
 	payloadSize := int64(len(packet.Payload))
 	event := e.newGatewayEventLocked(
 		contracts.GatewayPacketIngress,
-		"packet received from real gateway",
+		"packet received from gateway transport",
 		packet.GatewayID,
 		contracts.Connected,
 		&payloadSize,
@@ -637,12 +642,29 @@ func (e *Engine) sendGatewayPacket(ctx context.Context, packet types.GatewayPack
 
 	e.mu.RLock()
 	adapter, ok := e.gatewayAdapters[packet.GatewayID]
+	gateway, gatewayExists := e.registry.Gateway(packet.GatewayID)
 	e.mu.RUnlock()
+	// Virtual gateways are externalized in phase 2 only for uplinks. Their
+	// downlinks and Class-B beacons are still simulated in-process; the
+	// Gateway Bridge receive path is introduced with the downlink phase.
+	if gatewayExists && gateway.Type == contracts.Virtual && packet.Kind != types.GatewayPacketUplink {
+		return nil
+	}
 	if !ok || adapter == nil {
 		return fmt.Errorf("%w: %s", ErrGatewayTransportUnavailable, packet.GatewayID)
 	}
 
-	if err := adapter.Send(ctx, packet); err != nil {
+	var err error
+	if packet.Kind == types.GatewayPacketUplink {
+		uplinkAdapter, ok := adapter.(types.GatewayUplinkAdapter)
+		if !ok {
+			return fmt.Errorf("gateway %s does not support uplink transport", packet.GatewayID)
+		}
+		err = uplinkAdapter.SendUplink(ctx, packet)
+	} else {
+		err = adapter.Send(ctx, packet)
+	}
+	if err != nil {
 		if packet.Kind != types.GatewayPacketGeneric {
 			e.mu.Lock()
 			e.gatewayPackets = append(e.gatewayPackets, cloneGatewayPackets([]types.GatewayPacket{packet})...)
@@ -661,7 +683,7 @@ func (e *Engine) sendGatewayPacket(ctx context.Context, packet types.GatewayPack
 	payloadSize := int64(len(packet.Payload))
 	event := e.newGatewayEventLocked(
 		contracts.GatewayPacketEgress,
-		"packet sent to real gateway",
+		"packet sent to gateway transport",
 		packet.GatewayID,
 		contracts.Connected,
 		&payloadSize,

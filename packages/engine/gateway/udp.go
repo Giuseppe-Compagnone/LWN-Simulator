@@ -72,9 +72,10 @@ func (options UDPOptions) withDefaults() UDPOptions {
 }
 
 type UDPFactory struct {
-	mu      sync.Mutex
-	options UDPOptions
-	runtime *udpRuntime
+	mu           sync.Mutex
+	options      UDPOptions
+	runtime      *udpRuntime
+	bridgeRemote *net.UDPAddr
 }
 
 type udpRuntime struct {
@@ -88,9 +89,10 @@ func NewUDPFactory(options UDPOptions) *UDPFactory {
 	return &UDPFactory{options: options.withDefaults()}
 }
 
-// ConfigureGatewayBridge applies the UDP listener selected for the next
-// simulation run. The factory is configured before adapters are started; a
-// running factory must be closed by the engine before it can be reconfigured.
+// ConfigureGatewayBridge applies the external Gateway Bridge endpoint selected
+// for the next simulation run. The factory is configured before adapters are
+// started; a running factory must be closed by the engine before it can be
+// reconfigured.
 func (factory *UDPFactory) ConfigureGatewayBridge(config contracts.GatewayBridgeConfig) error {
 	factory.mu.Lock()
 	defer factory.mu.Unlock()
@@ -98,34 +100,39 @@ func (factory *UDPFactory) ConfigureGatewayBridge(config contracts.GatewayBridge
 		return errors.New("cannot configure gateway bridge while it is running")
 	}
 	if !config.Enabled {
+		factory.bridgeRemote = nil
 		return nil
 	}
-	listenAddress, err := gatewayBridgeListenAddress(config)
+	remote, err := gatewayBridgeEndpoint(config)
 	if err != nil {
 		return err
 	}
-	if _, err := net.ResolveUDPAddr("udp", listenAddress); err != nil {
-		return fmt.Errorf("invalid gateway bridge listen address: %w", err)
-	}
-	factory.options.LocalAddress = listenAddress
+	factory.bridgeRemote = remote
 	return nil
 }
 
-func gatewayBridgeListenAddress(config contracts.GatewayBridgeConfig) (string, error) {
+func gatewayBridgeEndpoint(config contracts.GatewayBridgeConfig) (*net.UDPAddr, error) {
 	address := strings.TrimSpace(config.Address)
 	if address == "" {
-		address = "0.0.0.0"
+		return nil, fmt.Errorf("%w: bridge address is required", ErrInvalidGatewayEndpoint)
 	}
 	if parsed, err := url.Parse(address); err == nil && parsed.Hostname() != "" {
 		address = parsed.Hostname()
 	}
 	if config.Port < 1 || config.Port > 65535 {
-		return "", fmt.Errorf("invalid gateway bridge port: %d", config.Port)
+		return nil, fmt.Errorf("%w: invalid gateway bridge port: %d", ErrInvalidGatewayEndpoint, config.Port)
 	}
-	if net.ParseIP(address) == nil && strings.Contains(address, "/") {
-		return "", fmt.Errorf("invalid gateway bridge address: %q", address)
+	if net.ParseIP(address) != nil && net.ParseIP(address).IsUnspecified() {
+		return nil, fmt.Errorf("%w: bridge address must be routable", ErrInvalidGatewayEndpoint)
 	}
-	return net.JoinHostPort(address, strconv.Itoa(int(config.Port))), nil
+	if strings.Contains(address, "/") || strings.ContainsAny(address, " \t\r\n") {
+		return nil, fmt.Errorf("%w: invalid gateway bridge address %q", ErrInvalidGatewayEndpoint, address)
+	}
+	remote, err := net.ResolveUDPAddr("udp", net.JoinHostPort(address, strconv.Itoa(int(config.Port))))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidGatewayEndpoint, err)
+	}
+	return remote, nil
 }
 
 func (factory *UDPFactory) LocalAddress() string {
@@ -134,16 +141,22 @@ func (factory *UDPFactory) LocalAddress() string {
 	return factory.options.LocalAddress
 }
 
+func cloneUDPAddr(address *net.UDPAddr) *net.UDPAddr {
+	if address == nil {
+		return nil
+	}
+	clone := *address
+	clone.IP = append(net.IP(nil), address.IP...)
+	return &clone
+}
+
+func (factory *UDPFactory) SupportsVirtualGateways() bool {
+	factory.mu.Lock()
+	defer factory.mu.Unlock()
+	return factory.bridgeRemote != nil
+}
+
 func (factory *UDPFactory) NewGatewayAdapter(gateway contracts.Gateway) (types.GatewayAdapter, error) {
-	if gateway.Type != contracts.Real {
-		return nil, fmt.Errorf("gateway %s is not real", gateway.ID)
-	}
-	if gateway.GatewayIPv4 == nil || net.ParseIP(*gateway.GatewayIPv4).To4() == nil {
-		return nil, fmt.Errorf("%w: gateway IPv4 is invalid", ErrInvalidGatewayEndpoint)
-	}
-	if gateway.GatewayPort == nil || *gateway.GatewayPort < 1 || *gateway.GatewayPort > 65535 {
-		return nil, fmt.Errorf("%w: gateway port is invalid", ErrInvalidGatewayEndpoint)
-	}
 	if len(gateway.GatewayEUI) != 16 {
 		return nil, fmt.Errorf("%w: gateway EUI must contain 16 hexadecimal characters", ErrInvalidGatewayEndpoint)
 	}
@@ -151,19 +164,39 @@ func (factory *UDPFactory) NewGatewayAdapter(gateway contracts.Gateway) (types.G
 		return nil, fmt.Errorf("%w: gateway EUI is invalid", ErrInvalidGatewayEndpoint)
 	}
 
-	remote, err := net.ResolveUDPAddr("udp", net.JoinHostPort(*gateway.GatewayIPv4, strconv.Itoa(int(*gateway.GatewayPort))))
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidGatewayEndpoint, err)
+	factory.mu.Lock()
+	options := factory.options
+	bridgeRemote := cloneUDPAddr(factory.bridgeRemote)
+	factory.mu.Unlock()
+	remote := bridgeRemote
+	virtual := gateway.Type == contracts.Virtual
+	if gateway.Type == contracts.Real {
+		if gateway.GatewayIPv4 == nil || net.ParseIP(*gateway.GatewayIPv4).To4() == nil {
+			return nil, fmt.Errorf("%w: gateway IPv4 is invalid", ErrInvalidGatewayEndpoint)
+		}
+		if gateway.GatewayPort == nil || *gateway.GatewayPort < 1 || *gateway.GatewayPort > 65535 {
+			return nil, fmt.Errorf("%w: gateway port is invalid", ErrInvalidGatewayEndpoint)
+		}
+		var err error
+		remote, err = net.ResolveUDPAddr("udp", net.JoinHostPort(*gateway.GatewayIPv4, strconv.Itoa(int(*gateway.GatewayPort))))
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrInvalidGatewayEndpoint, err)
+		}
+	} else if gateway.Type != contracts.Virtual {
+		return nil, fmt.Errorf("gateway %s has unsupported type %q", gateway.ID, gateway.Type)
+	} else if remote == nil {
+		return nil, fmt.Errorf("%w: virtual gateway bridge is not configured", ErrGatewayNotConnected)
 	}
 	return &udpAdapter{
 		factory:    factory,
 		gatewayID:  gateway.ID,
 		gatewayEUI: strings.ToUpper(gateway.GatewayEUI),
 		remote:     remote,
-		options:    factory.options,
-		inbound:    make(chan udpDatagram, factory.options.PacketBuffer),
-		packets:    make(chan types.GatewayPacket, factory.options.PacketBuffer),
-		events:     make(chan types.GatewayAdapterEvent, factory.options.EventBuffer),
+		virtual:    virtual,
+		options:    options,
+		inbound:    make(chan udpDatagram, options.PacketBuffer),
+		packets:    make(chan types.GatewayPacket, options.PacketBuffer),
+		events:     make(chan types.GatewayAdapterEvent, options.EventBuffer),
 		failures:   make(chan error, 4),
 		done:       make(chan struct{}),
 		pending:    make(map[string]types.GatewayPacket),
@@ -358,10 +391,12 @@ type udpAdapter struct {
 	gatewayID  string
 	gatewayEUI string
 	remote     *net.UDPAddr
+	virtual    bool
 	options    UDPOptions
 
 	mu       sync.Mutex
 	cancel   context.CancelFunc
+	conn     *net.UDPConn
 	started  bool
 	closed   bool
 	lastPeer *net.UDPAddr
@@ -392,7 +427,20 @@ func (adapter *udpAdapter) Start(ctx context.Context) error {
 		adapter.mu.Unlock()
 		return errors.New("gateway adapter is already started")
 	}
-	if err := adapter.factory.register(adapter); err != nil {
+	if adapter.virtual {
+		network := "udp4"
+		listenIP := net.IPv4zero
+		if adapter.remote != nil && adapter.remote.IP.To4() == nil {
+			network = "udp6"
+			listenIP = net.IPv6zero
+		}
+		conn, err := net.ListenUDP(network, &net.UDPAddr{IP: listenIP, Port: 0})
+		if err != nil {
+			adapter.mu.Unlock()
+			return fmt.Errorf("listen virtual gateway UDP socket: %w", err)
+		}
+		adapter.conn = conn
+	} else if err := adapter.factory.register(adapter); err != nil {
 		adapter.mu.Unlock()
 		return err
 	}
@@ -401,6 +449,9 @@ func (adapter *udpAdapter) Start(ctx context.Context) error {
 	adapter.started = true
 	adapter.mu.Unlock()
 	go adapter.run(runCtx)
+	if adapter.virtual {
+		go adapter.readVirtualLoop(runCtx)
+	}
 	return nil
 }
 
@@ -455,13 +506,58 @@ func (adapter *udpAdapter) Send(ctx context.Context, packet types.GatewayPacket)
 		Power: packet.Power, DataRate: packet.DataRate, TransmitAt: packet.TransmitAt,
 	}
 	adapter.mu.Unlock()
-	if err := adapter.factory.send(adapter, frame, destination); err != nil {
+	if err := adapter.send(frame, destination); err != nil {
 		adapter.mu.Lock()
 		delete(adapter.pending, tokenKey)
 		adapter.mu.Unlock()
 		return err
 	}
 	return nil
+}
+
+func (adapter *udpAdapter) SendUplink(ctx context.Context, packet types.GatewayPacket) error {
+	if ctx == nil {
+		return errors.New("gateway uplink context cannot be nil")
+	}
+	if len(packet.Payload) == 0 {
+		return errors.New("gateway uplink payload cannot be empty")
+	}
+	dataRate := packet.DataRate
+	if dataRate == "" {
+		dataRate = dataRateFromTransmission(packet.SpreadingFactor, packet.Bandwidth)
+	}
+	if dataRate == "" {
+		dataRate = "SF7BW125"
+	}
+	frequency := float64(packet.Frequency) / 1_000_000
+	if frequency <= 0 {
+		frequency = 868.1
+	}
+	body, err := json.Marshal(pushDataPayload{RXPK: []rxPacket{{
+		Data: base64.StdEncoding.EncodeToString(packet.Payload), Frequency: frequency,
+		DataRate: dataRate, Modulation: "LORA", CodingRate: "4/5",
+		RSSI: -60, SNR: 7, Size: len(packet.Payload),
+	}}})
+	if err != nil {
+		return fmt.Errorf("encode gateway uplink: %w", err)
+	}
+	token, err := randomToken()
+	if err != nil {
+		return fmt.Errorf("create gateway uplink token: %w", err)
+	}
+	eui, err := hex.DecodeString(adapter.gatewayEUI)
+	if err != nil {
+		return fmt.Errorf("decode gateway EUI: %w", err)
+	}
+	frame := append(packetHeader(token, pushDataType), eui...)
+	frame = append(frame, body...)
+	adapter.mu.Lock()
+	destination := cloneUDPAddr(adapter.lastPeer)
+	if destination == nil {
+		destination = cloneUDPAddr(adapter.remote)
+	}
+	adapter.mu.Unlock()
+	return adapter.send(frame, destination)
 }
 
 func (adapter *udpAdapter) Packets() <-chan types.GatewayPacket { return adapter.packets }
@@ -485,7 +581,17 @@ func (adapter *udpAdapter) Close() error {
 	if cancel != nil {
 		cancel()
 	}
-	adapter.factory.unregister(adapter)
+	if adapter.virtual {
+		adapter.mu.Lock()
+		conn := adapter.conn
+		adapter.conn = nil
+		adapter.mu.Unlock()
+		if conn != nil {
+			_ = conn.Close()
+		}
+	} else {
+		adapter.factory.unregister(adapter)
+	}
 	if started {
 		<-adapter.done
 		return nil
@@ -498,13 +604,16 @@ func (adapter *udpAdapter) Close() error {
 
 func (adapter *udpAdapter) run(ctx context.Context) {
 	defer func() {
-		adapter.factory.unregister(adapter)
+		if !adapter.virtual {
+			adapter.factory.unregister(adapter)
+		}
 		close(adapter.done)
 		close(adapter.packets)
 		close(adapter.events)
 	}()
 
 	lastActivity := time.Now()
+	lastKeepAlive := time.Time{}
 	connected := false
 	backoff := adapter.options.ReconnectInitial
 	reconnectAt := time.Time{}
@@ -514,6 +623,12 @@ func (adapter *udpAdapter) run(ctx context.Context) {
 	}
 	ticker := time.NewTicker(tickInterval)
 	defer ticker.Stop()
+	if adapter.virtual {
+		if err := adapter.sendKeepAlive(ctx); err != nil {
+			_ = adapter.emitError(ctx, err, false)
+		}
+		lastKeepAlive = time.Now()
+	}
 
 	for {
 		select {
@@ -550,6 +665,12 @@ func (adapter *udpAdapter) run(ctx context.Context) {
 			backoff = minDuration(backoff*2, adapter.options.ReconnectMax)
 		case <-ticker.C:
 			now := time.Now()
+			if adapter.virtual && (lastKeepAlive.IsZero() || now.Sub(lastKeepAlive) >= adapter.options.HeartbeatInterval) {
+				if err := adapter.sendKeepAlive(ctx); err != nil && !adapter.emitError(ctx, err, false) {
+					return
+				}
+				lastKeepAlive = now
+			}
 			if now.Sub(lastActivity) >= adapter.options.Timeout {
 				if !adapter.emitError(ctx, ErrGatewayHeartbeat, true) || !adapter.emitState(ctx, contracts.Disconnected) || !adapter.emitState(ctx, contracts.Reconnecting) {
 					return
@@ -558,7 +679,7 @@ func (adapter *udpAdapter) run(ctx context.Context) {
 				lastActivity = now
 				reconnectAt = now.Add(backoff)
 				backoff = minDuration(backoff*2, adapter.options.ReconnectMax)
-			} else if !connected && !reconnectAt.IsZero() && !now.Before(reconnectAt) {
+			} else if !adapter.virtual && !connected && !reconnectAt.IsZero() && !now.Before(reconnectAt) {
 				if ctx.Err() != nil {
 					return
 				}
@@ -570,6 +691,79 @@ func (adapter *udpAdapter) run(ctx context.Context) {
 			}
 		}
 	}
+}
+
+func (adapter *udpAdapter) readVirtualLoop(ctx context.Context) {
+	buffer := make([]byte, 64*1024)
+	for {
+		adapter.mu.Lock()
+		conn := adapter.conn
+		adapter.mu.Unlock()
+		if conn == nil {
+			return
+		}
+		_ = conn.SetReadDeadline(time.Now().Add(250 * time.Millisecond))
+		size, remote, err := conn.ReadFromUDP(buffer)
+		if err != nil {
+			var netError net.Error
+			if errors.As(err, &netError) && netError.Timeout() {
+				if ctx.Err() != nil {
+					return
+				}
+				continue
+			}
+			if ctx.Err() == nil {
+				select {
+				case adapter.failures <- err:
+				default:
+				}
+			}
+			return
+		}
+		select {
+		case adapter.inbound <- udpDatagram{data: append([]byte(nil), buffer[:size]...), remote: remote}:
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (adapter *udpAdapter) sendKeepAlive(ctx context.Context) error {
+	if ctx == nil {
+		return errors.New("gateway keepalive context cannot be nil")
+	}
+	token, err := randomToken()
+	if err != nil {
+		return fmt.Errorf("create gateway keepalive token: %w", err)
+	}
+	eui, err := hex.DecodeString(adapter.gatewayEUI)
+	if err != nil {
+		return fmt.Errorf("decode gateway EUI: %w", err)
+	}
+	frame := append(packetHeader(token, pullDataType), eui...)
+	adapter.mu.Lock()
+	destination := cloneUDPAddr(adapter.remote)
+	adapter.mu.Unlock()
+	return adapter.send(frame, destination)
+}
+
+func (adapter *udpAdapter) send(data []byte, destination *net.UDPAddr) error {
+	if destination == nil {
+		return ErrGatewayNotConnected
+	}
+	if adapter.virtual {
+		adapter.mu.Lock()
+		conn := adapter.conn
+		adapter.mu.Unlock()
+		if conn == nil {
+			return ErrGatewayNotConnected
+		}
+		if _, err := conn.WriteToUDP(data, destination); err != nil {
+			return fmt.Errorf("send virtual gateway UDP packet: %w", err)
+		}
+		return nil
+	}
+	return adapter.factory.send(adapter, data, destination)
 }
 
 func (adapter *udpAdapter) handleDatagram(ctx context.Context, datagram udpDatagram) error {
@@ -669,6 +863,13 @@ func parseBandwidth(dataRate string) int64 {
 	return value * 1000
 }
 
+func dataRateFromTransmission(spreadingFactor int, bandwidth int64) string {
+	if spreadingFactor < 7 || spreadingFactor > 12 || bandwidth <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("SF%dBW%d", spreadingFactor, bandwidth/1000)
+}
+
 func (adapter *udpAdapter) handleTXAck(token, body []byte) (*types.GatewayPacket, error) {
 	tokenKey := hex.EncodeToString(token)
 	adapter.mu.Lock()
@@ -735,9 +936,14 @@ type pushDataPayload struct {
 }
 
 type rxPacket struct {
-	Data      string  `json:"data"`
-	Frequency float64 `json:"freq"`
-	DataRate  string  `json:"datr"`
+	Data       string  `json:"data"`
+	Frequency  float64 `json:"freq"`
+	DataRate   string  `json:"datr"`
+	Modulation string  `json:"modu,omitempty"`
+	CodingRate string  `json:"codr,omitempty"`
+	RSSI       int     `json:"rssi,omitempty"`
+	SNR        float64 `json:"lsnr,omitempty"`
+	Size       int     `json:"size,omitempty"`
 }
 
 type txPacket struct {

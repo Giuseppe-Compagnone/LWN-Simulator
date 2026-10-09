@@ -257,7 +257,10 @@ func TestUDPFactoryConfiguresGatewayBridgeBeforeStart(t *testing.T) {
 		t.Fatalf("configure gateway bridge: %v", err)
 	}
 	if got := factory.LocalAddress(); got != "127.0.0.1:1700" {
-		t.Fatalf("unexpected configured listen address: %q", got)
+		t.Fatalf("bridge configuration changed the local listen address: %q", got)
+	}
+	if !factory.SupportsVirtualGateways() {
+		t.Fatal("expected virtual gateway transport to be enabled")
 	}
 
 	if err := factory.ConfigureGatewayBridge(contracts.GatewayBridgeConfig{
@@ -267,6 +270,81 @@ func TestUDPFactoryConfiguresGatewayBridgeBeforeStart(t *testing.T) {
 	}); err == nil {
 		t.Fatal("invalid bridge address should be rejected")
 	}
+	if err := factory.ConfigureGatewayBridge(contracts.GatewayBridgeConfig{Enabled: false}); err != nil {
+		t.Fatalf("disable gateway bridge: %v", err)
+	}
+	if factory.SupportsVirtualGateways() {
+		t.Fatal("disabling the bridge should disable virtual gateway transport")
+	}
+}
+
+func TestUDPVirtualGatewaySendsKeepaliveAndUplinkToBridge(t *testing.T) {
+	bridgeSocket, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("listen fake gateway bridge: %v", err)
+	}
+	defer bridgeSocket.Close()
+
+	factory := NewUDPFactory(UDPOptions{
+		HeartbeatInterval: 50 * time.Millisecond,
+		Timeout:           500 * time.Millisecond,
+	})
+	bridgeAddress := bridgeSocket.LocalAddr().(*net.UDPAddr)
+	if err := factory.ConfigureGatewayBridge(contracts.GatewayBridgeConfig{
+		Enabled: true, Address: "127.0.0.1", Port: int32(bridgeAddress.Port),
+	}); err != nil {
+		t.Fatalf("configure gateway bridge: %v", err)
+	}
+	virtualGateway := contracts.Gateway{
+		ID: "virtual-gateway-test", Active: true, Name: "Virtual Test Gateway",
+		Type: contracts.Virtual, GatewayEUI: "A840410001000102",
+	}
+	adapter, err := factory.NewGatewayAdapter(virtualGateway)
+	if err != nil {
+		t.Fatalf("create virtual adapter: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	defer adapter.Close()
+	if err := adapter.Start(ctx); err != nil {
+		t.Fatalf("start virtual adapter: %v", err)
+	}
+
+	keepalive := readSemtechPacket(t, bridgeSocket, pullDataType)
+	if len(keepalive) < 12 {
+		t.Fatalf("PULL_DATA did not contain gateway EUI: %x", keepalive)
+	}
+	if _, err := bridgeSocket.WriteToUDP(append(packetHeader([2]byte{keepalive[1], keepalive[2]}, pullAckType), nil...), mustUDPAddr(adapter)); err != nil {
+		t.Fatalf("send PULL_ACK: %v", err)
+	}
+	waitAdapterEvent(t, adapter.Events(), contracts.Connected)
+
+	uplink := types.GatewayPacket{
+		GatewayID: "virtual-gateway-test", Payload: []byte("uplink"),
+		Frequency: 868300000, Bandwidth: 125000, SpreadingFactor: 7,
+	}
+	if err := adapter.(types.GatewayUplinkAdapter).SendUplink(ctx, uplink); err != nil {
+		t.Fatalf("send virtual uplink: %v", err)
+	}
+	packet := readSemtechPacket(t, bridgeSocket, pushDataType)
+	if len(packet) < 12 {
+		t.Fatalf("PUSH_DATA did not contain gateway EUI: %x", packet)
+	}
+	var body pushDataPayload
+	if err := json.Unmarshal(packet[12:], &body); err != nil {
+		t.Fatalf("decode PUSH_DATA: %v", err)
+	}
+	if len(body.RXPK) != 1 || body.RXPK[0].DataRate != "SF7BW125" || body.RXPK[0].Size != len(uplink.Payload) {
+		t.Fatalf("unexpected virtual uplink metadata: %+v", body.RXPK)
+	}
+	decoded, err := base64.StdEncoding.DecodeString(body.RXPK[0].Data)
+	if err != nil || string(decoded) != "uplink" {
+		t.Fatalf("unexpected virtual uplink payload: %q (%v)", decoded, err)
+	}
+}
+
+func mustUDPAddr(adapter types.GatewayAdapter) *net.UDPAddr {
+	return adapter.(*udpAdapter).conn.LocalAddr().(*net.UDPAddr)
 }
 
 func TestUDPFactoryIgnoresDisabledGatewayBridge(t *testing.T) {

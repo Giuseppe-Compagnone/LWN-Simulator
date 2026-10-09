@@ -206,7 +206,7 @@ func (s *SimulationService) Start(
 
 	options := s.options
 	options.EventSink = s.handleEvent
-	if config.GatewayBridge != nil && config.GatewayBridge.Enabled {
+	if config.GatewayBridge != nil {
 		if configurator, ok := options.GatewayAdapterFactory.(types.GatewayBridgeConfigurator); ok {
 			if err := configurator.ConfigureGatewayBridge(*config.GatewayBridge); err != nil {
 				s.finishStarting()
