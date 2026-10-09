@@ -18,14 +18,14 @@ func NewRealtimeHandler(hub *realtime.Hub) *RealtimeHandler {
 }
 
 func (h *RealtimeHandler) WebSocket(c *gin.Context) {
+	subscription := h.hub.Subscribe(c.Query("profileID"))
+	defer subscription.Close()
+
 	connection, err := h.websocket.Upgrade(c.Writer, c.Request)
 	if err != nil {
 		return
 	}
 	defer connection.Close()
-
-	subscription := h.hub.Subscribe()
-	defer subscription.Close()
 
 	for {
 		select {

@@ -91,6 +91,7 @@ const DeviceServiceProvider = (props: DeviceServiceProviderProps) => {
   const handleRealtimeMessage = useCallback((rawMessage: string) => {
     try {
       const message = JSON.parse(rawMessage) as RealtimeWebSocketMessage;
+      if (message.profileID && message.profileID !== props.profileID) return;
       if (
         (message.type === RealtimeWebSocketMessageType.DeviceCreated ||
           message.type === RealtimeWebSocketMessageType.DeviceUpdated) &&
@@ -116,11 +117,11 @@ const DeviceServiceProvider = (props: DeviceServiceProviderProps) => {
     } catch {
       // Ignore messages owned by another realtime consumer or malformed data.
     }
-  }, []);
+  }, [props.profileID]);
 
   useEffect(
     () => subscribe(handleRealtimeMessage),
-    [handleRealtimeMessage, subscribe],
+    [handleRealtimeMessage, props.profileID, subscribe],
   );
 
   useEffect(() => {

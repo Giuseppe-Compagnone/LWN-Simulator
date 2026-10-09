@@ -17,6 +17,7 @@ const Button = (props: ButtonProps) => {
 
   //States
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const loading = props.loading || isLoading;
 
   return (
     <button
@@ -28,19 +29,19 @@ const Button = (props: ButtonProps) => {
           setIsLoading(false);
         }
       }}
-      disabled={props.disabled || isLoading}
+      disabled={props.disabled || loading}
       className={cn(
         "button",
         props.className,
         type,
         layout,
         props.disabled && "disabled",
-        isLoading && "loading",
+        loading && "loading",
       )}
       style={{ fontFamily: `var(${font})` }}
     >
       {props.value}
-      {isLoading && (
+      {loading && (
         <div className="loading-wrapper">
           <Spinner
             size={SpinnerSize.Sm}

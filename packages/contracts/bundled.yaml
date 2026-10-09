@@ -6,10 +6,162 @@ info:
 paths: {}
 components:
   schemas:
+    Profile:
+      title: Profile
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36,uuid4
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          x-oapi-codegen-extra-tags:
+            validate: required,min=1,max=100
+      required:
+        - id
+        - name
+    CreateProfileRequest:
+      title: CreateProfileRequest
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+      required:
+        - name
+    CreateProfileResponse:
+      title: CreateProfileResponse
+      type: object
+      properties:
+        profile:
+          $ref: '#/components/schemas/Profile'
+      required:
+        - profile
+    GetProfileResponse:
+      title: GetProfileResponse
+      type: object
+      properties:
+        profile:
+          $ref: '#/components/schemas/Profile'
+      required:
+        - profile
+    GetProfilesResponse:
+      title: GetProfilesResponse
+      type: object
+      properties:
+        profiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Profile'
+        total:
+          type: integer
+          format: int32
+          minimum: 0
+      required:
+        - profiles
+        - total
+    UpdateProfileRequest:
+      title: UpdateProfileRequest
+      type: object
+      properties:
+        id:
+          type: string
+          x-go-name: ID
+          x-go-json-ignore: true
+          x-oapi-codegen-extra-tags:
+            validate: required,len=36,uuid4
+            uri: id
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+      required:
+        - id
+        - name
+    UpdateProfileResponse:
+      title: UpdateProfileResponse
+      type: object
+      properties:
+        profile:
+          $ref: '#/components/schemas/Profile'
+      required:
+        - profile
+    ProfileLog:
+      title: ProfileLog
+      type: object
+      properties:
+        run:
+          $ref: '#/components/schemas/SimulationRun'
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/SimulationEvent'
+      required:
+        - run
+        - events
+    ProfileArchive:
+      title: ProfileArchive
+      type: object
+      properties:
+        format:
+          type: string
+          minLength: 1
+        version:
+          type: integer
+          format: int32
+          minimum: 1
+        profile:
+          $ref: '#/components/schemas/Profile'
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/Device'
+        gateways:
+          type: array
+          items:
+            $ref: '#/components/schemas/Gateway'
+        gatewayBridge:
+          $ref: '#/components/schemas/GatewayBridgeConfig'
+        logs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfileLog'
+      required:
+        - format
+        - version
+        - profile
+        - devices
+        - gateways
+        - logs
+    ImportProfileRequest:
+      title: ImportProfileRequest
+      type: object
+      properties:
+        archive:
+          $ref: '#/components/schemas/ProfileArchive'
+      required:
+        - archive
+    ImportProfileResponse:
+      title: ImportProfileResponse
+      type: object
+      properties:
+        profile:
+          $ref: '#/components/schemas/Profile'
+      required:
+        - profile
     RealtimeWebSocketMessageType:
       title: RealtimeWebSocketMessageType
       type: string
       enum:
+        - profile.created
+        - profile.updated
+        - profile.deleted
+        - profile.gateway-bridge.updated
         - device.created
         - device.updated
         - device.deleted
@@ -22,6 +174,10 @@ components:
         - simulation.run.updated
         - error
       x-enum-varnames:
+        - RealtimeProfileCreatedMessage
+        - RealtimeProfileUpdatedMessage
+        - RealtimeProfileDeletedMessage
+        - RealtimeProfileGatewayBridgeUpdatedMessage
         - RealtimeDeviceCreatedMessage
         - RealtimeDeviceUpdatedMessage
         - RealtimeDeviceDeletedMessage
@@ -39,6 +195,11 @@ components:
       properties:
         type:
           $ref: '#/components/schemas/RealtimeWebSocketMessageType'
+        profileID:
+          type: string
+          x-go-name: ProfileID
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,len=36,uuid4
         timestampMilliseconds:
           type: integer
           format: int64
@@ -59,6 +220,10 @@ components:
           $ref: '#/components/schemas/Device'
         gateway:
           $ref: '#/components/schemas/Gateway'
+        profile:
+          $ref: '#/components/schemas/Profile'
+        gatewayBridge:
+          $ref: '#/components/schemas/GatewayBridgeConfig'
         snapshot:
           $ref: '#/components/schemas/SimulationSnapshot'
         event:
@@ -749,6 +914,22 @@ components:
         - Stopped
         - Recovering
         - Failed
+    SimulationActivity:
+      title: SimulationActivity
+      type: object
+      properties:
+        active:
+          type: boolean
+        profileID:
+          type: string
+          x-go-name: ProfileID
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,len=36,uuid4
+        status:
+          $ref: '#/components/schemas/SimulationStatus'
+      required:
+        - active
+        - status
     SimulationEventType:
       title: SimulationEventType
       type: string
@@ -1542,6 +1723,11 @@ components:
       title: SimulationWebSocketMessage
       type: object
       properties:
+        profileID:
+          type: string
+          x-go-name: ProfileID
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,len=36,uuid4
         type:
           $ref: '#/components/schemas/SimulationWebSocketMessageType'
         timestampMilliseconds:

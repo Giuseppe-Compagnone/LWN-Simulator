@@ -65,9 +65,16 @@
     }
   }
 
-  .button {
-    .icon {
-      font-variation-settings: "FILL" 1;
+  .actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--gap);
+
+    .button {
+      .icon {
+        font-variation-settings: "FILL" 1;
+      }
     }
   }
 }

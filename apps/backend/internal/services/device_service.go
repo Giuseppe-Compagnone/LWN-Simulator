@@ -150,6 +150,50 @@ func (s *DeviceService) GetDevices(
 	}, nil
 }
 
+// ImportDevices replaces the devices in a newly created profile. It is kept
+// separate from CreateDevice so an imported profile can preserve device IDs
+// referenced by its historical simulation events.
+func (s *DeviceService) ImportDevices(devices []contracts.Device) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	releaseRuntime := func() {}
+	if s.runtime != nil {
+		releaseRuntime = s.runtime.AcquireHardwareMutation()
+	}
+	defer releaseRuntime()
+
+	seenIDs := make(map[string]struct{}, len(devices))
+	seenDevEUIs := make(map[string]struct{}, len(devices))
+	for _, device := range devices {
+		if _, err := uuid.Parse(device.ID); err != nil {
+			return apperrors.Invalid("device %q has an invalid id", device.ID)
+		}
+		if len(device.DevEUI) != 16 {
+			return apperrors.Invalid("device %q has an invalid DevEUI", device.ID)
+		}
+		if _, exists := seenIDs[device.ID]; exists {
+			return apperrors.Conflict("duplicate device id %q", device.ID)
+		}
+		if _, exists := seenDevEUIs[device.DevEUI]; exists {
+			return apperrors.Conflict("duplicate device DevEUI %q", device.DevEUI)
+		}
+		seenIDs[device.ID] = struct{}{}
+		seenDevEUIs[device.DevEUI] = struct{}{}
+	}
+
+	if err := s.repository.Save(devices); err != nil {
+		return fmt.Errorf("import devices: %w", err)
+	}
+	if s.runtime != nil {
+		for _, device := range devices {
+			if err := s.runtime.RegisterDeviceLocked(device); err != nil {
+				return fmt.Errorf("synchronize imported device %q: %w", device.ID, err)
+			}
+		}
+	}
+	return nil
+}
+
 func (s *DeviceService) UpdateDevice(
 	req contracts.UpdateDeviceRequest,
 ) (contracts.UpdateDeviceResponse, error) {

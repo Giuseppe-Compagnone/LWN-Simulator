@@ -19,4 +19,5 @@ export interface GatewayServiceContent {
 
 export interface GatewayServiceProviderProps extends PropsWithChildren {
   baseUrl: string;
+  profileID?: string;
 }

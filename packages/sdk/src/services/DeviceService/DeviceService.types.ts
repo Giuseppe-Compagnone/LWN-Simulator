@@ -71,4 +71,6 @@ export interface DeviceServiceContent {
 export interface DeviceServiceProviderProps extends PropsWithChildren {
   /** Base URL used to communicate with the device API. */
   baseUrl: string;
+  /** Profile whose realtime messages should be consumed. */
+  profileID?: string;
 }

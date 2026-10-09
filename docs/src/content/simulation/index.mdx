@@ -9,6 +9,10 @@ network. It combines the simulation controls, live health indicators, a map of
 the network, protocol commands, runtime sessions, and the event stream in one
 screen.
 
+The dashboard uses the hardware and bridge settings of the profile selected in
+the application header. Switching profiles changes the network shown by the
+dashboard and its associated simulation history.
+
 ## Before you start
 
 Configure at least one active device and one active gateway in
@@ -18,6 +22,10 @@ sure their antenna ranges overlap the gateways that should receive them.
 
 If you are testing real gateways, configure the [Gateway Bridge](../hardware/gateway-bridge)
 before starting the simulation.
+
+Only one simulation can be active on a simulator server at a time. This rule
+applies across all profiles, so stop or finish the current run before starting
+a run from another profile.
 
 ## Start a simulation
 

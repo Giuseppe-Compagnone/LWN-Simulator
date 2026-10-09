@@ -24,6 +24,9 @@
     color: var(--primary-color);
     font-family: var(--secondary-font);
     cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 
     * {
       color: var(--primary-color);
@@ -31,10 +34,6 @@
 
     &.placeholder {
       color: var(--secondary-text-color);
-      text-wrap: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
     }
 
     @include hover {
@@ -84,10 +83,14 @@
       display: flex;
       align-items: center;
       justify-content: flex-start;
-      padding: 0.5rem;
+      min-width: 0;
+      padding: 0.5rem calc(0.5rem + 42px) 0.5rem 0.5rem;
+      overflow: hidden;
       border-radius: var(--radius-sm);
       gap: calc(var(--gap) / 2);
       transition: all 0.2s ease-in-out;
+      text-overflow: ellipsis;
+      white-space: nowrap;
       cursor: pointer;
 
       * {

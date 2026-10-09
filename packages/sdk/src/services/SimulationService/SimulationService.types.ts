@@ -61,4 +61,5 @@ export interface SimulationServiceContent {
 
 export interface SimulationServiceProviderProps extends PropsWithChildren {
   baseUrl: string;
+  profileID?: string;
 }

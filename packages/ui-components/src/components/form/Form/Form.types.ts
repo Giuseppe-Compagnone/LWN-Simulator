@@ -190,6 +190,13 @@ export interface FormProps {
   submitButton?: ButtonProps;
 
   /**
+   * Controls whether the form renders its submit button.
+   *
+   * @default true
+   */
+  showSubmitButton?: boolean;
+
+  /**
    * Callback invoked when the form logic is initialized and becomes available.
    *
    * The provided logic can be used to access the form state and interact with

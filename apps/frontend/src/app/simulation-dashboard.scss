@@ -101,8 +101,11 @@
   margin-top: 0;
 }
 
-.simulation-dashboard__controls .form-button.is-hidden {
-  display: none;
+
+.simulation-dashboard__simulation-lock {
+  margin: 0.75rem 0 0;
+  color: var(--secondary-text-color);
+  font: 0.72rem var(--secondary-font);
 }
 
 .simulation-dashboard__control-actions {

@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/Giuseppe-Compagnone/lwn-engine/gateway"
@@ -85,36 +84,38 @@ func New(port string) (*gin.Engine, error) {
 		return nil, fmt.Errorf("initialize database: %w", err)
 	}
 
-	deviceRepository := repositories.NewDeviceRepository(dataDir)
-	deviceService := services.NewDeviceService(deviceRepository)
-
-	gatewayRepository := repositories.NewGatewayRepository(dataDir)
-	gatewayService := services.NewGatewayService(gatewayRepository)
-
-	udpOptions := gateway.UDPOptions{LocalAddress: os.Getenv("LWN_GATEWAY_UDP_LISTEN_ADDR")}
-	simulationService := services.NewSimulationService(
-		deviceService,
-		gatewayService,
-		types.Options{GatewayAdapterFactory: gateway.NewUDPFactory(udpOptions)},
-		services.NewFileSimulationCheckpointStore(filepath.Join(dataDir, "simulation-checkpoint.json")),
-		services.NewFileSimulationLogStore(filepath.Join(dataDir, "simulation-logs.json")),
-	)
+	profileRepository := repositories.NewProfileRepository(dataDir)
+	profileService := services.NewProfileService(profileRepository, dataDir)
+	defaultProfile, err := profileService.EnsureDefaultProfile()
+	if err != nil {
+		return nil, fmt.Errorf("initialize default profile: %w", err)
+	}
 	realtimeHub := realtime.NewHub()
-	deviceService.SetRealtimePublisher(realtimeHub)
-	gatewayService.SetRealtimePublisher(realtimeHub)
-	simulationService.SetRealtimePublisher(realtimeHub)
-	deviceService.SetRuntimeSynchronizer(simulationService)
-	gatewayService.SetRuntimeSynchronizer(simulationService)
-	if err := simulationService.RestorePersisted(context.Background()); err != nil {
+	udpOptions := gateway.UDPOptions{LocalAddress: os.Getenv("LWN_GATEWAY_UDP_LISTEN_ADDR")}
+	profileRuntimeManager := services.NewProfileRuntimeManager(
+		dataDir,
+		profileService,
+		types.Options{GatewayAdapterFactory: gateway.NewUDPFactory(udpOptions)},
+		realtimeHub,
+	)
+	profileService.SetRealtimePublisher(realtimeHub)
+	defaultRuntime, err := profileRuntimeManager.Runtime(defaultProfile.ID)
+	if err != nil {
+		return nil, fmt.Errorf("initialize default profile runtime: %w", err)
+	}
+	if err := profileRuntimeManager.RestorePersisted(context.Background()); err != nil {
 		return nil, fmt.Errorf("restore persisted simulation: %w", err)
 	}
 
 	registerMiddleware(r)
 
 	registerRoutes(r, port, Services{
-		Device:     deviceService,
-		Gateway:    gatewayService,
-		Simulation: simulationService,
+		Device:     defaultRuntime.Device,
+		Gateway:    defaultRuntime.Gateway,
+		Profile:    profileService,
+		ProfileID:  defaultProfile.ID,
+		Simulation: defaultRuntime.Simulation,
+		Profiles:   profileRuntimeManager,
 		Realtime:   handlers.NewRealtimeHandler(realtimeHub),
 	})
 

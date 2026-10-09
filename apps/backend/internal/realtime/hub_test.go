@@ -51,4 +51,24 @@ func TestHubCloseIsIdempotentAndClosesStream(t *testing.T) {
 	}
 }
 
+func TestHubFiltersProfileSubscriptions(t *testing.T) {
+	hub := NewHub()
+	profileID := "550e8400-e29b-41d4-a716-446655440000"
+	subscription := hub.Subscribe(profileID)
+	defer subscription.Close()
+
+	otherProfile := "6ba7b810-9dad-41d1-80b4-00c04fd430c8"
+	hub.Publish(contracts.RealtimeWebSocketMessage{ProfileID: &otherProfile})
+	hub.Publish(contracts.RealtimeWebSocketMessage{ProfileID: &profileID})
+
+	select {
+	case message := <-subscription.Updates:
+		if message.ProfileID == nil || *message.ProfileID != profileID {
+			t.Fatalf("received update for the wrong profile: %+v", message)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("profile update was not delivered")
+	}
+}
+
 func stringPointer(value string) *string { return &value }

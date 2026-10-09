@@ -15,9 +15,12 @@ import {
 } from "@lwn-simulator/ui-components";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  useProfileConfigurationService,
+  useProfileService,
+} from "@lwn-simulator/sdk";
+import {
   defaultGatewayBridgeConfig,
   readGatewayBridgeConfig,
-  saveGatewayBridgeConfig,
 } from "@/utils/gatewayBridge";
 import {
   GatewayBridgeFormState,
@@ -26,8 +29,8 @@ import {
 } from "./page.types";
 import "./gateway-bridge.scss";
 
-const toFormValues = (): GatewayBridgeFormValues => {
-  const config = readGatewayBridgeConfig();
+const toFormValues = (profileID?: string): GatewayBridgeFormValues => {
+  const config = readGatewayBridgeConfig(profileID);
   return {
     enabled: config.enabled,
     address: config.address ?? defaultGatewayBridgeConfig.address ?? "0.0.0.0",
@@ -42,7 +45,25 @@ const toConfig = (values: GatewayBridgeFormValueMap) => ({
 });
 
 const GatewayBridgePage = () => {
-  const initialValues = useMemo(() => toFormValues(), []);
+  const profileService = useProfileService();
+  const profileConfiguration = useProfileConfigurationService();
+  const initialValues = useMemo(
+    () => {
+      if (profileConfiguration.gatewayBridgeConfig) {
+        const config = profileConfiguration.gatewayBridgeConfig;
+        return {
+          enabled: config.enabled,
+          address: config.address ?? defaultGatewayBridgeConfig.address ?? "0.0.0.0",
+          port: config.port ?? defaultGatewayBridgeConfig.port ?? 1700,
+        };
+      }
+      return toFormValues(profileService.activeProfileID);
+    },
+    [
+      profileConfiguration.gatewayBridgeConfig,
+      profileService.activeProfileID,
+    ],
+  );
   const logicRef = useRef<FormLogic | null>(null);
   const [state, setState] = useState<GatewayBridgeFormState>({
     logic: null,
@@ -51,12 +72,12 @@ const GatewayBridgePage = () => {
   });
 
   useEffect(() => {
-    const values = toFormValues();
+    const values = initialValues;
     setState((current) => ({ ...current, values, lastSaved: values }));
     logicRef.current?.setValue("enabled", values.enabled);
     logicRef.current?.setValue("address", values.address);
     logicRef.current?.setValue("port", String(values.port));
-  }, []);
+  }, [initialValues]);
 
   const fields = useMemo(
     () => [
@@ -94,41 +115,60 @@ const GatewayBridgePage = () => {
     logicRef.current = logic;
   }, []);
 
-  const handleSubmit = useCallback((values: Record<string, FormValue>) => {
-    const config = saveGatewayBridgeConfig(toConfig(values));
-    const nextValues = {
-      enabled: config.enabled,
-      address: config.address ?? "0.0.0.0",
-      port: config.port ?? 1700,
-    };
-    setState((current) => ({
-      ...current,
-      values: nextValues,
-      lastSaved: nextValues,
-    }));
-    NotificationHandler.instance.success("Gateway Bridge settings saved");
-  }, []);
+  const handleSubmit = useCallback(
+    async (values: Record<string, FormValue>) => {
+      try {
+        const config = await profileConfiguration.updateGatewayBridge(
+          toConfig(values),
+        );
+        const nextValues = {
+          enabled: config.enabled,
+          address: config.address ?? "0.0.0.0",
+          port: config.port ?? 1700,
+        };
+        setState((current) => ({
+          ...current,
+          values: nextValues,
+          lastSaved: nextValues,
+        }));
+        NotificationHandler.instance.success("Gateway Bridge settings saved");
+      } catch (error) {
+        NotificationHandler.instance.error(
+          error instanceof Error ? error.message : "Unable to save settings",
+        );
+      }
+    },
+    [profileConfiguration],
+  );
 
-  const reset = useCallback(() => {
-    const values = saveGatewayBridgeConfig(defaultGatewayBridgeConfig);
-    logicRef.current?.setValue("enabled", values.enabled);
-    logicRef.current?.setValue("address", values.address ?? "0.0.0.0");
-    logicRef.current?.setValue("port", String(values.port ?? 1700));
-    setState((current) => ({
-      ...current,
-      values: {
-        enabled: values.enabled,
-        address: values.address ?? "0.0.0.0",
-        port: values.port ?? 1700,
-      },
-      lastSaved: {
-        enabled: values.enabled,
-        address: values.address ?? "0.0.0.0",
-        port: values.port ?? 1700,
-      },
-    }));
-    NotificationHandler.instance.success("Gateway Bridge settings reset");
-  }, []);
+  const reset = useCallback(async () => {
+    try {
+      const values = await profileConfiguration.updateGatewayBridge(
+        defaultGatewayBridgeConfig,
+      );
+      logicRef.current?.setValue("enabled", values.enabled);
+      logicRef.current?.setValue("address", values.address ?? "0.0.0.0");
+      logicRef.current?.setValue("port", String(values.port ?? 1700));
+      setState((current) => ({
+        ...current,
+        values: {
+          enabled: values.enabled,
+          address: values.address ?? "0.0.0.0",
+          port: values.port ?? 1700,
+        },
+        lastSaved: {
+          enabled: values.enabled,
+          address: values.address ?? "0.0.0.0",
+          port: values.port ?? 1700,
+        },
+      }));
+      NotificationHandler.instance.success("Gateway Bridge settings reset");
+    } catch (error) {
+      NotificationHandler.instance.error(
+        error instanceof Error ? error.message : "Unable to reset settings",
+      );
+    }
+  }, [profileConfiguration]);
 
   const isEnabled = state.values.enabled;
   const endpoint = `${state.values.address}:${state.values.port}`;
@@ -194,7 +234,7 @@ const GatewayBridgePage = () => {
             </div>
             <div>
               <dt>Last saved</dt>
-              <dd>{state.lastSaved ? "Saved locally" : "Not saved yet"}</dd>
+              <dd>{state.lastSaved ? "Saved to profile" : "Not saved yet"}</dd>
             </div>
           </dl>
         </Card>

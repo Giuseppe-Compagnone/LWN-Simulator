@@ -2,6 +2,10 @@ title: RealtimeWebSocketMessageType
 type: string
 
 enum:
+  - profile.created
+  - profile.updated
+  - profile.deleted
+  - profile.gateway-bridge.updated
   - device.created
   - device.updated
   - device.deleted
@@ -15,6 +19,10 @@ enum:
   - error
 
 x-enum-varnames:
+  - RealtimeProfileCreatedMessage
+  - RealtimeProfileUpdatedMessage
+  - RealtimeProfileDeletedMessage
+  - RealtimeProfileGatewayBridgeUpdatedMessage
   - RealtimeDeviceCreatedMessage
   - RealtimeDeviceUpdatedMessage
   - RealtimeDeviceDeletedMessage

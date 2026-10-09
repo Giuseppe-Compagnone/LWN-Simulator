@@ -1,6 +1,10 @@
 import { GatewayBridgeConfig } from "@lwn-simulator/contracts";
 
 export const gatewayBridgeStorageKey = "lwn-simulator.gateway-bridge";
+const defaultProfileID = "00000000-0000-4000-8000-000000000001";
+
+const getStorageKey = (profileID?: string): string =>
+  profileID ? `${gatewayBridgeStorageKey}.${profileID}` : gatewayBridgeStorageKey;
 
 export const defaultGatewayBridgeConfig: GatewayBridgeConfig = {
   enabled: false,
@@ -8,11 +12,15 @@ export const defaultGatewayBridgeConfig: GatewayBridgeConfig = {
   port: 1700,
 };
 
-export const readGatewayBridgeConfig = (): GatewayBridgeConfig => {
+export const readGatewayBridgeConfig = (profileID?: string): GatewayBridgeConfig => {
   if (typeof window === "undefined") return defaultGatewayBridgeConfig;
 
   try {
-    const stored = window.localStorage.getItem(gatewayBridgeStorageKey);
+    const key = getStorageKey(profileID);
+    let stored = window.localStorage.getItem(key);
+    if (!stored && profileID === defaultProfileID) {
+      stored = window.localStorage.getItem(gatewayBridgeStorageKey);
+    }
     if (!stored) return defaultGatewayBridgeConfig;
 
     const parsed = JSON.parse(stored) as Partial<GatewayBridgeConfig>;
@@ -34,6 +42,7 @@ export const readGatewayBridgeConfig = (): GatewayBridgeConfig => {
 
 export const saveGatewayBridgeConfig = (
   config: GatewayBridgeConfig,
+  profileID?: string,
 ): GatewayBridgeConfig => {
   const normalized: GatewayBridgeConfig = {
     enabled: config.enabled,
@@ -43,7 +52,7 @@ export const saveGatewayBridgeConfig = (
 
   if (typeof window !== "undefined") {
     window.localStorage.setItem(
-      gatewayBridgeStorageKey,
+      getStorageKey(profileID),
       JSON.stringify(normalized),
     );
   }

@@ -20,6 +20,8 @@ import {
 import {
   useDeviceService,
   useGatewayService,
+  useProfileConfigurationService,
+  useProfileService,
   useSimulationService,
 } from "@lwn-simulator/sdk";
 import {
@@ -29,7 +31,7 @@ import {
   SensorMapLink,
   useSensorMap,
 } from "@/components";
-import { readGatewayBridgeConfig } from "@/utils/gatewayBridge";
+import { defaultGatewayBridgeConfig } from "@/utils/gatewayBridge";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DeviceRuntimeList, GatewayRuntimeList } from "./RuntimeLists";
 
@@ -90,6 +92,8 @@ const linkActivityWindowMilliseconds = 15_000;
 
 const SimulationDashboardPage = () => {
   const simulation = useSimulationService();
+  const profileService = useProfileService();
+  const profileConfiguration = useProfileConfigurationService();
   const deviceService = useDeviceService();
   const gatewayService = useGatewayService();
   const devices = useMemo(
@@ -125,10 +129,24 @@ const SimulationDashboardPage = () => {
   const status = snapshot?.state.status ?? SimulationStatus.Idle;
   const isRunning = status === SimulationStatus.Running;
   const isPaused = status === SimulationStatus.Paused;
-  const canStart =
+  const canStartFromCurrentProfile =
     status === SimulationStatus.Idle ||
     status === SimulationStatus.Stopped ||
     status === SimulationStatus.Failed;
+  const hasActiveSimulation = profileService.simulationActivity?.active ?? false;
+  const activeSimulationIsElsewhere =
+    hasActiveSimulation &&
+    profileService.simulationActivity?.profileID !== undefined &&
+    profileService.simulationActivity.profileID !==
+      profileService.activeProfileID;
+  const canStart =
+    canStartFromCurrentProfile &&
+    !profileService.simulationActivityLoading &&
+    !hasActiveSimulation;
+  const activeSimulationProfile = profileService.profiles.find(
+    (profile) =>
+      profile.id === profileService.simulationActivity?.profileID,
+  );
   const packetRate = snapshot?.metrics.packetSuccessRate ?? 0;
   const simulationEvents = simulation.events;
   const recentRates = useMemo(
@@ -243,18 +261,22 @@ const SimulationDashboardPage = () => {
     }
   };
 
-  const start = (values: Record<string, FormValue>) => {
+  const start = async (values: Record<string, FormValue>) => {
     const speed = Number(values.speed);
     const seed = typeof values.seed === "string" ? values.seed.trim() : "";
-    const gatewayBridge = readGatewayBridgeConfig();
 
     return runControl(
-      () =>
-        simulation.start({
+      async () => {
+        const gatewayBridge =
+          await profileConfiguration.getGatewayBridge().catch(() =>
+            profileConfiguration.gatewayBridgeConfig ?? defaultGatewayBridgeConfig,
+          );
+        await simulation.start({
           speed,
-        ...(seed ? { seed: Number(seed) } : {}),
-        gatewayBridge,
-      }),
+          ...(seed ? { seed: Number(seed) } : {}),
+          gatewayBridge,
+        });
+      },
       "Simulation started",
     );
   };
@@ -340,9 +362,19 @@ const SimulationDashboardPage = () => {
           onSubmit={start}
           submitButton={{
             value: "Start simulation",
-            className: `simulation-dashboard__start-button${canStart ? "" : " is-hidden"}`,
+            className: "simulation-dashboard__start-button",
+            disabled: !canStart,
           }}
         />
+        {activeSimulationIsElsewhere && (
+          <p className="simulation-dashboard__simulation-lock" role="status">
+            {activeSimulationProfile
+              ? `A simulation is active in ${activeSimulationProfile.name}. `
+              : "A simulation is active in another profile. "}
+            Only one simulation can run at a time. Stop it before starting a
+            new one.
+          </p>
+        )}
         {(isRunning || isPaused) && (
           <div className="simulation-dashboard__control-actions">
             {isRunning && (

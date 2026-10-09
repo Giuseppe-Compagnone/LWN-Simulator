@@ -6,13 +6,21 @@ import { findAvailablePort } from "./port-utils";
 let backendProcess: ChildProcess | undefined;
 
 export async function startBackend() {
+  const isDevelopment = !app.isPackaged;
   const backendPath = app.isPackaged
     ? path.join(process.resourcesPath, "lwn-server")
-    : path.join(process.cwd(), "assets", "lwn-server");
+    : path.join(app.getAppPath(), "assets", "lwn-server");
 
   const port = await findAvailablePort();
 
   backendProcess = spawn(backendPath, ["-p", String(port)], {
+    cwd: isDevelopment
+      ? path.resolve(app.getAppPath(), "..", "backend")
+      : undefined,
+    env: {
+      ...process.env,
+      ...(isDevelopment ? { LWN_ENV: "development" } : {}),
+    },
     stdio: "inherit",
   });
 

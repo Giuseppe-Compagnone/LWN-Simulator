@@ -55,6 +55,7 @@ const GatewayServiceProvider = (props: GatewayServiceProviderProps) => {
   const handleRealtimeMessage = useCallback((rawMessage: string) => {
     try {
       const message = JSON.parse(rawMessage) as RealtimeWebSocketMessage;
+      if (message.profileID && message.profileID !== props.profileID) return;
       if (
         (message.type === RealtimeWebSocketMessageType.GatewayCreated ||
           message.type === RealtimeWebSocketMessageType.GatewayUpdated) &&
@@ -80,11 +81,11 @@ const GatewayServiceProvider = (props: GatewayServiceProviderProps) => {
     } catch {
       // Ignore messages owned by another realtime consumer or malformed data.
     }
-  }, []);
+  }, [props.profileID]);
 
   useEffect(
     () => subscribe(handleRealtimeMessage),
-    [handleRealtimeMessage, subscribe],
+    [handleRealtimeMessage, props.profileID, subscribe],
   );
 
   useEffect(() => {
