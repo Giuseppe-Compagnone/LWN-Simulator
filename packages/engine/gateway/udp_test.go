@@ -49,6 +49,7 @@ func TestUDPAdapterImplementsSemtechIngressAndEgress(t *testing.T) {
 
 	body, err := json.Marshal(pushDataPayload{RXPK: []rxPacket{{
 		Data: base64.StdEncoding.EncodeToString([]byte("uplink")), Frequency: 868.3, DataRate: "SF7BW125",
+		Modulation: "LORA", CodingRate: "4/5", RSSI: -72, SNR: 5.5, Size: 6,
 	}}})
 	if err != nil {
 		t.Fatalf("encode PUSH_DATA: %v", err)
@@ -61,7 +62,7 @@ func TestUDPAdapterImplementsSemtechIngressAndEgress(t *testing.T) {
 	readSemtechPacket(t, gatewaySocket, pushAckType)
 	select {
 	case packet := <-adapter.Packets():
-		if string(packet.Payload) != "uplink" || packet.Frequency != 868300000 {
+		if string(packet.Payload) != "uplink" || packet.Frequency != 868300000 || packet.RSSI != -72 || packet.SNR != 5.5 {
 			t.Fatalf("unexpected ingress packet: %+v", packet)
 		}
 	case <-time.After(time.Second):
@@ -165,6 +166,39 @@ func TestUDPAdapterAcceptsSemtechGatewayAcknowledgements(t *testing.T) {
 	emptyTXAck := append(packetHeader([2]byte{0x24, 0x25}, txAckType), eui...)
 	if err := rawAdapter.handleDatagram(ctx, udpDatagram{data: emptyTXAck, remote: gatewaySocket.LocalAddr().(*net.UDPAddr)}); err != nil {
 		t.Fatalf("empty TX_ACK should be accepted: %v", err)
+	}
+}
+
+func TestUDPAdapterRejectsUnsupportedOrInconsistentRXPK(t *testing.T) {
+	factory := NewUDPFactory(UDPOptions{})
+	adapter, err := factory.NewGatewayAdapter(testRealGateway(1700))
+	if err != nil {
+		t.Fatalf("create adapter: %v", err)
+	}
+	defer adapter.Close()
+	rawAdapter := adapter.(*udpAdapter)
+	ctx := context.Background()
+
+	unsupported, err := json.Marshal(pushDataPayload{RXPK: []rxPacket{{
+		Data: base64.StdEncoding.EncodeToString([]byte("uplink")), Frequency: 868.1,
+		DataRate: "SF7BW125", Modulation: "FSK", Size: 6,
+	}}})
+	if err != nil {
+		t.Fatalf("encode unsupported RXPK: %v", err)
+	}
+	if err := rawAdapter.handlePushData(ctx, unsupported); err == nil {
+		t.Fatal("unsupported modulation should be rejected")
+	}
+
+	mismatch, err := json.Marshal(pushDataPayload{RXPK: []rxPacket{{
+		Data: base64.StdEncoding.EncodeToString([]byte("uplink")), Frequency: 868.1,
+		DataRate: "SF7BW125", Modulation: "LORA", Size: 99,
+	}}})
+	if err != nil {
+		t.Fatalf("encode inconsistent RXPK: %v", err)
+	}
+	if err := rawAdapter.handlePushData(ctx, mismatch); err == nil {
+		t.Fatal("inconsistent RXPK size should be rejected")
 	}
 }
 

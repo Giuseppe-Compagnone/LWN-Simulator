@@ -212,6 +212,14 @@ func (e *Engine) handleGatewayPacket(packet types.GatewayPacket) {
 		spreadingFactor := int32(packet.SpreadingFactor)
 		event.SpreadingFactor = &spreadingFactor
 	}
+	if packet.RSSI != 0 {
+		rssi := packet.RSSI
+		event.RSSI = &rssi
+	}
+	if packet.SNR != 0 {
+		snr := packet.SNR
+		event.SNR = &snr
+	}
 	events := []contracts.SimulationEvent{event}
 	if decoded, err := lorawan.Parse(packet.Payload); err == nil {
 		events = append(events, e.processRealUplinkLocked(packet, decoded)...)
@@ -326,6 +334,23 @@ func (e *Engine) processRealUplinkLocked(packet types.GatewayPacket, decoded lor
 	e.metrics.SuccessfulUplinks++
 	e.metrics.TotalPacketsReceived++
 	e.metrics.PacketSuccessRate = e.packetSuccessRate()
+	if packet.RSSI != 0 {
+		session.LastRSSI = packet.RSSI
+	}
+	if packet.SNR != 0 {
+		session.LastSNR = packet.SNR
+	}
+	if packet.Frequency > 0 {
+		session.LastChannel = packet.Frequency
+	}
+	session.LastPayloadSize = len(decoded.FRMPayload)
+	if decoded.FPort != nil {
+		session.LastFPort = int(*decoded.FPort)
+	}
+	if dataRate := gatewayPacketDataRate(device, packet); dataRate >= 0 {
+		session.CurrentDataRate = dataRate
+		session.CurrentSpreadingFactor = spreadingFactorForDataRate(device.LocationConfig.Region, dataRate)
+	}
 	packetID := uuid.NewString()
 	events := []contracts.SimulationEvent{e.newProtocolEventLocked(
 		contracts.DeviceUplinkTransmitted,

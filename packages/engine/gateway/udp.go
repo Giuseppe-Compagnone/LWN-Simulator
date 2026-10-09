@@ -208,11 +208,11 @@ func (factory *UDPFactory) register(adapter *udpAdapter) error {
 	defer factory.mu.Unlock()
 
 	if factory.runtime == nil {
-		local, err := net.ResolveUDPAddr("udp", factory.options.LocalAddress)
+		local, err := net.ResolveUDPAddr("udp4", factory.options.LocalAddress)
 		if err != nil {
 			return fmt.Errorf("resolve UDP listen address: %w", err)
 		}
-		conn, err := net.ListenUDP("udp", local)
+		conn, err := net.ListenUDP("udp4", local)
 		if err != nil {
 			return fmt.Errorf("listen for gateway UDP packets: %w", err)
 		}
@@ -818,9 +818,15 @@ func (adapter *udpAdapter) handlePushData(ctx context.Context, body []byte) erro
 		return adapter.emitHeartbeat(ctx)
 	}
 	for _, received := range payload.RXPK {
+		if received.Modulation != "" && !strings.EqualFold(received.Modulation, "LORA") {
+			return fmt.Errorf("unsupported gateway modulation %q", received.Modulation)
+		}
 		decoded, err := base64.StdEncoding.DecodeString(received.Data)
 		if err != nil {
 			return fmt.Errorf("decode gateway payload: %w", err)
+		}
+		if received.Size > 0 && received.Size != len(decoded) {
+			return fmt.Errorf("gateway payload size mismatch: declared %d, decoded %d", received.Size, len(decoded))
 		}
 		packet := types.GatewayPacket{
 			GatewayID:       adapter.gatewayID,
@@ -828,6 +834,8 @@ func (adapter *udpAdapter) handlePushData(ctx context.Context, body []byte) erro
 			Frequency:       int64(math.Round(received.Frequency * 1_000_000)),
 			Bandwidth:       parseBandwidth(received.DataRate),
 			SpreadingFactor: parseSpreadingFactor(received.DataRate),
+			RSSI:            float64(received.RSSI),
+			SNR:             received.SNR,
 			DataRate:        received.DataRate,
 			ReceivedAt:      time.Now(),
 		}

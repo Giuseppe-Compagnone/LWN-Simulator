@@ -54,8 +54,11 @@ func TestPhaseFiveEngineTracksRealGatewayLifecycleAndPackets(t *testing.T) {
 	}
 	waitForEventType(t, engine.Events(), contracts.GatewayPacketEgress)
 
-	adapter.packets <- types.GatewayPacket{GatewayID: gateway.ID, Payload: []byte("uplink")}
-	waitForEventType(t, engine.Events(), contracts.GatewayPacketIngress)
+	adapter.packets <- types.GatewayPacket{GatewayID: gateway.ID, Payload: []byte("uplink"), RSSI: -80, SNR: 4.5}
+	ingress := waitForEventType(t, engine.Events(), contracts.GatewayPacketIngress)
+	if ingress.RSSI == nil || *ingress.RSSI != -80 || ingress.SNR == nil || *ingress.SNR != 4.5 {
+		t.Fatalf("real gateway radio metadata was not propagated: %+v", ingress)
+	}
 	adapter.emit(types.GatewayAdapterEvent{
 		GatewayID: gateway.ID,
 		State:     contracts.Error,

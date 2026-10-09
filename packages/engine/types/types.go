@@ -224,6 +224,8 @@ type GatewayPacket struct {
 	Frequency       int64
 	Bandwidth       int64
 	SpreadingFactor int
+	RSSI            float64
+	SNR             float64
 	Power           int
 	DataRate        string
 	// TransmitAt requests a timed downlink. A zero value keeps the existing
