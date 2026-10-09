@@ -16,11 +16,9 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useProfileConfigurationService,
-  useProfileService,
 } from "@lwn-simulator/sdk";
 import {
   defaultGatewayBridgeConfig,
-  readGatewayBridgeConfig,
 } from "@/utils/gatewayBridge";
 import {
   GatewayBridgeFormState,
@@ -29,13 +27,10 @@ import {
 } from "./page.types";
 import "./gateway-bridge.scss";
 
-const toFormValues = (profileID?: string): GatewayBridgeFormValues => {
-  const config = readGatewayBridgeConfig(profileID);
-  return {
-    enabled: config.enabled,
-    address: config.address ?? defaultGatewayBridgeConfig.address ?? "0.0.0.0",
-    port: config.port ?? defaultGatewayBridgeConfig.port ?? 1700,
-  };
+const defaultFormValues: GatewayBridgeFormValues = {
+  enabled: defaultGatewayBridgeConfig.enabled,
+  address: defaultGatewayBridgeConfig.address ?? "0.0.0.0",
+  port: defaultGatewayBridgeConfig.port ?? 1700,
 };
 
 const toConfig = (values: GatewayBridgeFormValueMap) => ({
@@ -45,7 +40,6 @@ const toConfig = (values: GatewayBridgeFormValueMap) => ({
 });
 
 const GatewayBridgePage = () => {
-  const profileService = useProfileService();
   const profileConfiguration = useProfileConfigurationService();
   const initialValues = useMemo(
     () => {
@@ -57,18 +51,17 @@ const GatewayBridgePage = () => {
           port: config.port ?? defaultGatewayBridgeConfig.port ?? 1700,
         };
       }
-      return toFormValues(profileService.activeProfileID);
+      return defaultFormValues;
     },
     [
       profileConfiguration.gatewayBridgeConfig,
-      profileService.activeProfileID,
     ],
   );
   const logicRef = useRef<FormLogic | null>(null);
   const [state, setState] = useState<GatewayBridgeFormState>({
     logic: null,
-    values: initialValues,
-    lastSaved: null,
+    values: defaultFormValues,
+    lastSaved: defaultFormValues,
   });
 
   useEffect(() => {
