@@ -1,0 +1,99 @@
+---
+title: Profiles
+---
+
+# Profiles
+
+Profiles let you keep multiple independent LoRaWAN network configurations in
+the same application. Each profile has its own devices, gateways, gateway
+bridge settings, and simulation history.
+
+The active profile is shown in the application header, next to the theme
+control. Hardware, Simulation, and Logs use the profile that is currently
+selected there.
+
+## Select a profile
+
+1. Open the profile selector in the application header.
+2. Choose a profile from the list.
+3. Continue to **Hardware**, **Simulation**, or **Logs**.
+
+The selected profile remains active when you reload the page. Switching
+profiles does not copy or remove data: it changes which independent network
+configuration is displayed.
+
+## Create a profile
+
+1. Open the profile selector.
+2. Select **New profile**.
+3. Enter a name and choose **Create profile**.
+
+The name must be between 1 and 100 characters and must be different from the
+name of another profile. The new profile becomes active immediately and starts
+with an empty network configuration.
+
+## Rename a profile
+
+1. Select the profile you want to rename.
+2. Open the profile selector and choose **Rename**.
+3. Enter the new name and confirm.
+
+Renaming changes only the label used to identify the profile. Devices,
+gateways, bridge settings, and simulation history remain unchanged.
+
+## Delete a profile
+
+1. Select the profile you want to remove.
+2. Open the profile selector and choose **Delete**.
+3. Review the confirmation message and choose **Delete profile**.
+
+Deleting a profile removes its devices, gateways, gateway bridge settings, and
+simulation history. The application does not allow the last remaining profile
+to be deleted.
+
+## Export a profile
+
+Export creates one file containing the selected network configuration:
+
+- profile name and profile settings;
+- device configurations;
+- gateway configurations;
+- gateway bridge settings;
+- simulation runs and their recorded events.
+
+To export a profile:
+
+1. Select the profile to export.
+2. Open the profile selector.
+3. Choose **Export**.
+4. Save the downloaded `.lwn-profile.json` file.
+
+The export operation may take longer for profiles with large simulation
+histories. A loading indicator remains visible until the download starts.
+
+## Import a profile
+
+1. Open the profile selector.
+2. Choose **Import**.
+3. Select an `.lwn-profile.json` file.
+4. Wait for the import confirmation.
+
+Import always creates a new profile. It never replaces the currently selected
+profile or overwrites an existing profile. If the imported name is already in
+use, the application assigns the imported profile a distinct name.
+
+After a successful import, the new profile becomes active. Its devices,
+gateways, bridge settings, and available simulation history are then visible in
+the corresponding sections.
+
+## Profile and simulation rules
+
+Only one simulation can be active on a simulator server at a time, even when
+multiple profiles exist. A profile can still be selected while another profile
+contains the active run, but a new run cannot start until the current one has
+stopped or failed.
+
+When the same profile is open in multiple browser tabs or connected clients,
+changes to its hardware, bridge configuration, and simulation state are
+reflected in the other views automatically. Each profile remains isolated from
+the others.

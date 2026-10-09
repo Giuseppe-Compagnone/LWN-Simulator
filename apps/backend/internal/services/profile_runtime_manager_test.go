@@ -2,10 +2,12 @@ package services
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	engineTypes "github.com/Giuseppe-Compagnone/lwn-engine/types"
+	"lwn-simulator-backend/internal/apperrors"
 	"lwn-simulator-backend/internal/database"
 	"lwn-simulator-backend/internal/repositories"
 )
@@ -63,11 +65,21 @@ func TestProfileRuntimeManagerIsolatesProfilesAndAllowsOneSimulation(t *testing.
 	if _, err := first.Simulation.Start(ctx, contracts.SimulationConfig{Speed: 1}); err != nil {
 		t.Fatal(err)
 	}
+	activity, err := manager.ActiveSimulation()
+	if err != nil || !activity.Active || activity.ProfileID == nil || *activity.ProfileID != defaultProfile.ID {
+		t.Fatalf("active simulation activity = %+v, err = %v", activity, err)
+	}
 	if _, err := second.Simulation.Start(ctx, contracts.SimulationConfig{Speed: 1}); err == nil {
 		t.Fatal("second profile started while another simulation was active")
+	} else if !errors.Is(err, apperrors.ErrConflict) {
+		t.Fatalf("starting a simulation on another profile returned %v, want a conflict", err)
 	}
 	if _, err := first.Simulation.Stop(ctx); err != nil {
 		t.Fatal(err)
+	}
+	activity, err = manager.ActiveSimulation()
+	if err != nil || activity.Active {
+		t.Fatalf("simulation remained active after stop: %+v, err = %v", activity, err)
 	}
 	if _, err := second.Simulation.Start(ctx, contracts.SimulationConfig{Speed: 1}); err != nil {
 		t.Fatalf("second profile could not start after the first stopped: %v", err)

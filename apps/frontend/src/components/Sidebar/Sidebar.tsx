@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import cn from "classnames";
 import Link from "next/link";
 import { SimulationStatus } from "@lwn-simulator/contracts";
-import { useSimulationService } from "@lwn-simulator/sdk";
+import { useProfileService, useSimulationService } from "@lwn-simulator/sdk";
 
 const Sidebar = (props: SidebarProps) => {
   const routes: Record<
@@ -28,8 +28,10 @@ const Sidebar = (props: SidebarProps) => {
   // Hooks
   const pathname = usePathname();
   const simulationService = useSimulationService();
+  const profileService = useProfileService();
   const simulationStatus = simulationService.snapshot?.state.status;
   const simulationIsActive =
+    profileService.simulationActivity?.active === true ||
     simulationStatus === SimulationStatus.Running ||
     simulationStatus === SimulationStatus.Paused;
 

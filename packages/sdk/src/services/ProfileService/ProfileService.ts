@@ -7,14 +7,19 @@ import {
   ImportProfileResponse,
   Profile,
   ProfileArchive,
+  SimulationActivity,
   UpdateProfileRequest,
   UpdateProfileResponse,
 } from "@lwn-simulator/contracts";
 import { BaseService } from "../../models";
+import { ApiCaller } from "../../models/ApiCaller";
 
 export class ProfileService extends BaseService {
+  private readonly simulationApiCaller: ApiCaller;
+
   constructor(baseUrl: string) {
     super("profile", baseUrl);
+    this.simulationApiCaller = new ApiCaller("simulation", baseUrl);
   }
 
   public getProfiles = async (): Promise<Array<Profile>> => {
@@ -70,4 +75,7 @@ export class ProfileService extends BaseService {
     );
     return response.profile;
   };
+
+  public getSimulationActivity = async (): Promise<SimulationActivity> =>
+    this.simulationApiCaller.get<SimulationActivity>("/activity");
 }

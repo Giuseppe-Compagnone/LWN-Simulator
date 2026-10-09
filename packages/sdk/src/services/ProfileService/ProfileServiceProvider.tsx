@@ -7,6 +7,8 @@ import {
   ProfileArchive,
   RealtimeWebSocketMessage,
   RealtimeWebSocketMessageType,
+  SimulationActivity,
+  SimulationStatus,
   UpdateProfileRequest,
 } from "@lwn-simulator/contracts";
 import { useWebSocket } from "../../websocket";
@@ -30,7 +32,12 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
   const [activeProfileID, setActiveProfileID] = useState(readStoredProfileID);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [simulationActivity, setSimulationActivity] =
+    useState<SimulationActivity | null>(null);
+  const [simulationActivityLoading, setSimulationActivityLoading] =
+    useState(true);
   const profilesRef = useRef<Array<Profile>>([]);
+  const simulationActivityRef = useRef<SimulationActivity | null>(null);
   const activeProfileIDRef = useRef(activeProfileID);
   const service = useMemo(
     () => new ProfileService(props.baseUrl),
@@ -42,6 +49,14 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
     profilesRef.current = nextProfiles;
     setProfiles(nextProfiles);
   }, []);
+
+  const commitSimulationActivity = useCallback(
+    (nextActivity: SimulationActivity) => {
+      simulationActivityRef.current = nextActivity;
+      setSimulationActivity(nextActivity);
+    },
+    [],
+  );
 
   const upsertProfile = useCallback(
     (nextProfile: Profile) => {
@@ -101,6 +116,19 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
     void Promise.resolve().then(getProfiles);
   }, [getProfiles]);
 
+  useEffect(() => {
+    void service
+      .getSimulationActivity()
+      .then(commitSimulationActivity)
+      .catch(() =>
+        commitSimulationActivity({
+          active: false,
+          status: SimulationStatus.Idle,
+        }),
+      )
+      .finally(() => setSimulationActivityLoading(false));
+  }, [commitSimulationActivity, service]);
+
   const handleRealtimeMessage = useCallback(
     (rawMessage: string) => {
       try {
@@ -128,11 +156,39 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
             persistActiveProfile(nextProfiles[0].id);
           }
         }
+        if (
+          message.type === RealtimeWebSocketMessageType.SimulationSnapshot &&
+          message.snapshot
+        ) {
+          const status = message.snapshot.state.status;
+          const active =
+            status !== SimulationStatus.Idle &&
+            status !== SimulationStatus.Stopped &&
+            status !== SimulationStatus.Failed;
+          const currentActivity = simulationActivityRef.current;
+          if (active) {
+            commitSimulationActivity({
+              active: true,
+              profileID: message.profileID,
+              status,
+            });
+          } else if (
+            currentActivity?.active &&
+            currentActivity.profileID === message.profileID
+          ) {
+            commitSimulationActivity({ active: false, status });
+          }
+        }
       } catch {
         // Other realtime consumers may share this websocket stream.
       }
     },
-    [commitProfiles, persistActiveProfile, upsertProfile],
+    [
+      commitProfiles,
+      commitSimulationActivity,
+      persistActiveProfile,
+      upsertProfile,
+    ],
   );
 
   useEffect(
@@ -231,6 +287,8 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
       exportProfile,
       getExportProfileURL,
       importProfile,
+      simulationActivity,
+      simulationActivityLoading,
     }),
     [
       profiles,
@@ -246,6 +304,8 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
       exportProfile,
       getExportProfileURL,
       importProfile,
+      simulationActivity,
+      simulationActivityLoading,
     ],
   );
 

@@ -914,6 +914,22 @@ components:
         - Stopped
         - Recovering
         - Failed
+    SimulationActivity:
+      title: SimulationActivity
+      type: object
+      properties:
+        active:
+          type: boolean
+        profileID:
+          type: string
+          x-go-name: ProfileID
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,len=36,uuid4
+        status:
+          $ref: '#/components/schemas/SimulationStatus'
+      required:
+        - active
+        - status
     SimulationEventType:
       title: SimulationEventType
       type: string

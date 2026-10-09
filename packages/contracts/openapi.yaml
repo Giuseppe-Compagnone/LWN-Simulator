@@ -115,6 +115,8 @@ components:
       $ref: "./schemas/Simulation/SimulationSpeedRequest.yaml"
     SimulationStatus:
       $ref: "./schemas/Simulation/SimulationStatus.yaml"
+    SimulationActivity:
+      $ref: "./schemas/Simulation/SimulationActivity.yaml"
     SimulationEventType:
       $ref: "./schemas/Simulation/SimulationEventType.yaml"
     RuntimeStatus:

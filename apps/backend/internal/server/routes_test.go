@@ -59,6 +59,7 @@ func TestRegisterRoutesIncludesProfileConfigurationAPI(t *testing.T) {
 	for _, expected := range []string{
 		"GET /api/profiles/:profileID/configuration/gateway-bridge",
 		"PUT /api/profiles/:profileID/configuration/gateway-bridge",
+		"GET /api/simulation/activity",
 	} {
 		if _, exists := routes[expected]; !exists {
 			t.Errorf("route %q is not registered", expected)

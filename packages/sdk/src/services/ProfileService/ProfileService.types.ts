@@ -2,6 +2,7 @@ import {
   CreateProfileRequest,
   Profile,
   ProfileArchive,
+  SimulationActivity,
   UpdateProfileRequest,
 } from "@lwn-simulator/contracts";
 import { PropsWithChildren } from "react";
@@ -20,6 +21,8 @@ export interface ProfileServiceContent {
   exportProfile: (id?: string) => Promise<ProfileArchive>;
   getExportProfileURL: (id?: string) => string;
   importProfile: (archive: ProfileArchive) => Promise<Profile>;
+  simulationActivity: SimulationActivity | null;
+  simulationActivityLoading: boolean;
 }
 
 export interface ProfileServiceProviderProps extends PropsWithChildren {

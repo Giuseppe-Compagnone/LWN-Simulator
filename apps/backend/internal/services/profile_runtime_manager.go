@@ -275,7 +275,7 @@ func (m *ProfileRuntimeManager) acquireSimulation(profileID string) error {
 		if snapshot, err := runtime.Simulation.inner.Snapshot(); err == nil {
 			status := snapshot.State.Status
 			if status != contracts.SimulationStatusStopped && status != contracts.SimulationStatusFailed {
-				return fmt.Errorf("a simulation is already active for profile %q", m.activeProfile)
+				return apperrors.Conflict("a simulation is already active for profile %q", m.activeProfile)
 			}
 		}
 	}
@@ -289,6 +289,37 @@ func (m *ProfileRuntimeManager) releaseSimulation(profileID string) {
 		m.activeProfile = ""
 	}
 	m.mu.Unlock()
+}
+
+// ActiveSimulation reports the single simulation that can run on this
+// backend, regardless of which profile owns it.
+func (m *ProfileRuntimeManager) ActiveSimulation() (contracts.SimulationActivity, error) {
+	m.mu.Lock()
+	profileID := m.activeProfile
+	runtime := m.runtimes[profileID]
+	m.mu.Unlock()
+
+	activity := contracts.SimulationActivity{
+		Active: false,
+		Status: contracts.SimulationStatusIdle,
+	}
+	if profileID == "" || runtime == nil {
+		return activity, nil
+	}
+
+	snapshot, err := runtime.Simulation.inner.Snapshot()
+	if err != nil {
+		return contracts.SimulationActivity{}, err
+	}
+	if snapshot.State.Status == contracts.SimulationStatusStopped || snapshot.State.Status == contracts.SimulationStatusFailed {
+		m.releaseSimulation(profileID)
+		return activity, nil
+	}
+
+	activity.Active = true
+	activity.ProfileID = &profileID
+	activity.Status = snapshot.State.Status
+	return activity, nil
 }
 
 func (m *ProfileRuntimeManager) canDeleteProfile(profileID string) error {
