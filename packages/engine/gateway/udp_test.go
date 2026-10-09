@@ -604,7 +604,7 @@ func TestUDPVirtualGatewaySendsKeepaliveAndUplinkToBridge(t *testing.T) {
 	if err := json.Unmarshal(packet[12:], &body); err != nil {
 		t.Fatalf("decode PUSH_DATA: %v", err)
 	}
-	if len(body.RXPK) != 1 || body.RXPK[0].DataRate != "SF7BW125" || body.RXPK[0].Size != len(uplink.Payload) {
+	if len(body.RXPK) != 1 || body.RXPK[0].Timestamp == nil || *body.RXPK[0].Timestamp == 0 || body.RXPK[0].Channel != 0 || body.RXPK[0].RFChannel != 0 || body.RXPK[0].Status != 1 || body.RXPK[0].DataRate != "SF7BW125" || body.RXPK[0].Size != len(uplink.Payload) {
 		t.Fatalf("unexpected virtual uplink metadata: %+v", body.RXPK)
 	}
 	decoded, err := base64.StdEncoding.DecodeString(body.RXPK[0].Data)

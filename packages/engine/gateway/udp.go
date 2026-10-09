@@ -533,8 +533,10 @@ func (adapter *udpAdapter) SendUplink(ctx context.Context, packet types.GatewayP
 	if frequency <= 0 {
 		frequency = 868.1
 	}
+	timestamp := uint32(time.Now().UnixMicro())
 	body, err := json.Marshal(pushDataPayload{RXPK: []rxPacket{{
 		Data: base64.StdEncoding.EncodeToString(packet.Payload), Frequency: frequency,
+		Timestamp: &timestamp, Channel: 0, RFChannel: 0, Status: 1,
 		DataRate: dataRate, Modulation: "LORA", CodingRate: "4/5",
 		RSSI: -60, SNR: 7, Size: len(packet.Payload),
 	}}})
@@ -1055,6 +1057,10 @@ type pushDataPayload struct {
 type rxPacket struct {
 	Data       string  `json:"data"`
 	Frequency  float64 `json:"freq"`
+	Timestamp  *uint32 `json:"tmst,omitempty"`
+	Channel    int     `json:"chan"`
+	RFChannel  int     `json:"rfch"`
+	Status     int     `json:"stat"`
 	DataRate   string  `json:"datr"`
 	Modulation string  `json:"modu,omitempty"`
 	CodingRate string  `json:"codr,omitempty"`
