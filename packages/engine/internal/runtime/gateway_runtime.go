@@ -221,7 +221,17 @@ func (e *Engine) handleGatewayPacket(packet types.GatewayPacket) {
 		event.SNR = &snr
 	}
 	events := []contracts.SimulationEvent{event}
-	if decoded, err := lorawan.Parse(packet.Payload); err == nil {
+	if packet.Kind == types.GatewayPacketDownlink || packet.Kind == types.GatewayPacketClassBDownlink {
+		if decoded, err := lorawan.Parse(packet.Payload); err == nil {
+			events = append(events, e.processExternalDownlinkLocked(packet, decoded)...)
+		} else {
+			events = append(events, e.newPacketEventLocked(
+				contracts.DeviceDownlinkDropped,
+				"downlink received from gateway transport is not a valid LoRaWAN frame",
+				"", packet.GatewayID, "", uuid.NewString(),
+			))
+		}
+	} else if decoded, err := lorawan.Parse(packet.Payload); err == nil {
 		events = append(events, e.processRealUplinkLocked(packet, decoded)...)
 	}
 	pendingPackets := e.takeGatewayPacketsLocked(packet.GatewayID)
@@ -232,6 +242,85 @@ func (e *Engine) handleGatewayPacket(packet types.GatewayPacket) {
 	if len(pendingPackets) > 0 {
 		e.dispatchGatewayPackets(pendingPackets)
 	}
+}
+
+func (e *Engine) processExternalDownlinkLocked(packet types.GatewayPacket, decoded lorawan.Packet) []contracts.SimulationEvent {
+	if decoded.MType != lorawan.MTypeUnconfirmedDataDown && decoded.MType != lorawan.MTypeConfirmedDataDown {
+		return []contracts.SimulationEvent{e.newPacketEventLocked(
+			contracts.DeviceDownlinkDropped,
+			"external gateway downlink is not a data frame",
+			"", packet.GatewayID, "", uuid.NewString(),
+		)}
+	}
+	device, session := e.realDeviceSessionLocked(decoded.DevAddr)
+	if session == nil {
+		return []contracts.SimulationEvent{e.newPacketEventLocked(
+			contracts.DeviceDownlinkDropped,
+			"external gateway downlink targets an unknown device address",
+			"", packet.GatewayID, "", uuid.NewString(),
+		)}
+	}
+	if len(session.NwkSKey) != 16 || !lorawan.VerifyDataMIC(decoded, session.NwkSKey, 1) {
+		e.metrics.FrameCounterErrors++
+		return []contracts.SimulationEvent{e.newPacketEventLocked(
+			contracts.DeviceDownlinkDropped,
+			"external gateway downlink has an invalid MIC",
+			device.ID, packet.GatewayID, "", uuid.NewString(),
+		)}
+	}
+	if decoded.FCnt <= uint32(session.FrameCounterDown) {
+		e.metrics.FrameCounterErrors++
+		return []contracts.SimulationEvent{e.newProtocolEventLocked(
+			contracts.FrameCounterRejected,
+			"external gateway downlink frame counter is not newer",
+			device.ID, packet.GatewayID, "", uuid.NewString(), int64(decoded.FCnt), 1, decoded.Confirmed, nil,
+		)}
+	}
+	downlink := types.Downlink{
+		ID:        uuid.NewString(),
+		DeviceID:  device.ID,
+		DataRate:  gatewayPacketDataRate(device, packet),
+		Confirmed: decoded.Confirmed,
+		FPending:  decoded.FPending,
+		ACK:       decoded.ACK,
+	}
+	if decoded.FPort != nil {
+		downlink.FPort = int(*decoded.FPort)
+		key := session.AppSKey
+		if *decoded.FPort == 0 {
+			key = session.NwkSKey
+		}
+		payload, err := lorawan.DecryptPayload(decoded, key, 1)
+		if err != nil {
+			return []contracts.SimulationEvent{e.newPacketEventLocked(
+				contracts.DeviceDownlinkDropped,
+				"external gateway downlink payload could not be decrypted",
+				device.ID, packet.GatewayID, "", uuid.NewString(),
+			)}
+		}
+		downlink.Payload = payload
+	}
+	session.FrameCounterDown = int64(decoded.FCnt)
+	event := e.newDownlinkEventLocked(
+		contracts.DeviceDownlinkTransmitted,
+		"downlink received from external gateway transport",
+		device, session, downlink, "",
+	)
+	event.GatewayID = &packet.GatewayID
+	if packet.Frequency > 0 {
+		event.ChannelFrequency = &packet.Frequency
+	}
+	if packet.SpreadingFactor > 0 {
+		spreadingFactor := int32(packet.SpreadingFactor)
+		event.SpreadingFactor = &spreadingFactor
+	}
+	if packet.Bandwidth > 0 {
+		event.Bandwidth = &packet.Bandwidth
+	}
+	e.eventLog[len(e.eventLog)-1] = event
+	events := []contracts.SimulationEvent{event}
+	events = append(events, e.applyDownlinkEffectsLocked(device, session, downlink, e.clock.Now())...)
+	return events
 }
 
 func (e *Engine) processRealUplinkLocked(packet types.GatewayPacket, decoded lorawan.Packet) []contracts.SimulationEvent {

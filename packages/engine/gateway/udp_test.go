@@ -69,6 +69,28 @@ func TestUDPAdapterImplementsSemtechIngressAndEgress(t *testing.T) {
 		t.Fatal("timed out waiting for ingress packet")
 	}
 
+	downlinkBody := []byte(`{"txpk":{"imme":true,"freq":868.1,"modu":"LORA","datr":"SF7BW125","size":8,"data":"ZG93bmxpbms="}}`)
+	pullResponse := append(packetHeader([2]byte{0x44, 0x55}, pullResponseType), downlinkBody...)
+	if _, err := gatewaySocket.WriteToUDP(pullResponse, serverAddress); err != nil {
+		t.Fatalf("send PULL_RESP: %v", err)
+	}
+	ack := readSemtechPacket(t, gatewaySocket, txAckType)
+	if len(ack) < 12 || !equalBytes(ack[4:12], eui) {
+		t.Fatalf("TX_ACK did not contain the configured gateway EUI: %x", ack)
+	}
+	var ackBody txAckPayload
+	if err := json.Unmarshal(ack[12:], &ackBody); err != nil || ackBody.TXPKAck.Error != "NONE" {
+		t.Fatalf("unexpected PULL_RESP acknowledgement: %s (%v)", ack[12:], err)
+	}
+	select {
+	case packet := <-adapter.Packets():
+		if packet.Kind != types.GatewayPacketDownlink || string(packet.Payload) != "downlink" || packet.Frequency != 868100000 {
+			t.Fatalf("unexpected downlink packet: %+v", packet)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for downlink packet")
+	}
+
 	if err := adapter.Send(ctx, types.GatewayPacket{Payload: []byte("downlink")}); err != nil {
 		t.Fatalf("send PULL_RESP: %v", err)
 	}

@@ -145,6 +145,55 @@ func TestPhaseFiveRealUplinkUpdatesDeviceAndSchedulesConfirmedACK(t *testing.T) 
 	}
 }
 
+func TestPhaseFourExternalGatewayDownlinkIsValidatedAndApplied(t *testing.T) {
+	adapter := newFakeGatewayAdapter()
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000044")
+	configureABP(&device)
+	gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c44")
+	gateway.Type = contracts.Real
+	gateway.KeepAlive = nil
+	gateway.GatewayEUI = "A840410001000144"
+	gateway.MacAddress = "02:00:00:10:00:44"
+	gateway.GatewayIPv4 = engineStringPtr("127.0.0.1")
+	gateway.GatewayPort = engineInt32Ptr(1744)
+
+	engine, err := New(
+		contracts.SimulationConfig{Speed: 1},
+		[]contracts.Device{device}, []contracts.Gateway{gateway},
+		types.Options{EventBuffer: 256, GatewayAdapterFactory: &fakeGatewayFactory{adapter: adapter}},
+	)
+	if err != nil {
+		t.Fatalf("create engine: %v", err)
+	}
+	startEngine(t, engine)
+	defer stopEngine(t, engine)
+	waitForEventType(t, engine.Events(), contracts.GatewayConnecting)
+	adapter.emit(types.GatewayAdapterEvent{GatewayID: gateway.ID, State: contracts.Connected})
+	waitForEventType(t, engine.Events(), contracts.GatewayConnected)
+
+	nwkSKey, _ := lorawan.DecodeHex(device.ABPConfig.NwkSKey)
+	appSKey, _ := lorawan.DecodeHex(device.ABPConfig.AppSKey)
+	fPort := byte(1)
+	payload, err := lorawan.BuildDataFrame(lorawan.DataFrameOptions{
+		DevAddr: 0x26011BDA, FCnt: 1, FPort: &fPort, Payload: []byte("command"),
+		Direction: 1, NwkSKey: nwkSKey, AppSKey: appSKey,
+	})
+	if err != nil {
+		t.Fatalf("build external downlink: %v", err)
+	}
+	adapter.packets <- types.GatewayPacket{
+		GatewayID: gateway.ID, Kind: types.GatewayPacketDownlink, Payload: payload,
+		Frequency: 869525000, Bandwidth: 125000, SpreadingFactor: 7, DataRate: "SF7BW125",
+	}
+	downlinkEvent := waitForEventTypeWithLog(t, engine, contracts.DeviceDownlinkTransmitted)
+	if downlinkEvent.DeviceID == nil || *downlinkEvent.DeviceID != device.ID || downlinkEvent.PayloadSize == nil || *downlinkEvent.PayloadSize != 7 {
+		t.Fatalf("unexpected external downlink event: %+v", downlinkEvent)
+	}
+	if engine.Snapshot().Devices[0].FrameCounterDown != 1 {
+		t.Fatalf("external downlink did not update frame counter: %+v", engine.Snapshot().Devices[0])
+	}
+}
+
 func TestRealGatewaysCanIngestTheSameDeviceThroughMultipleAdapters(t *testing.T) {
 	first := newFakeGatewayAdapter()
 	second := newFakeGatewayAdapter()

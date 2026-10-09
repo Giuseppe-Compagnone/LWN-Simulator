@@ -787,6 +787,27 @@ func (adapter *udpAdapter) handleDatagram(ctx context.Context, datagram udpDatag
 		// gateway-to-server keepalive/data messages. They carry no payload;
 		// receiving either one proves that the UDP path is usable.
 		return adapter.emitHeartbeat(ctx)
+	case pullResponseType:
+		packet, err := adapter.decodePullResponse(data[4:])
+		ackError := "NONE"
+		if err != nil {
+			ackError = "INVALID_DATA"
+		}
+		if ackErr := adapter.sendTXAck(data[1:3], datagram.remote, ackError); ackErr != nil {
+			if err == nil {
+				return ackErr
+			}
+			return fmt.Errorf("decode downlink: %v; send TX_ACK: %w", err, ackErr)
+		}
+		if err != nil {
+			return err
+		}
+		select {
+		case adapter.packets <- *packet:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	case txAckType:
 		if len(data) < 12 {
 			return errors.New("invalid TX_ACK packet")
@@ -804,6 +825,66 @@ func (adapter *udpAdapter) handleDatagram(ctx context.Context, datagram udpDatag
 	default:
 		return fmt.Errorf("unsupported Semtech UDP packet type 0x%02x", data[3])
 	}
+}
+
+func (adapter *udpAdapter) decodePullResponse(body []byte) (*types.GatewayPacket, error) {
+	var payload struct {
+		TXPK txPacket `json:"txpk"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return nil, fmt.Errorf("decode PULL_RESP payload: %w", err)
+	}
+	if payload.TXPK.Modulation != "" && !strings.EqualFold(payload.TXPK.Modulation, "LORA") {
+		return nil, fmt.Errorf("unsupported downlink modulation %q", payload.TXPK.Modulation)
+	}
+	if payload.TXPK.Data == "" {
+		return nil, errors.New("downlink payload is empty")
+	}
+	decoded, err := base64.StdEncoding.DecodeString(payload.TXPK.Data)
+	if err != nil {
+		return nil, fmt.Errorf("decode downlink payload: %w", err)
+	}
+	if payload.TXPK.Size > 0 && payload.TXPK.Size != len(decoded) {
+		return nil, fmt.Errorf("downlink payload size mismatch: declared %d, decoded %d", payload.TXPK.Size, len(decoded))
+	}
+	var transmitAt time.Time
+	if payload.TXPK.Time != "" {
+		transmitAt, err = time.Parse(time.RFC3339Nano, payload.TXPK.Time)
+		if err != nil {
+			return nil, fmt.Errorf("parse downlink transmission time: %w", err)
+		}
+	}
+	return &types.GatewayPacket{
+		GatewayID:       adapter.gatewayID,
+		Kind:            types.GatewayPacketDownlink,
+		Payload:         decoded,
+		Frequency:       int64(math.Round(payload.TXPK.Frequency * 1_000_000)),
+		Bandwidth:       parseBandwidth(payload.TXPK.DataRate),
+		SpreadingFactor: parseSpreadingFactor(payload.TXPK.DataRate),
+		Power:           payload.TXPK.Power,
+		DataRate:        payload.TXPK.DataRate,
+		TransmitAt:      transmitAt,
+		ReceivedAt:      time.Now(),
+	}, nil
+}
+
+func (adapter *udpAdapter) sendTXAck(token []byte, destination *net.UDPAddr, errorCode string) error {
+	if len(token) != 2 {
+		return errors.New("invalid PULL_RESP token")
+	}
+	eui, err := hex.DecodeString(adapter.gatewayEUI)
+	if err != nil {
+		return fmt.Errorf("decode gateway EUI: %w", err)
+	}
+	body := txAckPayload{}
+	body.TXPKAck.Error = errorCode
+	encoded, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("encode TX_ACK payload: %w", err)
+	}
+	frame := append(packetHeader([2]byte{token[0], token[1]}, txAckType), eui...)
+	frame = append(frame, encoded...)
+	return adapter.send(frame, destination)
 }
 
 func (adapter *udpAdapter) handlePushData(ctx context.Context, body []byte) error {
