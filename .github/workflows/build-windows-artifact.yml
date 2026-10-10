@@ -1,0 +1,128 @@
+name: Build Windows test artifact
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - distribution
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-test-artifact-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Windows distribution (${{ matrix.name }})
+    runs-on: windows-2022
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: x86_64
+            arch: x64
+            go_arch: amd64
+          - name: arm64
+            arch: arm64
+            go_arch: arm64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enable Corepack
+        shell: pwsh
+        run: corepack enable
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+          cache-dependency-path: yarn.lock
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/backend/go.mod
+          cache: true
+          cache-dependency-path: |
+            apps/backend/go.sum
+            packages/engine/go.sum
+
+      - name: Install dependencies
+        shell: pwsh
+        run: yarn install --immutable
+
+      - name: Generate API contracts
+        shell: pwsh
+        run: yarn generate
+
+      - name: Build UI components
+        shell: pwsh
+        run: yarn workspace @lwn-simulator/ui-components build
+
+      - name: Build SDK
+        shell: pwsh
+        run: yarn workspace @lwn-simulator/sdk build
+
+      - name: Build frontend
+        shell: pwsh
+        run: yarn workspace @lwn-simulator/frontend build
+
+      - name: Build Windows backend
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force apps/desktop/assets | Out-Null
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          Push-Location apps/backend
+          try {
+            $env:GOOS = "windows"
+            $env:GOARCH = "${{ matrix.go_arch }}"
+            $env:CGO_ENABLED = "0"
+            go build -ldflags "-X lwn-simulator-backend/version.AppVersion=$version" -o ../desktop/assets/lwn-server.exe -trimpath -buildvcs=false ./cmd/server/main.go
+          } finally {
+            Pop-Location
+          }
+
+      - name: Build desktop launcher
+        shell: pwsh
+        env:
+          ELECTRON_BUILD: "true"
+        run: yarn workspace @lwn-simulator/desktop-launcher exec next build
+
+      - name: Package Windows distribution
+        shell: pwsh
+        run: |
+          yarn workspace @lwn-simulator/desktop compile
+          yarn workspace @lwn-simulator/desktop exec electron-builder --win nsis portable --${{ matrix.arch }} --publish never
+
+      - name: Verify Windows artifacts
+        shell: pwsh
+        run: |
+          $backend = "apps/desktop/assets/lwn-server.exe"
+          $artifacts = @(Get-ChildItem -Path releases/desktop/build -File -Filter *.exe)
+          if (-not (Test-Path $backend)) { throw "Windows backend was not produced" }
+          if ((Get-Item $backend).Length -le 0) { throw "Windows backend is empty" }
+          if ($artifacts.Count -lt 2) { throw "Expected NSIS and portable Windows executables" }
+          $artifacts | ForEach-Object {
+            if ($_.Length -le 0) { throw "Windows artifact is empty: $($_.FullName)" }
+          }
+          if ("${{ matrix.arch }}" -eq "x64") {
+            & $backend --help | Out-Null
+          }
+          Get-FileHash $backend -Algorithm SHA256 | Format-Table -AutoSize
+          $artifacts | Get-FileHash -Algorithm SHA256 | Format-Table -AutoSize
+
+      - name: Upload Windows test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lwn-simulator-windows-test-${{ matrix.name }}-${{ github.sha }}
+          path: |
+            releases/desktop/build/*.exe
+            apps/desktop/assets/lwn-server.exe
+          if-no-files-found: error
+          retention-days: 3

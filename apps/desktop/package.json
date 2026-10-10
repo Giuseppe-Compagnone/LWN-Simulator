@@ -41,8 +41,8 @@
     ],
     "extraResources": [
       {
-        "from": "assets/lwn-server",
-        "to": "lwn-server"
+        "from": "assets",
+        "to": "backend"
       },
       {
         "from": "public/icon.png",

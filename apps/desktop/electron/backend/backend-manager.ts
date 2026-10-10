@@ -28,12 +28,19 @@ export async function startBackend(): Promise<number> {
 
 async function startBackendProcess(): Promise<number> {
   const isDevelopment = !app.isPackaged;
-  const backendPath = app.isPackaged
-    ? path.join(process.resourcesPath, "lwn-server")
-    : path.join(app.getAppPath(), "assets", "lwn-server");
+  const backendDirectory = app.isPackaged
+    ? path.join(process.resourcesPath, "backend")
+    : path.join(app.getAppPath(), "assets");
+  const backendNames =
+    process.platform === "win32" ? ["lwn-server.exe", "lwn-server"] : ["lwn-server"];
+  const backendPath = backendNames
+    .map((backendName) => path.join(backendDirectory, backendName))
+    .find((candidate) => existsSync(candidate));
 
-  if (!existsSync(backendPath)) {
-    throw new Error(`Local backend executable not found at ${backendPath}`);
+  if (!backendPath) {
+    throw new Error(
+      `Local backend executable not found in ${backendDirectory}`,
+    );
   }
 
   const port = await findAvailablePort();
