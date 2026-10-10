@@ -1,4 +1,6 @@
 import { ipcMain } from "electron";
+import Store from "electron-store";
+import { pathToFileURL } from "url";
 import {
   startBackend,
   stopBackend,
@@ -6,19 +8,38 @@ import {
 } from "../backend/backend-manager";
 
 import {
+  disconnectMainWindow,
   getLauncherPath,
   getMainWindow,
   setConnected,
 } from "../window/window-manager";
-import Store from "electron-store";
-
 import { validateRemote } from "../remote/remote-validator";
 
-function isLauncherSender(event: Electron.IpcMainInvokeEvent) {
-  return event.sender.getURL().startsWith("file://");
+let handlersRegistered = false;
+
+function isMainWindowSender(event: Electron.IpcMainInvokeEvent): boolean {
+  return getMainWindow()?.webContents.id === event.sender.id;
+}
+
+function isLauncherSender(event: Electron.IpcMainInvokeEvent): boolean {
+  return (
+    isMainWindowSender(event) &&
+    event.sender
+      .getURL()
+      .startsWith(pathToFileURL(getLauncherPath()).toString())
+  );
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 export function registerIpcHandlers() {
+  if (handlersRegistered) {
+    return;
+  }
+
+  handlersRegistered = true;
   const store = new Store();
 
   ipcMain.handle("connect-local", async (event) => {
@@ -29,16 +50,25 @@ export function registerIpcHandlers() {
     const window = getMainWindow();
 
     if (!window) {
-      return;
+      return { success: false, message: "The main window is unavailable" };
     }
 
-    const port = await startBackend();
+    try {
+      const port = await startBackend();
+      await waitForServer(port);
+      await window.loadURL(`http://127.0.0.1:${port}`);
+      setConnected(true);
 
-    await waitForServer(port);
+      return { success: true };
+    } catch (error) {
+      stopBackend();
+      setConnected(false);
 
-    await window.loadURL(`http://localhost:${port}`);
-
-    setConnected(true);
+      return {
+        success: false,
+        message: getErrorMessage(error),
+      };
+    }
   });
 
   ipcMain.handle("connect-remote", async (event, url: string) => {
@@ -49,7 +79,7 @@ export function registerIpcHandlers() {
     const window = getMainWindow();
 
     if (!window) {
-      return;
+      return { success: false, message: "The main window is unavailable" };
     }
 
     try {
@@ -70,23 +100,27 @@ export function registerIpcHandlers() {
     }
   });
 
-  ipcMain.handle("disconnect", async () => {
-    stopBackend();
-
-    const window = getMainWindow();
-
-    if (window) {
-      window.loadFile(getLauncherPath());
+  ipcMain.handle("disconnect", async (event) => {
+    if (!isMainWindowSender(event)) {
+      throw new Error("Only the main window can disconnect");
     }
 
-    setConnected(false);
+    await disconnectMainWindow();
   });
 
-  ipcMain.handle("sync-storage", (_, key: string, value: string) => {
+  ipcMain.handle("sync-storage", (event, key: string, value: string) => {
+    if (!isMainWindowSender(event)) {
+      throw new Error("Only the main window can access storage");
+    }
+
     store.set(key, value);
   });
 
-  ipcMain.handle("get-storage", (_, key: string) => {
+  ipcMain.handle("get-storage", (event, key: string) => {
+    if (!isMainWindowSender(event)) {
+      throw new Error("Only the main window can access storage");
+    }
+
     return store.get(key);
   });
 }

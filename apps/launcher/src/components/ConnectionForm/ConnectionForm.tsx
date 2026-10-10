@@ -22,7 +22,14 @@ export const ConnectionForm = (props: ConnectionFormProps) => {
       case "local":
         props.onLoadingChange("Running local backend");
         try {
-          await window.electron.connectLocal();
+          const result = await window.electron.connectLocal();
+
+          if (!result.success) {
+            props.onLoadingChange(null);
+            NotificationHandler.instance.error(
+              result.message || "Failed to start local backend",
+            );
+          }
         } catch {
           props.onLoadingChange(null);
           NotificationHandler.instance.error("Failed to start local backend");

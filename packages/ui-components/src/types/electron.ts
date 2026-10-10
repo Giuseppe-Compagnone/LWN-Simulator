@@ -1,5 +1,5 @@
 export interface ElectronAPI {
-  connectLocal(): Promise<void>;
+  connectLocal(): Promise<{ success: boolean; message?: string }>;
   connectRemote(url: string): Promise<{
     success: boolean;
     message?: string;
