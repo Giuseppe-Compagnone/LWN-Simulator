@@ -68,16 +68,7 @@ func (h *GatewayHandler) GetGateways(c *gin.Context) {
 
 func (h *GatewayHandler) UpdateGateway(c *gin.Context) {
 	var req contracts.UpdateGatewayRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request path"})
-		return
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
-		return
-	}
-	if err := h.validator.Struct(req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if !bindURIJSONAndValidate(c, h.validator, &req) {
 		return
 	}
 	if req.Gateway.ID != req.ID {

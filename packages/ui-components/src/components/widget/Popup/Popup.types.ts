@@ -22,8 +22,11 @@ export interface PopupProps extends PropsWithChildren {
 
 /**
  * Properties accepted by the popup logic hook.
+ *
+ * The hook currently does not require configuration, but the named type keeps
+ * the public API ready for future options.
  */
-export interface UsePopupProps {}
+export type UsePopupProps = Record<string, never>;
 
 /**
  * State and actions exposed by the popup logic hook.

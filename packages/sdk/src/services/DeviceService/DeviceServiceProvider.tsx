@@ -10,24 +10,26 @@ import {
   Device,
   GetDeviceRequest,
   RealtimeWebSocketMessage,
-  RealtimeWebSocketMessageType,
   UpdateDeviceRequest,
 } from "@lwn-simulator/contracts";
 import { DeviceService } from "./DeviceService";
-import { useWebSocket } from "../../websocket";
+import { useWebSocketService } from "../WebSocketService";
+import { RealtimeWebSocketMessageType } from "../../models/RealtimeWebSocket";
 
 const DeviceServiceProvider = (props: DeviceServiceProviderProps) => {
   // States
   const [devices, setDevices] = useState<Array<Device> | null>(null);
   const [error, setError] = useState<Error | null>(null);
 
+  // Hooks
+  const { connectionState, subscribe } = useWebSocketService();
+  const hasConnectedRef = useRef(false);
+
   // Memos
   const service = useMemo(
     () => new DeviceService(props.baseUrl),
     [props.baseUrl],
   );
-  const { connectionState, subscribe } = useWebSocket();
-  const hasConnectedRef = useRef(false);
 
   // Callbacks
   const createDevice = useCallback(
@@ -99,10 +101,14 @@ const DeviceServiceProvider = (props: DeviceServiceProviderProps) => {
       ) {
         setDevices((previous) => {
           if (!previous) return [message.device as Device];
-          const exists = previous.some((device) => device.id === message.device?.id);
+          const exists = previous.some(
+            (device) => device.id === message.device?.id,
+          );
           return exists
             ? previous.map((device) =>
-                device.id === message.device?.id ? message.device as Device : device,
+                device.id === message.device?.id
+                  ? (message.device as Device)
+                  : device,
               )
             : [...previous, message.device as Device];
         });
@@ -115,42 +121,9 @@ const DeviceServiceProvider = (props: DeviceServiceProviderProps) => {
         );
       }
     } catch {
-      // Ignore messages owned by another realtime consumer or malformed data.
-    }
-  }, [props.profileID]);
-
-  useEffect(
-    () => subscribe(handleRealtimeMessage),
-    [handleRealtimeMessage, props.profileID, subscribe],
-  );
-
-  useEffect(() => {
-    if (connectionState !== "connected") return;
-    if (!hasConnectedRef.current) {
-      hasConnectedRef.current = true;
       return;
     }
-
-    void getDevices().catch(() => {
-      setError(new Error("Failed to recover devices after websocket reconnect"));
-    });
-  }, [connectionState, getDevices]);
-
-  // Effects
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await getDevices();
-
-        setDevices(res);
-      } catch (err) {
-        setDevices([]);
-        setError(
-          err instanceof Error ? err : new Error("Failed to load devices"),
-        );
-      }
-    })();
-  }, [getDevices]);
+  }, [props.profileID]);
 
   // Memos
   const value = useMemo(
@@ -173,6 +146,39 @@ const DeviceServiceProvider = (props: DeviceServiceProviderProps) => {
       error,
     ],
   );
+
+  // Effects
+  useEffect(
+    () => subscribe(handleRealtimeMessage),
+    [handleRealtimeMessage, props.profileID, subscribe],
+  );
+
+  useEffect(() => {
+    if (connectionState !== "connected") return;
+    if (!hasConnectedRef.current) {
+      hasConnectedRef.current = true;
+      return;
+    }
+
+    void getDevices().catch(() => {
+      setError(new Error("Failed to recover devices after websocket reconnect"));
+    });
+  }, [connectionState, getDevices]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await getDevices();
+
+        setDevices(res);
+      } catch (err) {
+        setDevices([]);
+        setError(
+          err instanceof Error ? err : new Error("Failed to load devices"),
+        );
+      }
+    })();
+  }, [getDevices]);
 
   return (
     <DeviceServiceContext.Provider value={value}>

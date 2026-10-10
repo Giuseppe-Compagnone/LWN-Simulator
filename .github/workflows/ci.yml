@@ -36,6 +36,10 @@ jobs:
       - name: Install dependencies
         run: yarn install --immutable
 
+      - name: Install documentation dependencies
+        working-directory: docs
+        run: yarn install --immutable
+
       - name: Generate contracts
         run: yarn generate
 

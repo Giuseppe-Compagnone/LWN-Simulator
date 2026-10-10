@@ -4,6 +4,12 @@
 .checkbox-form-field {
   gap: var(--gap);
 
+  &.disabled {
+    pointer-events: none;
+    filter: saturate(0);
+    opacity: 0.55;
+  }
+
   .choice {
     display: flex;
     align-items: center;

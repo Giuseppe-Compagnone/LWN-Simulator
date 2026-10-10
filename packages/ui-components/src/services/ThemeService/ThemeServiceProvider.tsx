@@ -11,7 +11,7 @@ const ThemeServiceProvider = (props: ThemeServiceProviderProps) => {
   // States
   const [theme, setTheme] = useState<Theme>(Theme.Dark);
 
-  // Functions
+  // Callbacks
   const setDefaultTheme = async () => {
     const defaultTheme = await ThemeService.instance.getDefaultTheme();
 

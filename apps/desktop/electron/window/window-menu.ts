@@ -1,7 +1,6 @@
 import { Menu, MenuItemConstructorOptions, shell } from "electron";
-import { getMainWindow } from "./window-manager";
 
-export const createMenu = () => {
+export const createMenu = (onDisconnect: () => Promise<void>) => {
   const menuTemplate: MenuItemConstructorOptions[] = [
     {
       label: "File",
@@ -10,14 +9,8 @@ export const createMenu = () => {
           id: "disconnect",
           label: "Disconnect",
           enabled: false,
-          click: async () => {
-            const window = getMainWindow();
-
-            if (window) {
-              await window.webContents.executeJavaScript(
-                "window.electron.disconnect()",
-              );
-            }
+          click: () => {
+            void onDisconnect();
           },
         },
         {
@@ -47,7 +40,7 @@ export const createMenu = () => {
           },
         },
         {
-          label: "Comunity Discussions",
+          label: "Community Discussions",
           click: async () => {
             await shell.openExternal(
               "https://github.com/Giuseppe-Compagnone/LWN-Simulator/discussions",

@@ -8,7 +8,10 @@ import {
   SimulationRun,
   SimulationRunStatus,
 } from "@lwn-simulator/contracts";
-import { useSimulationService, useWebSocket } from "@lwn-simulator/sdk";
+import {
+  useSimulationService,
+  useWebSocketService,
+} from "@lwn-simulator/sdk";
 import { Button, ButtonType, Spinner } from "@lwn-simulator/ui-components";
 import "./logs.scss";
 
@@ -29,7 +32,7 @@ const labelStatus = (value: SimulationRunStatus): string =>
 const LogsPage = () => {
   const simulation = useSimulationService();
   const getLogs = simulation.getLogs;
-  const { connectionState, subscribe } = useWebSocket();
+  const { connectionState, subscribe } = useWebSocketService();
   const hasConnectedRef = useRef(false);
   const [runs, setRuns] = useState<Awaited<ReturnType<typeof simulation.getLogs>>["runs"]>([]);
   const [loading, setLoading] = useState(true);

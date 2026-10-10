@@ -7,7 +7,7 @@ import { useRef } from "react";
 import { useOutsideAlerter } from "@/hooks";
 
 const Popup = (props: PopupProps) => {
-  // Refs
+  // Hooks
   const cardRef = useRef<HTMLDivElement>(null);
 
   useOutsideAlerter({

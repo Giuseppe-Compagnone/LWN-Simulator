@@ -1,6 +1,6 @@
 import { app } from "electron";
 
-import { exec } from "child_process";
+import { execFile } from "child_process";
 
 import fs from "fs";
 import os from "os";
@@ -35,11 +35,13 @@ Terminal=false
 Type=Application
 Icon=${iconPath}
 Categories=Utility;
-StartupWMClass=@lwn-simulator/desktop
+StartupWMClass=lwn-simulator
 `.trim(),
   );
 
   fs.chmodSync(desktopPath, 0o755);
 
-  exec("update-desktop-database ~/.local/share/applications");
+  execFile("update-desktop-database", [applicationsDir], () => {
+    // The desktop database utility is optional on some Linux installations.
+  });
 }

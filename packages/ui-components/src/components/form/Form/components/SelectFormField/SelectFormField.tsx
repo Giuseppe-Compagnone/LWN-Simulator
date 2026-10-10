@@ -26,8 +26,10 @@ const SelectFormField = (props: SelectFormFieldProps) => {
 
   // Effects
   useEffect(() => {
+    if (props.disabled) return;
+
     if (value == "") setValue(null);
-  }, [setValue, value]);
+  }, [props.disabled, setValue, value]);
 
   const shouldVirtualize = props.options.length > virtualizeAfterOptions;
 
@@ -90,6 +92,8 @@ const SelectFormField = (props: SelectFormFieldProps) => {
         }}
         onClick={(e) => {
           e.preventDefault();
+          if (props.disabled) return;
+
           setIsOpen((prev) => !prev);
         }}
       >
@@ -125,6 +129,8 @@ const SelectFormField = (props: SelectFormFieldProps) => {
                   choice.value == props.value && "selected",
                 )}
                 onClick={() => {
+                  if (props.disabled) return;
+
                   props.setValue(choice.value);
                   setIsOpen(false);
                 }}

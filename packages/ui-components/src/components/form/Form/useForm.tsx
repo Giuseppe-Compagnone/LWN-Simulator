@@ -9,13 +9,13 @@ export const useForm = (props: UseFormProps): FormLogic => {
     () => Object.fromEntries(props.fields.map((field) => [field.name, field])),
   );
 
-  // Refs
+  // Hooks
   const fieldsStateRef = useRef<Record<string, FormField>>(
     Object.fromEntries(props.fields.map((field) => [field.name, field])),
   );
   const formLogicRef = useRef<FormLogic | null>(null);
 
-  // Functions
+  // Callbacks
   const setValue = useCallback((name: string, value: FormValue) => {
     const prev = fieldsStateRef.current;
     const field = prev[name];

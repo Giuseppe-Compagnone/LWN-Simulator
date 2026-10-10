@@ -5,11 +5,14 @@ import { CheckboxFormFieldProps } from "./CheckboxFormField.types";
 import cn from "classnames";
 
 const CheckboxFormField = (props: CheckboxFormFieldProps) => {
+  const { disabled, setValue, value } = props;
+
   // Effects
   useEffect(() => {
-    if (Array.isArray(props.value) && props.value.length === 0)
-      props.setValue(null);
-  }, [props]);
+    if (disabled) return;
+
+    if (Array.isArray(value) && value.length === 0) setValue(null);
+  }, [disabled, setValue, value]);
 
   return (
     <div
@@ -24,6 +27,8 @@ const CheckboxFormField = (props: CheckboxFormFieldProps) => {
             className="choice"
             key={i}
             onClick={() => {
+              if (props.disabled) return;
+
               if (!props.value) props.setValue([opt.value]);
               else if (!props.value.includes(opt.value)) {
                 props.setValue([...props.value, opt.value]);

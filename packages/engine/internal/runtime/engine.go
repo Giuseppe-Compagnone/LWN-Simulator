@@ -820,6 +820,7 @@ func int32Pointer(value int) *int32 {
 }
 
 func newDeviceSession(device contracts.Device) *types.DeviceSession {
+	plan := regional.MustPlan(device.LocationConfig.Region)
 	dataRate := defaultUplinkDataRate(device.LocationConfig.Region)
 	if configured := device.AdvancedConfig.UplinkDataRate; configured != nil {
 		dataRate = regional.ClampDataRate(device.LocationConfig.Region, *configured)
@@ -839,9 +840,9 @@ func newDeviceSession(device contracts.Device) *types.DeviceSession {
 		RX2Frequency:           int64(device.RX2Config.ChannelFrequency),
 		ReceiveDelay:           durationSeconds(device.RX1Config.Delay),
 		MaximumEIRP:            int(radioTransmitPowerDBm),
-		PingSlotDataRate:       regional.MustPlan(device.LocationConfig.Region).PingSlotDataRate,
-		PingSlotFrequency:      regional.MustPlan(device.LocationConfig.Region).PingSlotFrequency,
-		BeaconFrequency:        regional.MustPlan(device.LocationConfig.Region).BeaconFrequency,
+		PingSlotDataRate:       plan.PingSlotDataRate,
+		PingSlotFrequency:      plan.PingSlotFrequency,
+		BeaconFrequency:        plan.BeaconFrequency,
 	}
 	if device.ABPConfig != nil {
 		session.DeviceAddress = device.ABPConfig.DevAddr

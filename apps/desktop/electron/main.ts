@@ -1,40 +1,61 @@
 import { app, session } from "electron";
 import { registerIpcHandlers } from "./ipc";
 import { installLinuxDesktopEntry } from "./system";
-import { createMainWindow } from "./window";
+import { createMainWindow, getMainWindow } from "./window";
 import { stopBackend } from "./backend";
 
 const isGeolocationPermission = (permission: string): boolean =>
   permission === "geolocation" || permission === "geolocation-approximate";
 
-app.whenReady().then(() => {
-  session.defaultSession.setPermissionCheckHandler(
-    (webContents, permission) => {
-      if (isGeolocationPermission(permission)) {
-        return true;
-      }
-      return false;
-    },
-  );
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
-  session.defaultSession.setPermissionRequestHandler(
-    (webContents, permission, callback) => {
-      if (isGeolocationPermission(permission)) {
-        callback(true);
-      } else {
-        callback(false);
-      }
-    },
-  );
+if (!hasSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    const window = getMainWindow();
 
-  registerIpcHandlers();
+    if (!window) {
+      return;
+    }
 
-  if (app.isPackaged) {
-    installLinuxDesktopEntry();
-  }
+    if (window.isMinimized()) {
+      window.restore();
+    }
 
-  createMainWindow();
-});
+    window.focus();
+  });
+
+  app.whenReady().then(() => {
+    session.defaultSession.setPermissionCheckHandler(
+      (_webContents, permission) => isGeolocationPermission(permission),
+    );
+
+    session.defaultSession.setPermissionRequestHandler(
+      (_webContents, permission, callback) => {
+        callback(isGeolocationPermission(permission));
+      },
+    );
+
+    registerIpcHandlers();
+
+    if (app.isPackaged) {
+      installLinuxDesktopEntry();
+    }
+
+    createMainWindow();
+  });
+
+  app.on("activate", () => {
+    if (!getMainWindow()) {
+      createMainWindow();
+    }
+  });
+
+  app.on("before-quit", () => {
+    stopBackend();
+  });
+}
 
 app.on("window-all-closed", () => {
   stopBackend();

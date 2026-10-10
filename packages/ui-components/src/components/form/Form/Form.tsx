@@ -24,7 +24,7 @@ const Form = (props: FormProps) => {
     [formLogic.fieldsState],
   );
 
-  // Refs
+  // Hooks
   const mounted = useRef(false);
 
   // Effects

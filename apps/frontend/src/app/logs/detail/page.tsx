@@ -3,9 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
-  CSSProperties,
   Suspense,
-  UIEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -19,15 +17,16 @@ import {
   SimulationLogObject,
   SimulationRun,
 } from "@lwn-simulator/contracts";
-import { useSimulationService, useWebSocket } from "@lwn-simulator/sdk";
+import {
+  useSimulationService,
+  useWebSocketService,
+} from "@lwn-simulator/sdk";
 import { Button, Spinner } from "@lwn-simulator/ui-components";
+import { VirtualEventList, VirtualObjectList } from "@/components/Logs";
 import "../logs.scss";
 
 const eventPageSize = 1000;
 const maxLiveEvents = 5000;
-const eventRowHeight = 76;
-const objectRowHeight = 76;
-const virtualOverscan = 5;
 
 const formatDate = (value: number): string =>
   new Intl.DateTimeFormat("en-GB", {
@@ -37,11 +36,6 @@ const formatDate = (value: number): string =>
 
 const formatEventType = (value: string): string =>
   value.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-
-const formatSimulationTime = (milliseconds: number): string => {
-  const totalSeconds = Math.max(0, milliseconds) / 1000;
-  return `t+${totalSeconds.toFixed(totalSeconds >= 100 ? 0 : 1)}s`;
-};
 
 const mergeEvents = (
   current: SimulationEvent[],
@@ -54,141 +48,11 @@ const mergeEvents = (
   return maxEvents && merged.length > maxEvents ? merged.slice(-maxEvents) : merged;
 };
 
-interface VirtualEventListProps {
-  events: SimulationEvent[];
-  emptyMessage: string;
-  autoScroll: boolean;
-  onReachStart?: () => void;
-  onNearEnd?: (nearEnd: boolean) => void;
-}
-
-const VirtualEventList = ({
-  events,
-  emptyMessage,
-  autoScroll,
-  onReachStart,
-  onNearEnd,
-}: VirtualEventListProps) => {
-  const listRef = useRef<HTMLDivElement>(null);
-  const [scrollTop, setScrollTop] = useState(0);
-  const [viewportHeight, setViewportHeight] = useState(320);
-  const firstVisible = Math.floor(scrollTop / eventRowHeight);
-  const visibleCount = Math.ceil(viewportHeight / eventRowHeight);
-  const start = Math.max(0, firstVisible - virtualOverscan);
-  const end = Math.min(
-    events.length,
-    firstVisible + visibleCount + virtualOverscan,
-  );
-
-  useEffect(() => {
-    const list = listRef.current;
-    if (!list) return;
-    const observer = new ResizeObserver(() => setViewportHeight(list.clientHeight || 320));
-    observer.observe(list);
-    setViewportHeight(list.clientHeight || 320);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    const list = listRef.current;
-    if (list && autoScroll) list.scrollTop = list.scrollHeight;
-  }, [autoScroll, events.length]);
-
-  if (events.length === 0) return <p>{emptyMessage}</p>;
-
-  return (
-    <div
-      className="logs-page__virtual-list"
-      onScroll={(event: UIEvent<HTMLDivElement>) => {
-        const list = event.currentTarget;
-        const nearEnd = list.scrollHeight - list.scrollTop - list.clientHeight <= 96;
-        setScrollTop(list.scrollTop);
-        onNearEnd?.(nearEnd);
-        if (list.scrollTop <= 96) onReachStart?.();
-      }}
-      ref={listRef}
-    >
-      <div style={{ height: events.length * eventRowHeight, position: "relative" }}>
-        {events.slice(start, end).map((event, offset) => {
-          const index = start + offset;
-          const style: CSSProperties = {
-            height: eventRowHeight,
-            transform: `translateY(${index * eventRowHeight}px)`,
-          };
-          return (
-            <div className="logs-page__event" key={event.id} style={style}>
-              <time>
-                #{event.sequence}
-                <small>{formatSimulationTime(event.timestampMilliseconds)}</small>
-              </time>
-              <span>{formatEventType(event.type)}</span>
-              <small>
-                {event.message}
-                {event.gatewayID ? ` · Gateway ${event.gatewayID}` : ""}
-                {event.deviceID ? ` · Device ${event.deviceID}` : ""}
-              </small>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-interface VirtualObjectListProps {
-  objects: SimulationLogObject[];
-  selectedObject: SimulationLogObject | null;
-  onSelect: (object: SimulationLogObject) => void;
-}
-
-const VirtualObjectList = ({
-  objects,
-  selectedObject,
-  onSelect,
-}: VirtualObjectListProps) => {
-  const [scrollTop, setScrollTop] = useState(0);
-  const firstVisible = Math.floor(scrollTop / objectRowHeight);
-  const start = Math.max(0, firstVisible - virtualOverscan);
-  const end = Math.min(
-    objects.length,
-    firstVisible + Math.ceil(320 / objectRowHeight) + virtualOverscan,
-  );
-
-  useEffect(() => setScrollTop(0), [objects]);
-
-  if (objects.length === 0) return <p>No matching devices or gateways.</p>;
-
-  return (
-    <div
-      className="logs-page__objects"
-      onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
-    >
-      <div style={{ height: objects.length * objectRowHeight, position: "relative" }}>
-        {objects.slice(start, end).map((object, offset) => {
-          const index = start + offset;
-          return (
-            <button
-              className={selectedObject?.id === object.id ? "logs-page__object logs-page__object--active" : "logs-page__object"}
-              key={object.id}
-              onClick={() => onSelect(object)}
-              style={{ transform: `translateY(${index * objectRowHeight}px)` }}
-              type="button"
-            >
-              <span>{object.name}</span>
-              <small>{formatEventType(object.kind)} · {object.identifier}</small>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
 const LogDetailsContent = () => {
   const simulation = useSimulationService();
   const getLog = simulation.getLog;
   const getLogEvents = simulation.getLogEvents;
-  const { connectionState, subscribe } = useWebSocket();
+  const { connectionState, subscribe } = useWebSocketService();
   const hasConnectedRef = useRef(false);
   const runID = useSearchParams().get("runId");
   const [run, setRun] = useState<SimulationRun | null>(null);

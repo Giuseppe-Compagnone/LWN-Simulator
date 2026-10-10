@@ -64,24 +64,37 @@ export interface TableRecord {
   items: Array<TableRecordItem>;
 }
 
-/**
- * Properties for configuring a table component.
- */
+/** Input control types supported by table filters. */
 export type TableFilterType = "text" | "select";
 
+/** Option displayed by a select-based table filter. */
 export interface TableFilterOption {
+  /** Text shown to the user. */
   label: string;
+
+  /** Value applied to the filter when selected. */
   value: string;
 }
 
+/** Configuration for one table filter control. */
 export interface TableFilter {
+  /** Row item field used for filtering. */
   field: string;
+
+  /** Label displayed above the filter control. */
   label: string;
+
+  /** Filter control type. */
   type?: TableFilterType;
+
+  /** Placeholder shown by a text filter. */
   placeholder?: string;
+
+  /** Options shown by a select filter. */
   options?: Array<TableFilterOption>;
 }
 
+/** Properties for configuring a table component. */
 export interface TableProps {
   /**
    * Column definitions displayed in the table header.
@@ -118,6 +131,7 @@ export interface TableProps {
    * single page without showing pagination controls.
    */
   pageSize?: number;
+
   /**
    * Indicates whether the table is currently loading.
    *

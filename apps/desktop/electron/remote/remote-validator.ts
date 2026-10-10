@@ -4,7 +4,15 @@ type RemoteAppInfo = {
 };
 
 async function getRemoteAppInfo(url: string): Promise<RemoteAppInfo> {
-  const response = await fetch(new URL("/api/app-info/info", url));
+  const remoteUrl = new URL(url);
+
+  if (!["http:", "https:"].includes(remoteUrl.protocol)) {
+    throw new Error("Only HTTP and HTTPS servers are supported");
+  }
+
+  const response = await fetch(new URL("/api/app-info/info", remoteUrl), {
+    signal: AbortSignal.timeout(5000),
+  });
 
   if (!response.ok) {
     throw new Error(`Request failed with status ${response.status}`);
@@ -31,9 +39,11 @@ export async function validateRemote(url: string) {
   } catch (err) {
     if (
       err instanceof Error &&
-      ["Server isn't a LWN Simulator instance", "Incompatible version"].includes(
-        err.message,
-      )
+      [
+        "Server isn't a LWN Simulator instance",
+        "Incompatible version",
+        "Only HTTP and HTTPS servers are supported",
+      ].includes(err.message)
     ) {
       throw err;
     }

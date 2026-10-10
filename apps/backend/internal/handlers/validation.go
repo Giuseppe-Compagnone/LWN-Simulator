@@ -55,6 +55,19 @@ func bindUriAndValidate[T any](
 	return true
 }
 
+func bindURIJSONAndValidate[T any](
+	c *gin.Context,
+	validator *validator.Validate,
+	req *T,
+) bool {
+	if err := c.ShouldBindUri(req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request path"})
+		return false
+	}
+
+	return bindJSONAndValidate(c, validator, req)
+}
+
 func writeServiceError(c *gin.Context, err error) {
 	status := http.StatusInternalServerError
 	message := "internal server error"

@@ -7,7 +7,7 @@
     "build": "next build",
     "postbuild": "pagefind --site .next/server/app --output-path out/_pagefind",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint ."
   },
   "author": {
     "name": "Giuseppe Compagnone",

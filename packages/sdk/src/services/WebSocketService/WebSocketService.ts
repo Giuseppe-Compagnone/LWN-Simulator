@@ -1,14 +1,14 @@
-import { ApiCaller } from "../models/ApiCaller";
+import { ApiCaller } from "../../models/ApiCaller";
 
 import {
   WebSocketConnectionState,
   WebSocketMessageListener,
   WebSocketStateListener,
-} from "./WebSocket.types";
+} from "./WebSocketService.types";
 
 const defaultReconnectDelayMilliseconds = 1000;
 
-export class WebSocketClient {
+export class WebSocketService {
   private readonly messageListeners = new Set<WebSocketMessageListener>();
   private readonly stateListeners = new Set<WebSocketStateListener>();
   private readonly errorListeners = new Set<(error: Error | null) => void>();
@@ -114,7 +114,8 @@ export class WebSocketClient {
 
     socket.onmessage = (event) => {
       if (generation !== this.generation) return;
-      const data = typeof event.data === "string" ? event.data : String(event.data);
+      const data =
+        typeof event.data === "string" ? event.data : String(event.data);
       this.messageListeners.forEach((listener) => listener(data));
     };
 

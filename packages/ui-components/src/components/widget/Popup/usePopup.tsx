@@ -8,7 +8,7 @@ export const usePopup = (props: UsePopupProps): PopupLogic => {
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [isVisible, setIsVisible] = useState<boolean>(false);
 
-  // Functions
+  // Callbacks
   const openPopup = () => {
     setIsOpen(true);
     setIsVisible(true);
