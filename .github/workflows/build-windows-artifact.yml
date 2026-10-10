@@ -59,7 +59,14 @@ jobs:
 
       - name: Generate API contracts
         shell: pwsh
-        run: yarn generate
+        run: |
+          if (Test-Path packages/contracts/generated) {
+            Remove-Item -Recurse -Force packages/contracts/generated
+          }
+          yarn workspace @lwn-simulator/contracts generate:bundle
+          yarn workspace @lwn-simulator/contracts generate:ts
+          yarn workspace @lwn-simulator/contracts generate:go
+          yarn workspace @lwn-simulator/contracts generate:models
 
       - name: Build UI components
         shell: pwsh
@@ -67,11 +74,32 @@ jobs:
 
       - name: Build SDK
         shell: pwsh
-        run: yarn workspace @lwn-simulator/sdk build
+        run: |
+          if (Test-Path packages/sdk/dist) {
+            Remove-Item -Recurse -Force packages/sdk/dist
+          }
+          yarn workspace @lwn-simulator/sdk build:esm
+          yarn workspace @lwn-simulator/sdk build:cjs
 
       - name: Build frontend
         shell: pwsh
-        run: yarn workspace @lwn-simulator/frontend build
+        env:
+          ELECTRON_BUILD: "true"
+        run: |
+          yarn workspace @lwn-simulator/frontend exec next build
+          $source = "apps/frontend/out"
+          $target = "apps/backend/internal/frontend/web"
+          if (-not (Test-Path (Join-Path $source "index.html"))) {
+            throw "Frontend export is missing or incomplete: $source"
+          }
+          $targetParent = Split-Path -Parent $target
+          $staging = Join-Path $targetParent ".frontend-$([guid]::NewGuid().ToString('N'))"
+          New-Item -ItemType Directory -Force $staging | Out-Null
+          Copy-Item -Path (Join-Path $source "*") -Destination $staging -Recurse -Force
+          if (Test-Path $target) {
+            Remove-Item -Recurse -Force $target
+          }
+          Move-Item -Path $staging -Destination $target
 
       - name: Build Windows backend
         shell: pwsh
