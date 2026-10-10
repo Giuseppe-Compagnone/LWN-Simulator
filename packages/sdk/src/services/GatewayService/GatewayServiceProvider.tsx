@@ -147,8 +147,6 @@ const GatewayServiceProvider = (props: GatewayServiceProviderProps) => {
       });
   }, [getGateways]);
 
-  // Effects
-
   // Memos
   const value = useMemo(
     (): GatewayServiceContent => ({

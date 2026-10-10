@@ -6,3 +6,6 @@ export * from "./ProvidersWrapper";
 export * from "./SensorMap";
 export * from "./SimulationSparkline";
 export * from "./SimulationCommandPanel";
+export * from "./SimulationDashboard";
+export * from "./Logs";
+export * from "./Hardware";

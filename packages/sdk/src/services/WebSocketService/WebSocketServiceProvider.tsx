@@ -14,13 +14,11 @@ const WebSocketServiceProvider = (props: WebSocketServiceProviderProps) => {
     useState<WebSocketConnectionState>("disconnected");
   const [error, setError] = useState<Error | null>(null);
 
-  // Hooks
+  // Memos
   const client = useMemo(
     () => new WebSocketService(props.baseUrl),
     [props.baseUrl],
   );
-
-  // Memos
 
   // Callbacks
   const connect = useCallback((path: string) => client.connect(path), [client]);
