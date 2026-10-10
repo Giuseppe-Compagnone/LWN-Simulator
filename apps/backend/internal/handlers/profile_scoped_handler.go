@@ -31,75 +31,96 @@ func (h *ProfileScopedHandler) runtime(c *gin.Context) (*services.ProfileRuntime
 	return runtime, true
 }
 
-func (h *ProfileScopedHandler) CreateDevice(c *gin.Context) {
-	if runtime, ok := h.runtime(c); ok {
-		NewDeviceHandler(runtime.Device, h.validator).CreateDevice(c)
+func (h *ProfileScopedHandler) withRuntime(
+	c *gin.Context,
+	action func(*services.ProfileRuntime),
+) {
+	runtime, ok := h.runtime(c)
+	if ok {
+		action(runtime)
 	}
+}
+
+func (h *ProfileScopedHandler) withDeviceHandler(
+	c *gin.Context,
+	action func(*DeviceHandler),
+) {
+	h.withRuntime(c, func(runtime *services.ProfileRuntime) {
+		action(NewDeviceHandler(runtime.Device, h.validator))
+	})
+}
+
+func (h *ProfileScopedHandler) withGatewayHandler(
+	c *gin.Context,
+	action func(*GatewayHandler),
+) {
+	h.withRuntime(c, func(runtime *services.ProfileRuntime) {
+		action(NewGatewayHandler(runtime.Gateway, h.validator))
+	})
+}
+
+func (h *ProfileScopedHandler) withSimulationHandler(
+	c *gin.Context,
+	action func(*SimulationHandler),
+) {
+	h.withRuntime(c, func(runtime *services.ProfileRuntime) {
+		action(NewSimulationHandlerForProfile(
+			runtime.Simulation,
+			h.validator,
+			runtime.Profile.ID,
+		))
+	})
+}
+
+func (h *ProfileScopedHandler) CreateDevice(c *gin.Context) {
+	h.withDeviceHandler(c, func(handler *DeviceHandler) { handler.CreateDevice(c) })
 }
 
 func (h *ProfileScopedHandler) GetDevice(c *gin.Context) {
-	if runtime, ok := h.runtime(c); ok {
-		NewDeviceHandler(runtime.Device, h.validator).GetDevice(c)
-	}
+	h.withDeviceHandler(c, func(handler *DeviceHandler) { handler.GetDevice(c) })
 }
 
 func (h *ProfileScopedHandler) GetDevices(c *gin.Context) {
-	if runtime, ok := h.runtime(c); ok {
-		NewDeviceHandler(runtime.Device, h.validator).GetDevices(c)
-	}
+	h.withDeviceHandler(c, func(handler *DeviceHandler) { handler.GetDevices(c) })
 }
 
 func (h *ProfileScopedHandler) UpdateDevice(c *gin.Context) {
-	if runtime, ok := h.runtime(c); ok {
-		NewDeviceHandler(runtime.Device, h.validator).UpdateDevice(c)
-	}
+	h.withDeviceHandler(c, func(handler *DeviceHandler) { handler.UpdateDevice(c) })
 }
 
 func (h *ProfileScopedHandler) DeleteDevice(c *gin.Context) {
-	if runtime, ok := h.runtime(c); ok {
-		NewDeviceHandler(runtime.Device, h.validator).DeleteDevice(c)
-	}
+	h.withDeviceHandler(c, func(handler *DeviceHandler) { handler.DeleteDevice(c) })
 }
 
 func (h *ProfileScopedHandler) CreateGateway(c *gin.Context) {
-	if runtime, ok := h.runtime(c); ok {
-		NewGatewayHandler(runtime.Gateway, h.validator).CreateGateway(c)
-	}
+	h.withGatewayHandler(c, func(handler *GatewayHandler) { handler.CreateGateway(c) })
 }
 
 func (h *ProfileScopedHandler) GetGateway(c *gin.Context) {
-	if runtime, ok := h.runtime(c); ok {
-		NewGatewayHandler(runtime.Gateway, h.validator).GetGateway(c)
-	}
+	h.withGatewayHandler(c, func(handler *GatewayHandler) { handler.GetGateway(c) })
 }
 
 func (h *ProfileScopedHandler) GetGateways(c *gin.Context) {
-	if runtime, ok := h.runtime(c); ok {
-		NewGatewayHandler(runtime.Gateway, h.validator).GetGateways(c)
-	}
+	h.withGatewayHandler(c, func(handler *GatewayHandler) { handler.GetGateways(c) })
 }
 
 func (h *ProfileScopedHandler) UpdateGateway(c *gin.Context) {
-	if runtime, ok := h.runtime(c); ok {
-		NewGatewayHandler(runtime.Gateway, h.validator).UpdateGateway(c)
-	}
+	h.withGatewayHandler(c, func(handler *GatewayHandler) { handler.UpdateGateway(c) })
 }
 
 func (h *ProfileScopedHandler) DeleteGateway(c *gin.Context) {
-	if runtime, ok := h.runtime(c); ok {
-		NewGatewayHandler(runtime.Gateway, h.validator).DeleteGateway(c)
-	}
+	h.withGatewayHandler(c, func(handler *GatewayHandler) { handler.DeleteGateway(c) })
 }
 
 func (h *ProfileScopedHandler) GetGatewayBridge(c *gin.Context) {
-	if runtime, ok := h.runtime(c); ok {
+	h.withRuntime(c, func(runtime *services.ProfileRuntime) {
 		config, err := runtime.Configuration.GetGatewayBridge()
 		if err != nil {
 			writeServiceError(c, err)
 			return
 		}
 		c.JSON(http.StatusOK, config)
-	}
+	})
 }
 
 func (h *ProfileScopedHandler) UpdateGatewayBridge(c *gin.Context) {
@@ -107,104 +128,72 @@ func (h *ProfileScopedHandler) UpdateGatewayBridge(c *gin.Context) {
 	if !bindJSONAndValidate(c, h.validator, &config) {
 		return
 	}
-	runtime, ok := h.runtime(c)
-	if !ok {
-		return
-	}
-	updated, err := runtime.Configuration.UpdateGatewayBridge(config)
-	if err != nil {
-		writeServiceError(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, updated)
+	h.withRuntime(c, func(runtime *services.ProfileRuntime) {
+		updated, err := runtime.Configuration.UpdateGatewayBridge(config)
+		if err != nil {
+			writeServiceError(c, err)
+			return
+		}
+		c.JSON(http.StatusOK, updated)
+	})
 }
 
 func (h *ProfileScopedHandler) StartSimulation(c *gin.Context) {
-	if runtime, ok := h.runtime(c); ok {
-		NewSimulationHandlerForProfile(runtime.Simulation, h.validator, runtime.Profile.ID).Start(c)
-	}
+	h.withSimulationHandler(c, func(handler *SimulationHandler) { handler.Start(c) })
 }
 
 func (h *ProfileScopedHandler) SetSimulationSpeed(c *gin.Context) {
-	if runtime, ok := h.runtime(c); ok {
-		NewSimulationHandlerForProfile(runtime.Simulation, h.validator, runtime.Profile.ID).SetSpeed(c)
-	}
+	h.withSimulationHandler(c, func(handler *SimulationHandler) { handler.SetSpeed(c) })
 }
 
 func (h *ProfileScopedHandler) PauseSimulation(c *gin.Context) {
-	if runtime, ok := h.runtime(c); ok {
-		NewSimulationHandlerForProfile(runtime.Simulation, h.validator, runtime.Profile.ID).Pause(c)
-	}
+	h.withSimulationHandler(c, func(handler *SimulationHandler) { handler.Pause(c) })
 }
 
 func (h *ProfileScopedHandler) ResumeSimulation(c *gin.Context) {
-	if runtime, ok := h.runtime(c); ok {
-		NewSimulationHandlerForProfile(runtime.Simulation, h.validator, runtime.Profile.ID).Resume(c)
-	}
+	h.withSimulationHandler(c, func(handler *SimulationHandler) { handler.Resume(c) })
 }
 
 func (h *ProfileScopedHandler) StopSimulation(c *gin.Context) {
-	if runtime, ok := h.runtime(c); ok {
-		NewSimulationHandlerForProfile(runtime.Simulation, h.validator, runtime.Profile.ID).Stop(c)
-	}
+	h.withSimulationHandler(c, func(handler *SimulationHandler) { handler.Stop(c) })
 }
 
 func (h *ProfileScopedHandler) SimulationSnapshot(c *gin.Context) {
-	if runtime, ok := h.runtime(c); ok {
-		NewSimulationHandlerForProfile(runtime.Simulation, h.validator, runtime.Profile.ID).Snapshot(c)
-	}
+	h.withSimulationHandler(c, func(handler *SimulationHandler) { handler.Snapshot(c) })
 }
 
 func (h *ProfileScopedHandler) SimulationEvents(c *gin.Context) {
-	if runtime, ok := h.runtime(c); ok {
-		NewSimulationHandlerForProfile(runtime.Simulation, h.validator, runtime.Profile.ID).Events(c)
-	}
+	h.withSimulationHandler(c, func(handler *SimulationHandler) { handler.Events(c) })
 }
 
 func (h *ProfileScopedHandler) SimulationLogs(c *gin.Context) {
-	if runtime, ok := h.runtime(c); ok {
-		NewSimulationHandlerForProfile(runtime.Simulation, h.validator, runtime.Profile.ID).Logs(c)
-	}
+	h.withSimulationHandler(c, func(handler *SimulationHandler) { handler.Logs(c) })
 }
 
 func (h *ProfileScopedHandler) SimulationLog(c *gin.Context) {
-	if runtime, ok := h.runtime(c); ok {
-		NewSimulationHandlerForProfile(runtime.Simulation, h.validator, runtime.Profile.ID).Log(c)
-	}
+	h.withSimulationHandler(c, func(handler *SimulationHandler) { handler.Log(c) })
 }
 
 func (h *ProfileScopedHandler) SimulationLogEvents(c *gin.Context) {
-	if runtime, ok := h.runtime(c); ok {
-		NewSimulationHandlerForProfile(runtime.Simulation, h.validator, runtime.Profile.ID).LogEvents(c)
-	}
+	h.withSimulationHandler(c, func(handler *SimulationHandler) { handler.LogEvents(c) })
 }
 
 func (h *ProfileScopedHandler) SimulationMetrics(c *gin.Context) {
-	if runtime, ok := h.runtime(c); ok {
-		NewSimulationHandlerForProfile(runtime.Simulation, h.validator, runtime.Profile.ID).Metrics(c)
-	}
+	h.withSimulationHandler(c, func(handler *SimulationHandler) { handler.Metrics(c) })
 }
 
 func (h *ProfileScopedHandler) QueueUplink(c *gin.Context) {
-	if runtime, ok := h.runtime(c); ok {
-		NewSimulationHandlerForProfile(runtime.Simulation, h.validator, runtime.Profile.ID).QueueUplink(c)
-	}
+	h.withSimulationHandler(c, func(handler *SimulationHandler) { handler.QueueUplink(c) })
 }
 
 func (h *ProfileScopedHandler) QueueDownlink(c *gin.Context) {
-	if runtime, ok := h.runtime(c); ok {
-		NewSimulationHandlerForProfile(runtime.Simulation, h.validator, runtime.Profile.ID).QueueDownlink(c)
-	}
+	h.withSimulationHandler(c, func(handler *SimulationHandler) { handler.QueueDownlink(c) })
 }
 
 func (h *ProfileScopedHandler) QueueMACCommand(c *gin.Context) {
-	if runtime, ok := h.runtime(c); ok {
-		NewSimulationHandlerForProfile(runtime.Simulation, h.validator, runtime.Profile.ID).QueueMACCommand(c)
-	}
+	h.withSimulationHandler(c, func(handler *SimulationHandler) { handler.QueueMACCommand(c) })
 }
 
 func (h *ProfileScopedHandler) SimulationWebSocket(c *gin.Context) {
-	if runtime, ok := h.runtime(c); ok {
-		NewSimulationHandlerForProfile(runtime.Simulation, h.validator, runtime.Profile.ID).WebSocket(c)
-	}
+	h.withSimulationHandler(c, func(handler *SimulationHandler) { handler.WebSocket(c) })
 }

@@ -97,24 +97,7 @@ func (h *DeviceHandler) GetDevices(c *gin.Context) {
 func (h *DeviceHandler) UpdateDevice(c *gin.Context) {
 	var req contracts.UpdateDeviceRequest
 
-	if err := c.ShouldBindUri(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-
-	if err := h.validator.Struct(req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
+	if !bindURIJSONAndValidate(c, h.validator, &req) {
 		return
 	}
 

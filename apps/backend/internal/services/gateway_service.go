@@ -52,10 +52,7 @@ func (s *GatewayService) SetRuntimeSynchronizer(runtime GatewayRuntimeSynchroniz
 func (s *GatewayService) CreateGateway(req contracts.CreateGatewayRequest) (contracts.Gateway, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	releaseRuntime := func() {}
-	if s.runtime != nil {
-		releaseRuntime = s.runtime.AcquireHardwareMutation()
-	}
+	releaseRuntime := acquireHardwareMutation(s.runtime)
 	defer releaseRuntime()
 
 	if err := ValidateGatewayRequest(req); err != nil {
@@ -133,10 +130,7 @@ func (s *GatewayService) GetGateways(req contracts.GetGatewaysRequest) (contract
 func (s *GatewayService) ImportGateways(gateways []contracts.Gateway) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	releaseRuntime := func() {}
-	if s.runtime != nil {
-		releaseRuntime = s.runtime.AcquireHardwareMutation()
-	}
+	releaseRuntime := acquireHardwareMutation(s.runtime)
 	defer releaseRuntime()
 
 	seenIDs := make(map[string]struct{}, len(gateways))
@@ -179,10 +173,7 @@ func (s *GatewayService) ImportGateways(gateways []contracts.Gateway) error {
 func (s *GatewayService) UpdateGateway(req contracts.UpdateGatewayRequest) (contracts.UpdateGatewayResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	releaseRuntime := func() {}
-	if s.runtime != nil {
-		releaseRuntime = s.runtime.AcquireHardwareMutation()
-	}
+	releaseRuntime := acquireHardwareMutation(s.runtime)
 	defer releaseRuntime()
 
 	if err := ValidateGateway(req.Gateway); err != nil {
@@ -236,10 +227,7 @@ func (s *GatewayService) UpdateGateway(req contracts.UpdateGatewayRequest) (cont
 func (s *GatewayService) DeleteGateway(req contracts.DeleteGatewayRequest) (contracts.DeleteGatewayResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	releaseRuntime := func() {}
-	if s.runtime != nil {
-		releaseRuntime = s.runtime.AcquireHardwareMutation()
-	}
+	releaseRuntime := acquireHardwareMutation(s.runtime)
 	defer releaseRuntime()
 
 	gateway, err := s.repository.GetByID(req.ID)

@@ -62,10 +62,7 @@ func (s *DeviceService) CreateDevice(
 ) (contracts.CreateDeviceResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	releaseRuntime := func() {}
-	if s.runtime != nil {
-		releaseRuntime = s.runtime.AcquireHardwareMutation()
-	}
+	releaseRuntime := acquireHardwareMutation(s.runtime)
 	defer releaseRuntime()
 
 	devices, err := s.repository.GetAll()
@@ -156,10 +153,7 @@ func (s *DeviceService) GetDevices(
 func (s *DeviceService) ImportDevices(devices []contracts.Device) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	releaseRuntime := func() {}
-	if s.runtime != nil {
-		releaseRuntime = s.runtime.AcquireHardwareMutation()
-	}
+	releaseRuntime := acquireHardwareMutation(s.runtime)
 	defer releaseRuntime()
 
 	seenIDs := make(map[string]struct{}, len(devices))
@@ -199,10 +193,7 @@ func (s *DeviceService) UpdateDevice(
 ) (contracts.UpdateDeviceResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	releaseRuntime := func() {}
-	if s.runtime != nil {
-		releaseRuntime = s.runtime.AcquireHardwareMutation()
-	}
+	releaseRuntime := acquireHardwareMutation(s.runtime)
 	defer releaseRuntime()
 
 	previous, err := s.repository.GetByID(req.ID)
@@ -257,10 +248,7 @@ func (s *DeviceService) DeleteDevice(
 ) (contracts.DeleteDeviceResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	releaseRuntime := func() {}
-	if s.runtime != nil {
-		releaseRuntime = s.runtime.AcquireHardwareMutation()
-	}
+	releaseRuntime := acquireHardwareMutation(s.runtime)
 	defer releaseRuntime()
 	device, err := s.repository.GetByID(req.ID)
 
