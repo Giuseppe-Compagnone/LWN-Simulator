@@ -30,9 +30,5 @@ export interface ThemeServiceContent {
   setTheme: (theme: Theme) => void;
 }
 
-/**
- * Properties for configuring the theme service provider.
- *
- * The provider exposes theme state and controls to its descendant components.
- */
-export interface ThemeServiceProviderProps extends PropsWithChildren {}
+/** Properties accepted by the theme service provider. */
+export type ThemeServiceProviderProps = PropsWithChildren;

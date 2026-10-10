@@ -9,7 +9,7 @@ const useTable = (props: UseTableProps): TableLogic => {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [filterValues, setFilterValues] = useState<Record<string, string>>({});
 
-  // Memo
+  // Memos
   const filteredRecords = useMemo(() => {
     const labels = new Set(props.rowLabels.map((label) => label.value));
     const activeFilters = (props.filters ?? []).filter(
@@ -92,7 +92,7 @@ const useTable = (props: UseTableProps): TableLogic => {
     setCurrentPage((page) => Math.min(page, pagesAmount));
   }, [pagesAmount]);
 
-  // Functions
+  // Callbacks
   const setFilterValue = (field: string, value: string) => {
     setFilterValues((previous) => ({ ...previous, [field]: value }));
     setCurrentPage(1);

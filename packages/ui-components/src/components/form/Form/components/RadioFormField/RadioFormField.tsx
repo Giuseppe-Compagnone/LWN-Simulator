@@ -5,10 +5,14 @@ import { RadioFormFieldProps } from "./RadioFormField.types";
 import cn from "classnames";
 
 const RadioFormField = (props: RadioFormFieldProps) => {
+  const { disabled, setValue, value } = props;
+
   // Effects
   useEffect(() => {
-    if (props.value == "") props.setValue(null);
-  }, [props]);
+    if (disabled) return;
+
+    if (value == "") setValue(null);
+  }, [disabled, setValue, value]);
 
   return (
     <div
@@ -23,6 +27,8 @@ const RadioFormField = (props: RadioFormFieldProps) => {
             className="choice"
             key={i}
             onClick={() => {
+              if (props.disabled) return;
+
               props.setValue(opt.value);
             }}
           >

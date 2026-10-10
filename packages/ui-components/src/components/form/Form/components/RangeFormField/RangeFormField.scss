@@ -13,6 +13,12 @@
   accent-color: var(--primary-color);
   cursor: pointer;
 
+  &.disabled {
+    filter: saturate(0);
+    opacity: 0.55;
+    pointer-events: none;
+  }
+
   &:focus {
     border-color: transparent;
     box-shadow: none;

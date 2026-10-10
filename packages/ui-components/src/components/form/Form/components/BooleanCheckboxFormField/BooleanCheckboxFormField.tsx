@@ -12,6 +12,8 @@ const BooleanCheckboxFormField = (props: BooleanCheckboxFormFieldProps) => {
       <div
         className="box"
         onClick={() => {
+          if (props.disabled) return;
+
           props.setValue(!props.value);
         }}
       >

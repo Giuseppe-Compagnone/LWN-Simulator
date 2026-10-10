@@ -10,10 +10,12 @@ import { Form, FormLogic, FormValue, selectField, textField } from "@/components
 
 const Table = (props: TableProps) => {
   const tableLogic = useTable({ ...props });
-  const tableFormLogicRef = useRef<FormLogic | null>(null);
 
-  //States
+  // States
   const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  // Hooks
+  const tableFormLogicRef = useRef<FormLogic | null>(null);
 
   return (
     <div className="table">
