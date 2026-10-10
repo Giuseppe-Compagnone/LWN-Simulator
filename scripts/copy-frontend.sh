@@ -9,10 +9,23 @@ TARGET_DIR="$ROOT_DIR/apps/backend/internal/frontend/web"
 source "$ROOT_DIR/scripts/lib/cli.sh"
 
 copy_frontend() {
+  if [[ ! -d "$SOURCE_DIR" || ! -f "$SOURCE_DIR/index.html" ]]; then
+    printf 'Frontend export is missing or incomplete: %s\n' "$SOURCE_DIR" >&2
+    return 1
+  fi
+
+  local staging_dir
+  staging_dir="$(mktemp -d "$(dirname "$TARGET_DIR")/.frontend.XXXXXX")"
+
+  if ! cp -a "$SOURCE_DIR"/. "$staging_dir/"; then
+    rm -rf -- "$staging_dir"
+    return 1
+  fi
+
+  find "$staging_dir" -type d -empty -delete
+
   rm -rf -- "$TARGET_DIR"
-  mkdir -p "$TARGET_DIR"
-  cp -a "$SOURCE_DIR"/. "$TARGET_DIR/"
-  find "$TARGET_DIR" -type d -empty -delete
+  mv -- "$staging_dir" "$TARGET_DIR"
 }
 
 cli_init "Embed frontend assets" "local" 1

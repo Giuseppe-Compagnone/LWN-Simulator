@@ -30,30 +30,39 @@ CLI_CURRENT_STEP=0
 CLI_TOTAL_STEPS=0
 CLI_TITLE=""
 CLI_VERSION=""
+CLI_KEEP_LOGS=false
 
 cli_init() {
   CLI_TITLE="$1"
   CLI_VERSION="$2"
   CLI_TOTAL_STEPS="$3"
   CLI_CURRENT_STEP=0
-  CLI_LOG_DIR="$(mktemp -d "${TMPDIR:-/tmp}/lwn-simulator-cli.XXXXXX")"
+
+  local log_parent="${LWN_BUILD_LOG_DIR:-${TMPDIR:-/tmp}}"
+
+  mkdir -p -- "$log_parent"
+  CLI_LOG_DIR="$(mktemp -d "$log_parent/lwn-simulator-cli.XXXXXX")"
+  CLI_KEEP_LOGS="${LWN_KEEP_BUILD_LOGS:-false}"
 
   trap cli_cleanup EXIT
   trap cli_interrupt INT TERM
 }
 
 cli_cleanup() {
-  if [[ -n "${CLI_LOG_DIR:-}" && -d "$CLI_LOG_DIR" ]]; then
+  if [[ "$CLI_KEEP_LOGS" != true && -n "${CLI_LOG_DIR:-}" && -d "$CLI_LOG_DIR" ]]; then
     rm -rf -- "$CLI_LOG_DIR"
   fi
 }
 
 cli_interrupt() {
+  CLI_KEEP_LOGS=true
+
   if [[ -n "${CLI_ACTIVE_PID:-}" ]]; then
     kill "$CLI_ACTIVE_PID" 2>/dev/null || true
   fi
 
   printf '\n%s✖ Interrupted%s\n' "$CLI_RED" "$CLI_RESET" >&2
+  printf '%sBuild logs: %s%s\n' "$CLI_YELLOW" "$CLI_LOG_DIR" "$CLI_RESET" >&2
   exit 130
 }
 
@@ -98,7 +107,14 @@ run_step() {
 
   log_file="$CLI_LOG_DIR/step-${CLI_CURRENT_STEP}.log"
 
-  "$@" >"$log_file" 2>&1 &
+  {
+    printf 'Command:'
+    printf ' %q' "$@"
+    printf '\n'
+    printf 'Started: %s\n\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+  } >"$log_file"
+
+  "$@" >>"$log_file" 2>&1 &
   process_id=$!
   CLI_ACTIVE_PID="$process_id"
 
@@ -131,6 +147,8 @@ run_step() {
     "$CLI_RED" "$CLI_RESET" "$CLI_CURRENT_STEP" "$CLI_TOTAL_STEPS" "$label" >&2
   printf '%sLast output from failed step:%s\n' "$CLI_YELLOW" "$CLI_RESET" >&2
   tail -n 30 "$log_file" | sed 's/^/    /' >&2
+  CLI_KEEP_LOGS=true
+  printf '%sFull build log: %s%s\n' "$CLI_YELLOW" "$CLI_LOG_DIR" "$CLI_RESET" >&2
 
   return "$process_status"
 }

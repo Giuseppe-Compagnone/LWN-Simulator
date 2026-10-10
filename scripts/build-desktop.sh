@@ -15,7 +15,6 @@ BUILDER_OUTPUT="$RELEASE_DIR/build"
 prepare_release() {
   mkdir -p "$RELEASE_DIR"
   rm -rf -- "$BUILDER_OUTPUT"
-  rm -f -- "$RELEASE_DIR"/*.AppImage
   mkdir -p "$DESKTOP_ASSETS"
 }
 
@@ -28,18 +27,33 @@ build_electron() {
 }
 
 copy_release() {
-  local -a artifacts=("$BUILDER_OUTPUT"/*.AppImage)
+  local -a artifacts
 
-  if [[ ! -f "${artifacts[0]}" ]]; then
-    echo "No AppImage was generated in $BUILDER_OUTPUT" >&2
+  shopt -s nullglob
+  artifacts=("$BUILDER_OUTPUT"/*.AppImage)
+  shopt -u nullglob
+
+  if (( ${#artifacts[@]} != 1 )); then
+    printf 'Expected exactly one AppImage in %s, found %d\n' \
+      "$BUILDER_OUTPUT" "${#artifacts[@]}" >&2
     return 1
   fi
 
-  cp -- "${artifacts[0]}" "$RELEASE_DIR/"
+  local published_path="$RELEASE_DIR/LWN-Simulator-$VERSION.AppImage"
+  local staged_path="$published_path.tmp"
+
+  install -m 0755 -- "${artifacts[0]}" "$staged_path"
+  rm -f -- "$RELEASE_DIR"/*.AppImage
+  mv -- "$staged_path" "$published_path"
   rm -rf -- "$BUILDER_OUTPUT"
 }
 
-cli_init "LWN-Simulator desktop release" "$VERSION" 10
+verify_release() {
+  test -s "$RELEASE_DIR/LWN-Simulator-$VERSION.AppImage"
+  test -x "$RELEASE_DIR/LWN-Simulator-$VERSION.AppImage"
+}
+
+cli_init "LWN-Simulator desktop release" "$VERSION" 11
 cli_header
 cli_roadmap \
   "Prepare release directories" \
@@ -51,7 +65,8 @@ cli_roadmap \
   "Build backend" \
   "Build desktop launcher" \
   "Package Electron AppImage" \
-  "Publish release artifact"
+  "Publish release artifact" \
+  "Verify release artifact"
 
 run_step "Prepare release directories" prepare_release
 ensure_dependencies
@@ -63,6 +78,7 @@ build_backend "$DESKTOP_ASSETS/lwn-server"
 build_launcher
 build_electron
 run_step "Publish release artifact" copy_release
+run_step "Verify release artifact" verify_release
 
 printf '\n%sRelease artifacts%s\n' "$CLI_BOLD$CLI_CYAN" "$CLI_RESET"
 cli_artifact "$RELEASE_DIR/LWN-Simulator-$VERSION.AppImage"

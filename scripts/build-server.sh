@@ -11,7 +11,6 @@ source "$ROOT_DIR/scripts/lib/build.sh"
 RELEASE_DIR="$ROOT_DIR/releases/server"
 
 prepare_release() {
-  rm -rf -- "$RELEASE_DIR"
   mkdir -p "$RELEASE_DIR"
 }
 

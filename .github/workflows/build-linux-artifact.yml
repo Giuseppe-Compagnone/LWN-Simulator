@@ -1,0 +1,71 @@
+name: Build Linux test artifact
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - distribution
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-test-artifact-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Linux distribution
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+          cache-dependency-path: yarn.lock
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/backend/go.mod
+          cache: true
+          cache-dependency-path: |
+            apps/backend/go.sum
+            packages/engine/go.sum
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build Linux distribution
+        run: ./scripts/build-all.sh
+
+      - name: Verify Linux artifacts
+        run: |
+          appimages=(releases/desktop/LWN-Simulator-*.AppImage)
+          test "${#appimages[@]}" -eq 1
+          test -x releases/server/lwn-server
+          test -s "${appimages[0]}"
+          sha256sum \
+            releases/server/lwn-server \
+            "${appimages[0]}" \
+            > releases/SHA256SUMS
+
+      - name: Upload Linux test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lwn-simulator-linux-test-${{ github.sha }}
+          path: |
+            releases/server/lwn-server
+            releases/desktop/LWN-Simulator-*.AppImage
+            releases/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 3

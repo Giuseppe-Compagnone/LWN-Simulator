@@ -3,11 +3,8 @@
 set -Eeuo pipefail
 
 ensure_dependencies() {
-  if [[ -d "$ROOT_DIR/node_modules" ]]; then
-    run_step "Verify workspace dependencies" run_in_dir "$ROOT_DIR" test -d node_modules
-  else
-    run_step "Install workspace dependencies" run_in_dir "$ROOT_DIR" yarn install --immutable
-  fi
+  run_step "Install and verify workspace dependencies" \
+    run_in_dir "$ROOT_DIR" yarn install --immutable
 }
 
 build_contracts() {

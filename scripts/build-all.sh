@@ -14,17 +14,11 @@ BUILDER_OUTPUT="$DESKTOP_RELEASE_DIR/build"
 SERVER_RELEASE_DIR="$ROOT_DIR/releases/server"
 
 prepare_releases() {
-  rm -rf -- "$SERVER_RELEASE_DIR"
   mkdir -p "$SERVER_RELEASE_DIR"
 
   mkdir -p "$DESKTOP_RELEASE_DIR"
   rm -rf -- "$BUILDER_OUTPUT"
-  rm -f -- "$DESKTOP_RELEASE_DIR"/*.AppImage
   mkdir -p "$DESKTOP_ASSETS"
-}
-
-publish_server() {
-  cp -- "$DESKTOP_ASSETS/lwn-server" "$SERVER_RELEASE_DIR/lwn-server"
 }
 
 build_launcher() {
@@ -35,24 +29,44 @@ build_electron() {
   run_step "Package Electron AppImage" run_in_dir "$ROOT_DIR/apps/desktop" env VERSION="$VERSION" yarn build
 }
 
-publish_desktop() {
-  local -a artifacts=("$BUILDER_OUTPUT"/*.AppImage)
+publish_releases() {
+  local -a artifacts
 
-  if [[ ! -f "${artifacts[0]}" ]]; then
-    echo "No AppImage was generated in $BUILDER_OUTPUT" >&2
+  shopt -s nullglob
+  artifacts=("$BUILDER_OUTPUT"/*.AppImage)
+  shopt -u nullglob
+
+  if (( ${#artifacts[@]} != 1 )); then
+    printf 'Expected exactly one AppImage in %s, found %d\n' \
+      "$BUILDER_OUTPUT" "${#artifacts[@]}" >&2
     return 1
   fi
 
-  cp -- "${artifacts[0]}" "$DESKTOP_RELEASE_DIR/"
+  local server_path="$SERVER_RELEASE_DIR/lwn-server"
+  local server_stage="$server_path.tmp"
+  local desktop_path="$DESKTOP_RELEASE_DIR/LWN-Simulator-$VERSION.AppImage"
+  local desktop_stage="$desktop_path.tmp"
+
+  install -m 0755 -- "$DESKTOP_ASSETS/lwn-server" "$server_stage"
+  if ! install -m 0755 -- "${artifacts[0]}" "$desktop_stage"; then
+    rm -f -- "$server_stage"
+    return 1
+  fi
+
+  mv -- "$server_stage" "$server_path"
+  rm -f -- "$DESKTOP_RELEASE_DIR"/*.AppImage
+  mv -- "$desktop_stage" "$desktop_path"
   rm -rf -- "$BUILDER_OUTPUT"
 }
 
 verify_releases() {
+  test -s "$SERVER_RELEASE_DIR/lwn-server"
   test -x "$SERVER_RELEASE_DIR/lwn-server"
-  test -f "$DESKTOP_RELEASE_DIR/LWN-Simulator-$VERSION.AppImage"
+  test -s "$DESKTOP_RELEASE_DIR/LWN-Simulator-$VERSION.AppImage"
+  test -x "$DESKTOP_RELEASE_DIR/LWN-Simulator-$VERSION.AppImage"
 }
 
-cli_init "LWN-Simulator complete release" "$VERSION" 12
+cli_init "LWN-Simulator complete release" "$VERSION" 11
 cli_header
 cli_roadmap \
   "Prepare release directories" \
@@ -62,10 +76,9 @@ cli_roadmap \
   "Build SDK" \
   "Build frontend" \
   "Build backend" \
-  "Publish server binary" \
   "Build desktop launcher" \
   "Package Electron AppImage" \
-  "Publish AppImage" \
+  "Publish release artifacts" \
   "Verify release artifacts"
 
 run_step "Prepare release directories" prepare_releases
@@ -75,10 +88,9 @@ build_components
 build_sdk
 build_frontend
 build_backend "$DESKTOP_ASSETS/lwn-server"
-run_step "Publish server binary" publish_server
 build_launcher
 build_electron
-run_step "Publish AppImage" publish_desktop
+run_step "Publish release artifacts" publish_releases
 run_step "Verify release artifacts" verify_releases
 
 printf '\n%sRelease artifacts%s\n' "$CLI_BOLD$CLI_CYAN" "$CLI_RESET"
