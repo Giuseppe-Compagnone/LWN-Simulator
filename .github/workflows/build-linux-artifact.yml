@@ -64,6 +64,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y rpm
 
+      - name: Install QEMU user emulation
+        if: matrix.arch != 'x64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y qemu-user-static
+
       - name: Build Linux distribution
         run: ./scripts/build-all.sh
 
@@ -94,6 +100,22 @@ jobs:
             "${debs[0]}" \
             "${rpms[0]}" \
             > releases/SHA256SUMS
+
+      - name: Smoke test x86_64 binaries
+        if: matrix.arch == 'x64'
+        run: |
+          appimages=(releases/desktop/LWN-Simulator-*.AppImage)
+          releases/server/lwn-server --help >/dev/null
+          "${appimages[0]}" --appimage-version >/dev/null
+
+      - name: Smoke test ARM backend with QEMU
+        if: matrix.arch == 'arm64' || matrix.arch == 'armv7l'
+        run: |
+          if [ "$LWN_TARGET_ARCH" = "arm64" ]; then
+            qemu-aarch64-static releases/server/lwn-server --help >/dev/null
+          else
+            qemu-arm-static releases/server/lwn-server --help >/dev/null
+          fi
 
       - name: Upload Linux test artifact
         uses: actions/upload-artifact@v4
