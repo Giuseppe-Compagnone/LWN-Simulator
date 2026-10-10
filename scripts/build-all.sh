@@ -26,44 +26,37 @@ build_launcher() {
 }
 
 build_electron() {
-  run_step "Package Electron AppImage" run_in_dir "$ROOT_DIR/apps/desktop" env VERSION="$VERSION" yarn build
+  local electron_arch
+  local raw_targets="${LWN_ELECTRON_TARGETS:-AppImage}"
+  local -a targets electron_args
+
+  electron_arch="$(lwn_electron_arch)"
+  IFS=',' read -r -a targets <<< "$raw_targets"
+  electron_args=(--linux)
+  electron_args+=("${targets[@]}")
+  electron_args+=("--$electron_arch")
+
+  run_step "Package Electron Linux artifacts ($electron_arch)" \
+    run_in_dir "$ROOT_DIR/apps/desktop" env VERSION="$VERSION" yarn build "${electron_args[@]}"
 }
 
 publish_releases() {
-  local -a artifacts
-
-  shopt -s nullglob
-  artifacts=("$BUILDER_OUTPUT"/*.AppImage)
-  shopt -u nullglob
-
-  if (( ${#artifacts[@]} != 1 )); then
-    printf 'Expected exactly one AppImage in %s, found %d\n' \
-      "$BUILDER_OUTPUT" "${#artifacts[@]}" >&2
-    return 1
-  fi
-
   local server_path="$SERVER_RELEASE_DIR/lwn-server"
   local server_stage="$server_path.tmp"
-  local desktop_path="$DESKTOP_RELEASE_DIR/LWN-Simulator-$VERSION.AppImage"
-  local desktop_stage="$desktop_path.tmp"
 
   install -m 0755 -- "$DESKTOP_ASSETS/lwn-server" "$server_stage"
-  if ! install -m 0755 -- "${artifacts[0]}" "$desktop_stage"; then
+  if ! publish_electron_artifacts "$BUILDER_OUTPUT" "$DESKTOP_RELEASE_DIR"; then
     rm -f -- "$server_stage"
     return 1
   fi
 
   mv -- "$server_stage" "$server_path"
-  rm -f -- "$DESKTOP_RELEASE_DIR"/*.AppImage
-  mv -- "$desktop_stage" "$desktop_path"
-  rm -rf -- "$BUILDER_OUTPUT"
 }
 
 verify_releases() {
   test -s "$SERVER_RELEASE_DIR/lwn-server"
   test -x "$SERVER_RELEASE_DIR/lwn-server"
-  test -s "$DESKTOP_RELEASE_DIR/LWN-Simulator-$VERSION.AppImage"
-  test -x "$DESKTOP_RELEASE_DIR/LWN-Simulator-$VERSION.AppImage"
+  verify_electron_artifacts "$DESKTOP_RELEASE_DIR"
 }
 
 cli_init "LWN-Simulator complete release" "$VERSION" 11
@@ -77,7 +70,7 @@ cli_roadmap \
   "Build frontend" \
   "Build backend" \
   "Build desktop launcher" \
-  "Package Electron AppImage" \
+  "Package Electron Linux artifacts" \
   "Publish release artifacts" \
   "Verify release artifacts"
 
@@ -95,5 +88,7 @@ run_step "Verify release artifacts" verify_releases
 
 printf '\n%sRelease artifacts%s\n' "$CLI_BOLD$CLI_CYAN" "$CLI_RESET"
 cli_artifact "$SERVER_RELEASE_DIR/lwn-server"
-cli_artifact "$DESKTOP_RELEASE_DIR/LWN-Simulator-$VERSION.AppImage"
+for artifact in "$DESKTOP_RELEASE_DIR"/*; do
+  cli_artifact "$artifact"
+done
 cli_footer

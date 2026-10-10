@@ -1,6 +1,9 @@
 {
   "name": "@lwn-simulator/desktop",
   "version": "2.0.0",
+  "description": "LoRaWAN network simulator desktop application",
+  "author": "LWN-Simulator contributors <lwn-simulator@users.noreply.github.com>",
+  "homepage": "https://github.com/Giuseppe-Compagnone/LWN-Simulator",
   "desktopName": "lwn-simulator",
   "main": "dist/main.js",
   "scripts": {
@@ -54,7 +57,9 @@
       "target": [
         "AppImage"
       ],
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
       "category": "Utility",
+      "maintainer": "LWN-Simulator contributors <lwn-simulator@users.noreply.github.com>",
       "syncDesktopName": true
     },
     "electronLanguages": [
