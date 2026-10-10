@@ -19,7 +19,10 @@ import {
   SimulationLogObject,
   SimulationRun,
 } from "@lwn-simulator/contracts";
-import { useSimulationService, useWebSocket } from "@lwn-simulator/sdk";
+import {
+  useSimulationService,
+  useWebSocketService,
+} from "@lwn-simulator/sdk";
 import { Button, Spinner } from "@lwn-simulator/ui-components";
 import "../logs.scss";
 
@@ -188,7 +191,7 @@ const LogDetailsContent = () => {
   const simulation = useSimulationService();
   const getLog = simulation.getLog;
   const getLogEvents = simulation.getLogEvents;
-  const { connectionState, subscribe } = useWebSocket();
+  const { connectionState, subscribe } = useWebSocketService();
   const hasConnectedRef = useRef(false);
   const runID = useSearchParams().get("runId");
   const [run, setRun] = useState<SimulationRun | null>(null);

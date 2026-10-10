@@ -1,27 +1,30 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  GatewayBridgeConfig,
-  RealtimeWebSocketMessage,
-  RealtimeWebSocketMessageType,
-} from "@lwn-simulator/contracts";
-import { useWebSocket } from "../../websocket";
+import { GatewayBridgeConfig, RealtimeWebSocketMessage } from "@lwn-simulator/contracts";
+import { useWebSocketService } from "../WebSocketService";
 import { ProfileConfigurationService } from "./ProfileConfigurationService";
 import ProfileConfigurationServiceContext from "./ProfileConfigurationServiceContext";
 import { ProfileConfigurationServiceProviderProps } from "./ProfileConfigurationService.types";
+import { RealtimeWebSocketMessageType } from "../../models/RealtimeWebSocket";
 
 const ProfileConfigurationServiceProvider = (
   props: ProfileConfigurationServiceProviderProps,
 ) => {
+  // States
+  const [gatewayBridgeConfig, setGatewayBridgeConfig] =
+    useState<GatewayBridgeConfig | null>(null);
+
+  // Hooks
+  const { subscribe } = useWebSocketService();
+
+  // Memos
   const service = useMemo(
     () => new ProfileConfigurationService(props.baseUrl),
     [props.baseUrl],
   );
-  const [gatewayBridgeConfig, setGatewayBridgeConfig] =
-    useState<GatewayBridgeConfig | null>(null);
-  const { subscribe } = useWebSocket();
 
+  // Callbacks
   const getGatewayBridge = useCallback(async () => {
     const config = await service.getGatewayBridge();
     setGatewayBridgeConfig(config);
@@ -37,12 +40,6 @@ const ProfileConfigurationServiceProvider = (
     [service],
   );
 
-  useEffect(() => {
-    void Promise.resolve()
-      .then(getGatewayBridge)
-      .catch(() => setGatewayBridgeConfig(null));
-  }, [getGatewayBridge]);
-
   const handleRealtimeMessage = useCallback(
     (rawMessage: string) => {
       try {
@@ -56,17 +53,25 @@ const ProfileConfigurationServiceProvider = (
           setGatewayBridgeConfig(message.gatewayBridge);
         }
       } catch {
-        // Ignore messages owned by another realtime consumer.
+        return;
       }
     },
     [props.profileID],
   );
+
+  // Effects
+  useEffect(() => {
+    void Promise.resolve()
+      .then(getGatewayBridge)
+      .catch(() => setGatewayBridgeConfig(null));
+  }, [getGatewayBridge]);
 
   useEffect(
     () => subscribe(handleRealtimeMessage),
     [handleRealtimeMessage, subscribe],
   );
 
+  // Memos
   const value = useMemo(
     () => ({
       gatewayBridgeConfig,

@@ -8,10 +8,9 @@ import {
   SimulationMACCommandRequest,
   SimulationSnapshot,
   SimulationUplinkRequest,
-  RealtimeWebSocketMessageType,
   RealtimeWebSocketMessage,
 } from "@lwn-simulator/contracts";
-import { useWebSocket } from "../../websocket";
+import { useWebSocketService } from "../WebSocketService";
 import SimulationServiceContext from "./SimulationServiceContext";
 import {
   GetSimulationEventsOptions,
@@ -20,27 +19,34 @@ import {
   SimulationServiceProviderProps,
 } from "./SimulationService.types";
 import { SimulationService } from "./SimulationService";
+import { RealtimeWebSocketMessageType } from "../../models/RealtimeWebSocket";
 
 const realtimeRenderIntervalMilliseconds = 100;
 const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
+  // States
   const [snapshot, setSnapshot] = useState<SimulationSnapshot | null>(null);
   const [events, setEvents] = useState<Array<SimulationEvent>>([]);
   const [error, setError] = useState<Error | null>(null);
-  const service = useMemo(
-    () => new SimulationService(props.baseUrl),
-    [props.baseUrl],
-  );
+
+  // Hooks
   const {
     subscribe: subscribeWebSocket,
     connectionState,
     error: websocketError,
-  } = useWebSocket();
+  } = useWebSocketService();
   const eventsRef = useRef<Array<SimulationEvent>>([]);
   const pendingSnapshotRef = useRef<SimulationSnapshot | null>(null);
   const pendingEventsRef = useRef<Array<SimulationEvent>>([]);
   const renderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasSnapshotRef = useRef(false);
 
+  // Memos
+  const service = useMemo(
+    () => new SimulationService(props.baseUrl),
+    [props.baseUrl],
+  );
+
+  // Callbacks
   const updateSnapshot = useCallback((next: SimulationSnapshot) => {
     hasSnapshotRef.current = true;
     setSnapshot(next);
@@ -127,6 +133,7 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
     [props.profileID, scheduleRealtimeRender],
   );
 
+  // Effects
   useEffect(
     () => subscribeWebSocket(handleWebSocketMessage),
     [handleWebSocketMessage, props.profileID, subscribeWebSocket],
@@ -254,6 +261,7 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
 
   useEffect(() => disconnect, [disconnect]);
 
+  // Memos
   const value = useMemo(
     (): SimulationServiceContent => ({
       start,

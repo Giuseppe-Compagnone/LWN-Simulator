@@ -10,6 +10,10 @@ import { AppInfoService } from "./AppInfoService";
 import { AppInfoResponse, StatusResponse } from "@lwn-simulator/contracts";
 
 const AppInfoServiceProvider = (props: AppInfoServiceProviderProps) => {
+  // States
+
+  // Hooks
+
   // Memos
   const service = useMemo(
     () => new AppInfoService(props.baseUrl),
@@ -33,6 +37,8 @@ const AppInfoServiceProvider = (props: AppInfoServiceProviderProps) => {
     }),
     [status, appInfo],
   );
+
+  // Effects
 
   return (
     <AppInfoServiceContext.Provider value={value}>

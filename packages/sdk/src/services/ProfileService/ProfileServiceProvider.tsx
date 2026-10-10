@@ -6,18 +6,20 @@ import {
   Profile,
   ProfileArchive,
   RealtimeWebSocketMessage,
-  RealtimeWebSocketMessageType,
   SimulationActivity,
-  SimulationStatus,
   UpdateProfileRequest,
 } from "@lwn-simulator/contracts";
-import { useWebSocket } from "../../websocket";
+import { useWebSocketService } from "../WebSocketService";
 import ProfileServiceContext from "./ProfileServiceContext";
 import {
   ProfileServiceContent,
   ProfileServiceProviderProps,
 } from "./ProfileService.types";
 import { ProfileService } from "./ProfileService";
+import {
+  RealtimeWebSocketMessageType,
+  SimulationStatus,
+} from "../../models/RealtimeWebSocket";
 
 const activeProfileStorageKey = "lwn-simulator.active-profile";
 const defaultProfileID = "00000000-0000-4000-8000-000000000001";
@@ -28,6 +30,7 @@ const readStoredProfileID = (): string => {
 };
 
 const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
+  // States
   const [profiles, setProfiles] = useState<Array<Profile>>([]);
   const [activeProfileID, setActiveProfileID] = useState(readStoredProfileID);
   const [loading, setLoading] = useState(true);
@@ -36,15 +39,20 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
     useState<SimulationActivity | null>(null);
   const [simulationActivityLoading, setSimulationActivityLoading] =
     useState(true);
+
+  // Hooks
   const profilesRef = useRef<Array<Profile>>([]);
   const simulationActivityRef = useRef<SimulationActivity | null>(null);
   const activeProfileIDRef = useRef(activeProfileID);
+  const { subscribe } = useWebSocketService();
+
+  // Memos
   const service = useMemo(
     () => new ProfileService(props.baseUrl),
     [props.baseUrl],
   );
-  const { subscribe } = useWebSocket();
 
+  // Callbacks
   const commitProfiles = useCallback((nextProfiles: Array<Profile>) => {
     profilesRef.current = nextProfiles;
     setProfiles(nextProfiles);
@@ -112,6 +120,7 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
     }
   }, [commitProfiles, persistActiveProfile, service]);
 
+  // Effects
   useEffect(() => {
     void Promise.resolve().then(getProfiles);
   }, [getProfiles]);
@@ -120,12 +129,12 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
     void service
       .getSimulationActivity()
       .then(commitSimulationActivity)
-      .catch(() =>
-        commitSimulationActivity({
-          active: false,
-          status: SimulationStatus.Idle,
-        }),
-      )
+        .catch(() =>
+          commitSimulationActivity({
+            active: false,
+            status: "idle" as SimulationActivity["status"],
+          }),
+        )
       .finally(() => setSimulationActivityLoading(false));
   }, [commitSimulationActivity, service]);
 
@@ -180,7 +189,7 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
           }
         }
       } catch {
-        // Other realtime consumers may share this websocket stream.
+        return;
       }
     },
     [
@@ -205,7 +214,11 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
         setError(null);
         return profile;
       } catch (requestError) {
-        setError(requestError instanceof Error ? requestError : new Error("Failed to create profile"));
+        setError(
+          requestError instanceof Error
+            ? requestError
+            : new Error("Failed to create profile"),
+        );
         throw requestError;
       }
     },
@@ -224,7 +237,11 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
         setError(null);
         return profile;
       } catch (requestError) {
-        setError(requestError instanceof Error ? requestError : new Error("Failed to update profile"));
+        setError(
+          requestError instanceof Error
+            ? requestError
+            : new Error("Failed to update profile"),
+        );
         throw requestError;
       }
     },
@@ -271,7 +288,11 @@ const ProfileServiceProvider = (props: ProfileServiceProviderProps) => {
 
   const activeProfile =
     profiles.find((profile) => profile.id === activeProfileID) ?? null;
-  const profileBaseUrl = `${props.baseUrl.replace(/\/+$/, "")}/profiles/${encodeURIComponent(activeProfileID)}`;
+
+  // Memos
+  const profileBaseUrl = `${props.baseUrl.replace(/\/+$/, "")}/profiles/${encodeURIComponent(
+    activeProfileID,
+  )}`;
   const value = useMemo(
     (): ProfileServiceContent => ({
       profiles,

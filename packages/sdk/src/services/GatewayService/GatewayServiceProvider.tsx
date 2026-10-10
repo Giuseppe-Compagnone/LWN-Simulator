@@ -5,7 +5,6 @@ import {
   Gateway,
   GetGatewayRequest,
   RealtimeWebSocketMessage,
-  RealtimeWebSocketMessageType,
   UpdateGatewayRequest,
 } from "@lwn-simulator/contracts";
 import GatewayServiceContext from "./GatewayServiceContext";
@@ -14,43 +13,73 @@ import {
   GatewayServiceContent,
   GatewayServiceProviderProps,
 } from "./GatewayService.types";
-import { useWebSocket } from "../../websocket";
+import { useWebSocketService } from "../WebSocketService";
+import { RealtimeWebSocketMessageType } from "../../models/RealtimeWebSocket";
 
 const GatewayServiceProvider = (props: GatewayServiceProviderProps) => {
+  // States
   const [gateways, setGateways] = useState<Array<Gateway> | null>(null);
   const [error, setError] = useState<Error | null>(null);
-  const service = useMemo(() => new GatewayService(props.baseUrl), [props.baseUrl]);
-  const { connectionState, subscribe } = useWebSocket();
+
+  // Hooks
+  const { connectionState, subscribe } = useWebSocketService();
   const hasConnectedRef = useRef(false);
 
-  const createGateway = useCallback(async (req: CreateGatewayRequest) => {
-    const res = await service.createGateway(req);
-    setGateways((prev) => (prev ? [...prev, res] : [res]));
-    setError(null);
-    return res;
-  }, [service]);
+  // Memos
+  const service = useMemo(
+    () => new GatewayService(props.baseUrl),
+    [props.baseUrl],
+  );
 
-  const getGateway = useCallback((req: GetGatewayRequest) => service.getGateway(req), [service]);
+  // Callbacks
+  const createGateway = useCallback(
+    async (req: CreateGatewayRequest): Promise<Gateway> => {
+      const res = await service.createGateway(req);
+      setGateways((previous) => (previous ? [...previous, res] : [res]));
+      setError(null);
+      return res;
+    },
+    [service],
+  );
 
-  const getGateways = useCallback(async () => {
+  const getGateway = useCallback(
+    (req: GetGatewayRequest): Promise<Gateway> => service.getGateway(req),
+    [service],
+  );
+
+  const getGateways = useCallback(async (): Promise<Array<Gateway>> => {
     const res = await service.getGateways();
     setGateways(res);
     setError(null);
     return res;
   }, [service]);
 
-  const updateGateway = useCallback(async (req: UpdateGatewayRequest) => {
-    const res = await service.updateGateway(req);
-    setGateways((prev) => prev?.map((gateway) => gateway.id === res.id ? res : gateway) ?? null);
-    setError(null);
-    return res;
-  }, [service]);
+  const updateGateway = useCallback(
+    async (req: UpdateGatewayRequest): Promise<Gateway> => {
+      const res = await service.updateGateway(req);
+      setGateways(
+        (previous) =>
+          previous?.map((gateway) =>
+            gateway.id === res.id ? res : gateway,
+          ) ?? null,
+      );
+      setError(null);
+      return res;
+    },
+    [service],
+  );
 
-  const deleteGateway = useCallback(async (req: DeleteGatewayRequest) => {
-    await service.deleteGateway(req);
-    setGateways((prev) => prev?.filter((gateway) => gateway.id !== req.id) ?? null);
-    setError(null);
-  }, [service]);
+  const deleteGateway = useCallback(
+    async (req: DeleteGatewayRequest): Promise<void> => {
+      await service.deleteGateway(req);
+      setGateways(
+        (previous) =>
+          previous?.filter((gateway) => gateway.id !== req.id) ?? null,
+      );
+      setError(null);
+    },
+    [service],
+  );
 
   const handleRealtimeMessage = useCallback((rawMessage: string) => {
     try {
@@ -63,10 +92,14 @@ const GatewayServiceProvider = (props: GatewayServiceProviderProps) => {
       ) {
         setGateways((previous) => {
           if (!previous) return [message.gateway as Gateway];
-          const exists = previous.some((gateway) => gateway.id === message.gateway?.id);
+          const exists = previous.some(
+            (gateway) => gateway.id === message.gateway?.id,
+          );
           return exists
             ? previous.map((gateway) =>
-                gateway.id === message.gateway?.id ? message.gateway as Gateway : gateway,
+                gateway.id === message.gateway?.id
+                  ? (message.gateway as Gateway)
+                  : gateway,
               )
             : [...previous, message.gateway as Gateway];
         });
@@ -75,11 +108,12 @@ const GatewayServiceProvider = (props: GatewayServiceProviderProps) => {
         message.resourceID
       ) {
         setGateways((previous) =>
-          previous?.filter((gateway) => gateway.id !== message.resourceID) ?? null,
+          previous?.filter((gateway) => gateway.id !== message.resourceID) ??
+          null,
         );
       }
     } catch {
-      // Ignore messages owned by another realtime consumer or malformed data.
+      return;
     }
   }, [props.profileID]);
 
@@ -96,7 +130,9 @@ const GatewayServiceProvider = (props: GatewayServiceProviderProps) => {
     }
 
     void getGateways().catch(() => {
-      setError(new Error("Failed to recover gateways after websocket reconnect"));
+      setError(
+        new Error("Failed to recover gateways after websocket reconnect"),
+      );
     });
   }, [connectionState, getGateways]);
 
@@ -111,17 +147,35 @@ const GatewayServiceProvider = (props: GatewayServiceProviderProps) => {
       });
   }, [getGateways]);
 
-  const value = useMemo((): GatewayServiceContent => ({
-    createGateway,
-    getGateway,
-    getGateways,
-    updateGateway,
-    deleteGateway,
-    gateways,
-    error,
-  }), [createGateway, getGateway, getGateways, updateGateway, deleteGateway, gateways, error]);
+  // Effects
 
-  return <GatewayServiceContext.Provider value={value}>{props.children}</GatewayServiceContext.Provider>;
+  // Memos
+  const value = useMemo(
+    (): GatewayServiceContent => ({
+      createGateway,
+      getGateway,
+      getGateways,
+      updateGateway,
+      deleteGateway,
+      gateways,
+      error,
+    }),
+    [
+      createGateway,
+      getGateway,
+      getGateways,
+      updateGateway,
+      deleteGateway,
+      gateways,
+      error,
+    ],
+  );
+
+  return (
+    <GatewayServiceContext.Provider value={value}>
+      {props.children}
+    </GatewayServiceContext.Provider>
+  );
 };
 
 export default GatewayServiceProvider;

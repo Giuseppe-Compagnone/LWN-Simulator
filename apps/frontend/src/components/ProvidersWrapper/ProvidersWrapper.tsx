@@ -10,7 +10,7 @@ import {
   ProfileServiceProvider,
   useProfileService,
   SimulationServiceProvider,
-  WebSocketProvider,
+  WebSocketServiceProvider,
 } from "@lwn-simulator/sdk";
 import Navbar from "../Navbar";
 import Sidebar from "../Sidebar";
@@ -64,7 +64,7 @@ const ProvidersWrapper = (props: ProvidersWrapperProps) => {
   return (
       <ThemeServiceProvider>
         <AppInfoServiceProvider baseUrl={origin}>
-          <WebSocketProvider baseUrl={origin}>
+          <WebSocketServiceProvider baseUrl={origin}>
             <ProfileServiceProvider baseUrl={origin}>
               <ProfileScopedServices>
                 <Navbar />
@@ -75,7 +75,7 @@ const ProvidersWrapper = (props: ProvidersWrapperProps) => {
                 <ToastContainer />
               </ProfileScopedServices>
             </ProfileServiceProvider>
-          </WebSocketProvider>
+          </WebSocketServiceProvider>
         </AppInfoServiceProvider>
       </ThemeServiceProvider>
   );
