@@ -53,6 +53,7 @@ async function startBackendProcess(): Promise<number> {
       ...(isDevelopment ? { LWN_ENV: "development" } : {}),
     },
     stdio: "inherit",
+    windowsHide: process.platform === "win32",
   });
 
   backendProcess = childProcess;
