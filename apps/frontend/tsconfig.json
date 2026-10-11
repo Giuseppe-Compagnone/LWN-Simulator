@@ -13,7 +13,7 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
-    "rootDir": "/",
+    "rootDir": "../../",
     "plugins": [
       {
         "name": "next"

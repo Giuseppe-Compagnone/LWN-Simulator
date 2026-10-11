@@ -31,12 +31,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 20
+          package-manager-cache: false
 
       - name: Enable Corepack
         shell: pwsh
@@ -46,7 +47,7 @@ jobs:
           yarn --version
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: apps/backend/go.mod
           cache: true
@@ -87,6 +88,10 @@ jobs:
         env:
           ELECTRON_BUILD: "true"
         run: |
+          $tsconfig = Get-Content apps/frontend/tsconfig.json | ConvertFrom-Json
+          if ($tsconfig.compilerOptions.rootDir -ne "../../") {
+            throw "apps/frontend/tsconfig.json must use rootDir ../../ for the workspace build"
+          }
           yarn workspace @lwn-simulator/frontend exec next build
           $source = "apps/frontend/out"
           $target = "apps/backend/internal/frontend/web"

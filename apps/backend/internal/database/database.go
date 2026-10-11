@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	pathpkg "path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -270,7 +271,7 @@ func initializeFile(dataDir string, name string) error {
 		return fmt.Errorf("check database file %s: %w", name, err)
 	}
 
-	data, err := defaults.ReadFile(filepath.Join("defaults", name))
+	data, err := defaults.ReadFile(pathpkg.Join("defaults", name))
 	if err != nil {
 		return fmt.Errorf("read embedded default %s: %w", name, err)
 	}
