@@ -39,8 +39,12 @@ jobs:
       - name: Enable Corepack
         shell: pwsh
         run: |
-          corepack enable
+          $corepackBin = Join-Path $env:RUNNER_TEMP "corepack-bin"
+          New-Item -ItemType Directory -Force $corepackBin | Out-Null
+          corepack enable --install-directory $corepackBin
           corepack install --global yarn@4.18.0
+          $corepackBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          $env:PATH = "$corepackBin;$env:PATH"
           yarn --version
 
       - name: Setup Go

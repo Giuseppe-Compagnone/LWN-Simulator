@@ -49,8 +49,12 @@ jobs:
 
       - name: Enable Corepack
         run: |
-          corepack enable
+          corepack_bin="$RUNNER_TEMP/corepack-bin"
+          mkdir -p "$corepack_bin"
+          corepack enable --install-directory "$corepack_bin"
           corepack install --global yarn@4.18.0
+          echo "$corepack_bin" >> "$GITHUB_PATH"
+          export PATH="$corepack_bin:$PATH"
           yarn --version
 
       - name: Setup Go
