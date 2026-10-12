@@ -62,6 +62,15 @@
       "maintainer": "LWN-Simulator contributors <lwn-simulator@users.noreply.github.com>",
       "syncDesktopName": true
     },
+    "mac": {
+      "icon": "public/icon.icns",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "category": "public.app-category.utilities"
+    },
     "electronLanguages": [
       "en-US",
       "it"

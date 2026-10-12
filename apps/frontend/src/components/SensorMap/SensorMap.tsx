@@ -35,11 +35,42 @@ const SensorMap = (props: SensorMapProps) => {
     null,
   );
   const [materialIconsReady, setMaterialIconsReady] = useState(false);
+  const [webglAvailable, setWebglAvailable] = useState<boolean | null>(null);
   const themeService = useThemeService();
   const mapRef = useRef<MapRef | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
   const linksFittedRef = useRef(false);
   const baseColor = themeService.theme === Theme.Dark ? "#000000" : "#ffffff";
+
+  useEffect(() => {
+    const canvas = document.createElement("canvas");
+    const handleContextCreationError = (event: Event) => {
+      event.preventDefault();
+    };
+
+    canvas.addEventListener(
+      "webglcontextcreationerror",
+      handleContextCreationError,
+    );
+
+    try {
+      setWebglAvailable(
+        Boolean(
+          canvas.getContext("webgl2", {
+            failIfMajorPerformanceCaveat: false,
+            powerPreference: "high-performance",
+          }),
+        ),
+      );
+    } catch {
+      setWebglAvailable(false);
+    } finally {
+      canvas.removeEventListener(
+        "webglcontextcreationerror",
+        handleContextCreationError,
+      );
+    }
+  }, []);
 
   const registerMaterialIcons = useCallback(async () => {
     const map = mapRef.current?.getMap();
@@ -263,6 +294,22 @@ const SensorMap = (props: SensorMapProps) => {
 
   return (
     <div className="sensor-map">
+      {webglAvailable === null && (
+        <div className="sensor-map-status" role="status">
+          <strong>Loading map</strong>
+        </div>
+      )}
+      {webglAvailable === false && (
+        <div className="sensor-map-status" role="alert">
+          <strong>Map unavailable</strong>
+          <p>
+            WebGL2 could not be initialized. Enable hardware acceleration and
+            restart the browser or desktop application. If the problem
+            persists, check that the app was not started with GPU disabled.
+          </p>
+        </div>
+      )}
+      {webglAvailable && (
       <MapGL
         ref={mapRef}
         onLoad={() => {
@@ -491,6 +538,7 @@ const SensorMap = (props: SensorMapProps) => {
           </>
         )}
       </MapGL>
+      )}
     </div>
   );
 };
