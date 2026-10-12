@@ -2,6 +2,9 @@ name: Build macOS test artifact
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - distribution
 
 permissions:
   contents: read
