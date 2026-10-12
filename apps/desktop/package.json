@@ -1,12 +1,16 @@
 {
   "name": "@lwn-simulator/desktop",
   "version": "2.0.0",
+  "description": "LoRaWAN network simulator desktop application",
+  "author": "LWN-Simulator contributors <lwn-simulator@users.noreply.github.com>",
+  "homepage": "https://github.com/Giuseppe-Compagnone/LWN-Simulator",
   "desktopName": "lwn-simulator",
   "main": "dist/main.js",
   "scripts": {
     "compile": "tsc --build",
     "start": "yarn compile && electron .",
-    "build": "rm -rf dist && yarn compile && electron-builder --publish never",
+    "build": "yarn clean && yarn compile && electron-builder --publish never",
+    "clean": "node scripts/clean-dist.mjs",
     "lint": "eslint"
   },
   "dependencies": {
@@ -38,8 +42,8 @@
     ],
     "extraResources": [
       {
-        "from": "assets/lwn-server",
-        "to": "lwn-server"
+        "from": "assets",
+        "to": "backend"
       },
       {
         "from": "public/icon.png",
@@ -54,8 +58,19 @@
       "target": [
         "AppImage"
       ],
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
       "category": "Utility",
+      "maintainer": "LWN-Simulator contributors <lwn-simulator@users.noreply.github.com>",
       "syncDesktopName": true
+    },
+    "mac": {
+      "icon": "public/icon.icns",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "category": "public.app-category.utilities"
     },
     "electronLanguages": [
       "en-US",

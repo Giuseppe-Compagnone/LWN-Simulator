@@ -11,6 +11,30 @@
   background: var(--secondary-bg-color);
   box-shadow: 0 0 5px #0003;
 
+  .sensor-map-status {
+    display: grid;
+    max-width: 28rem;
+    gap: 0.5rem;
+    padding: 1.5rem;
+    color: var(--primary-text-color);
+    text-align: center;
+
+    strong {
+      color: var(--primary-color);
+      font-family: var(--secondary-font);
+      font-size: 0.8rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    p {
+      margin: 0;
+      color: var(--secondary-text-color);
+      font-size: 0.8rem;
+      line-height: 1.5;
+    }
+  }
+
   .marker {
     text-shadow:
       -1px -1px 0 var(--base-color),
