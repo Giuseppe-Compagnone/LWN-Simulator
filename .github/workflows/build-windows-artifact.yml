@@ -60,97 +60,9 @@ jobs:
         shell: pwsh
         run: yarn install --immutable
 
-      - name: Generate API contracts
+      - name: Build and verify Windows distribution
         shell: pwsh
-        run: |
-          if (Test-Path packages/contracts/generated) {
-            Remove-Item -Recurse -Force packages/contracts/generated
-          }
-          yarn workspace @lwn-simulator/contracts generate:bundle
-          yarn workspace @lwn-simulator/contracts generate:ts
-          yarn workspace @lwn-simulator/contracts generate:go
-          yarn workspace @lwn-simulator/contracts generate:models
-
-      - name: Build UI components
-        shell: pwsh
-        run: yarn workspace @lwn-simulator/ui-components build
-
-      - name: Build SDK
-        shell: pwsh
-        run: |
-          if (Test-Path packages/sdk/dist) {
-            Remove-Item -Recurse -Force packages/sdk/dist
-          }
-          yarn workspace @lwn-simulator/sdk build:esm
-          yarn workspace @lwn-simulator/sdk build:cjs
-
-      - name: Build frontend
-        shell: pwsh
-        env:
-          ELECTRON_BUILD: "true"
-        run: |
-          $tsconfig = Get-Content apps/frontend/tsconfig.json | ConvertFrom-Json
-          if ($tsconfig.compilerOptions.rootDir -ne "../../") {
-            throw "apps/frontend/tsconfig.json must use rootDir ../../ for the workspace build"
-          }
-          yarn workspace @lwn-simulator/frontend exec next build
-          $source = "apps/frontend/out"
-          $target = "apps/backend/internal/frontend/web"
-          if (-not (Test-Path (Join-Path $source "index.html"))) {
-            throw "Frontend export is missing or incomplete: $source"
-          }
-          $targetParent = Split-Path -Parent $target
-          $staging = Join-Path $targetParent ".frontend-$([guid]::NewGuid().ToString('N'))"
-          New-Item -ItemType Directory -Force $staging | Out-Null
-          Copy-Item -Path (Join-Path $source "*") -Destination $staging -Recurse -Force
-          if (Test-Path $target) {
-            Remove-Item -Recurse -Force $target
-          }
-          Move-Item -Path $staging -Destination $target
-
-      - name: Build Windows backend
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force apps/desktop/assets | Out-Null
-          $version = (Get-Content package.json | ConvertFrom-Json).version
-          Push-Location apps/backend
-          try {
-            $env:GOOS = "windows"
-            $env:GOARCH = "${{ matrix.go_arch }}"
-            $env:CGO_ENABLED = "0"
-            go build -ldflags "-X lwn-simulator-backend/version.AppVersion=$version" -o ../desktop/assets/lwn-server.exe -trimpath -buildvcs=false ./cmd/server/main.go
-          } finally {
-            Pop-Location
-          }
-
-      - name: Build desktop launcher
-        shell: pwsh
-        env:
-          ELECTRON_BUILD: "true"
-        run: yarn workspace @lwn-simulator/desktop-launcher exec next build
-
-      - name: Package Windows distribution
-        shell: pwsh
-        run: |
-          yarn workspace @lwn-simulator/desktop compile
-          yarn workspace @lwn-simulator/desktop exec electron-builder --win nsis portable --${{ matrix.arch }} --publish never
-
-      - name: Verify Windows artifacts
-        shell: pwsh
-        run: |
-          $backend = "apps/desktop/assets/lwn-server.exe"
-          $artifacts = @(Get-ChildItem -Path releases/desktop/build -File -Filter *.exe)
-          if (-not (Test-Path $backend)) { throw "Windows backend was not produced" }
-          if ((Get-Item $backend).Length -le 0) { throw "Windows backend is empty" }
-          if ($artifacts.Count -lt 2) { throw "Expected NSIS and portable Windows executables" }
-          $artifacts | ForEach-Object {
-            if ($_.Length -le 0) { throw "Windows artifact is empty: $($_.FullName)" }
-          }
-          if ("${{ matrix.arch }}" -eq "x64") {
-            & $backend --help | Out-Null
-          }
-          Get-FileHash $backend -Algorithm SHA256 | Format-Table -AutoSize
-          $artifacts | Get-FileHash -Algorithm SHA256 | Format-Table -AutoSize
+        run: .\scripts\build-windows.ps1 -ElectronArch "${{ matrix.arch }}" -GoArch "${{ matrix.go_arch }}"
 
       - name: Upload Windows test artifact
         uses: actions/upload-artifact@v4
@@ -159,5 +71,6 @@ jobs:
           path: |
             releases/desktop/build/*.exe
             apps/desktop/assets/lwn-server.exe
+            releases/SHA256SUMS
           if-no-files-found: error
           retention-days: 3

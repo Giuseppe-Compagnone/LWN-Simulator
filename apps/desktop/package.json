@@ -9,7 +9,8 @@
   "scripts": {
     "compile": "tsc --build",
     "start": "yarn compile && electron .",
-    "build": "rm -rf dist && yarn compile && electron-builder --publish never",
+    "build": "yarn clean && yarn compile && electron-builder --publish never",
+    "clean": "node scripts/clean-dist.mjs",
     "lint": "eslint"
   },
   "dependencies": {
