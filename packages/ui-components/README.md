@@ -4,6 +4,9 @@ The UI components package contains the reusable visual building blocks shared
 by the web frontend, desktop launcher and Storybook. It keeps common controls
 and interaction patterns consistent across the application.
 
+The deployed component catalog is available at
+<https://giuseppe-compagnone.github.io/LWN-Simulator/storybook/>.
+
 ## Component groups
 
 - `src/components/common/`: buttons, logos, progress indicators, spinners and
