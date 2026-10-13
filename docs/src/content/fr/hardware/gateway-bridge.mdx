@@ -1,0 +1,11 @@
+---
+title: Gateway Bridge
+---
+
+# Gateway Bridge
+
+Gateway Bridge relie le simulateur à un packet forwarder UDP externe, par exemple ChirpStack Gateway Bridge. Il ne s'agit pas d'une passerelle supplémentaire et il ne crée pas de liaison entre passerelles.
+
+Dans sa page, activez **Enable the Semtech UDP Bridge**, puis renseignez **Gateway Bridge's address** (IPv4 ou URL) et **Gateway Bridge's Port**. Enregistrez avant de démarrer la simulation.
+
+Le bridge transporte le trafic des passerelles virtuelles. Les passerelles réelles utilisent leur propre adresse et port UDP. La configuration applicative de ChirpStack se fait à l'extérieur du simulateur.

@@ -1,10 +1,7 @@
 import "./globals.css";
-import { Footer, Layout, Navbar } from "nextra-theme-docs";
 import { Head } from "nextra/components";
-import { getPageMap } from "nextra/page-map";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import Image from "next/image";
 import { sitePath } from "@/utils";
 
 export const metadata: Metadata = {
@@ -13,8 +10,6 @@ export const metadata: Metadata = {
   icons: [`${sitePath}/favicon.png`],
 };
 
-const footer = <Footer>MIT {new Date().getFullYear()} © Nextra.</Footer>;
-
 export default async function RootLayout({
   children,
 }: {
@@ -22,34 +17,9 @@ export default async function RootLayout({
 }) {
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
-      <Head />
+        <Head />
       <body>
-        <Layout
-          navbar={
-            <Navbar
-              logo={
-                <div className="flex items-center gap-2">
-                  <Image
-                    src={`${sitePath}/favicon.png`}
-                    alt="logo"
-                    width={50}
-                    height={50}
-                    className="w-12 h-12"
-                  />
-                  <h1 className="text-2xl">LWN Simulator</h1>
-                </div>
-              }
-              projectLink="https://github.com/Giuseppe-Compagnone/LWN-Simulator"
-            />
-          }
-          pageMap={await getPageMap()}
-          docsRepositoryBase="https://github.com/Giuseppe-Compagnone/LWN-Simulator"
-          editLink="Edit this page on GitHub"
-          sidebar={{ defaultMenuCollapseLevel: 1, autoCollapse: true }}
-          footer={footer}
-        >
-          {children}
-        </Layout>
+        {children}
       </body>
     </html>
   );

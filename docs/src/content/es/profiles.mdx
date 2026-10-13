@@ -1,0 +1,21 @@
+---
+title: Perfiles de red
+---
+
+# Perfiles de red
+
+Cada perfil contiene una red independiente: sus dispositivos, gateways, ajustes del bridge e historial de simulaciones no se comparten con otros perfiles.
+
+## Gestionar perfiles
+
+Usa el selector de la barra superior para cambiar de red. Desde el menú puedes crear un perfil vacío, cambiar su nombre, exportarlo a un único archivo JSON, importar una copia como perfil nuevo o eliminarlo.
+
+Cada perfil tiene un identificador interno único. El nombre elegido solo sirve para reconocerlo en la interfaz.
+
+## Importar y exportar
+
+La exportación incluye la configuración de red y el historial disponible del perfil. La importación siempre crea un perfil nuevo y nunca sobrescribe el perfil seleccionado.
+
+## Simulaciones compartidas
+
+El backend ejecuta una sola simulación a la vez. Si otra red está ejecutando una simulación, el botón de inicio se desactiva y la interfaz muestra el motivo. Detén la simulación activa antes de iniciar otra.

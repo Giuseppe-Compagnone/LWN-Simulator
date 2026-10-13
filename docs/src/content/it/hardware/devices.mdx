@@ -1,0 +1,25 @@
+---
+title: Device
+---
+
+# Device
+
+Ogni device rappresenta un nodo LoRaWAN della rete.
+
+## Proprietà principali
+
+- **Nome**: etichetta mostrata nell'interfaccia.
+- **DevEUI**: identificativo esadecimale univoco a 64 bit.
+- **AppEUI/JoinEUI** e **AppKey**: credenziali usate da OTAA.
+- **DevAddr**, **NwkSKey** e **AppSKey**: parametri usati da ABP.
+- **Activation**: OTAA o ABP; determina il percorso di attivazione.
+- **Class**: A, B o C; determina finestre e disponibilità downlink.
+- **Uplink interval**: frequenza dei messaggi periodici.
+- **Payload** e **FPort**: dati applicativi e porta usati dagli uplink.
+- **Data rate**, **TX power**, **frequency** e **channel**: parametri radio del nodo.
+- **Latitude**, **longitude** e **antenna range**: posizione e copertura geometrica.
+- **Confirmed uplink**, **ADR**, **frame counter** e **retransmissions**: comportamento affidabile e MAC.
+
+## Consigli
+
+Usa DevEUI diversi per ogni device. Per ABP compila tutti i parametri di sessione; per OTAA verifica AppEUI e AppKey. Un intervallo più breve produce più traffico e più eventi.
