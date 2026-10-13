@@ -1,0 +1,21 @@
+---
+title: Profils réseau
+---
+
+# Profils réseau
+
+Chaque profil contient un réseau indépendant : appareils, passerelles, paramètres du bridge et historique des simulations restent séparés.
+
+## Gérer les profils
+
+Utilisez le sélecteur de la barre supérieure pour changer de réseau. Le menu permet de créer un profil vide, le renommer, l'exporter dans un fichier JSON unique, importer une copie comme nouveau profil ou le supprimer.
+
+Chaque profil possède un identifiant interne unique. Le nom choisi sert uniquement à l'identifier dans l'interface.
+
+## Importer et exporter
+
+L'export contient la configuration réseau et l'historique disponible. Un import crée toujours un nouveau profil et ne remplace jamais le profil sélectionné.
+
+## Simulations partagées
+
+Le backend n'exécute qu'une simulation à la fois. Si un autre profil est en cours d'exécution, le bouton de démarrage est désactivé et l'interface explique la contrainte. Arrêtez la simulation active avant d'en lancer une autre.

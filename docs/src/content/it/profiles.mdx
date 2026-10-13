@@ -1,0 +1,27 @@
+---
+title: Profili di rete
+---
+
+# Profili di rete
+
+Un profilo contiene una rete indipendente: device, gateway, impostazioni del bridge e cronologia delle simulazioni non vengono condivisi con gli altri profili.
+
+## Gestire i profili
+
+Usa il selettore nella barra superiore per cambiare rete. Dal menu puoi:
+
+- creare un profilo vuoto;
+- rinominare il profilo corrente;
+- esportarlo in un singolo file JSON;
+- importare una copia come nuovo profilo;
+- eliminare un profilo non più necessario.
+
+Ogni profilo ha un identificativo interno univoco. Il nome scelto serve solo a riconoscerlo nell'interfaccia.
+
+## Importazione ed esportazione
+
+L'esportazione include la configurazione della rete e la cronologia disponibile per quel profilo. L'importazione crea sempre un nuovo profilo e non sovrascrive quello selezionato. Conserva il file JSON originale se vuoi trasferire o archiviare la rete.
+
+## Simulazioni condivise
+
+Il backend esegue una sola simulazione alla volta. Se una simulazione è attiva in un altro profilo, il pulsante di avvio viene disabilitato e l'interfaccia indica quale vincolo è in corso. Arresta la simulazione attiva prima di avviarne un'altra.

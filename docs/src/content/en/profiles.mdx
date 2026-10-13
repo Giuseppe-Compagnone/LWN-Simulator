@@ -1,0 +1,152 @@
+---
+title: Profiles
+---
+
+import { Callout, Steps } from "nextra/components";
+
+# Profiles
+
+Profiles let you keep multiple independent LoRaWAN network configurations in
+the same application. Each profile has its own devices, gateways, gateway
+bridge settings, and simulation history.
+
+The active profile is shown in the application header, next to the theme
+control. Hardware, Simulation, and Logs use the profile that is currently
+selected there.
+
+<Callout type="info" emoji="🗂️">
+  A profile is a complete network workspace. Switching profiles changes the
+  visible network; it does not merge devices, gateways, or simulation history.
+</Callout>
+
+## Select a profile
+
+<Steps>
+### Open the selector
+
+Open the profile selector in the application header.
+
+### Choose a profile
+
+Select the profile you want to work with.
+
+### Continue working
+
+Open **Hardware**, **Simulation**, or **Logs**. Each page now uses the selected
+profile.
+</Steps>
+
+The selected profile remains active when you reload the page. Switching
+profiles does not copy or remove data: it changes which independent network
+configuration is displayed.
+
+## Create a profile
+
+<Steps>
+### Open profile actions
+
+Open the profile selector and choose **New profile**.
+
+### Name the network
+
+Enter a name and choose **Create profile**.
+
+### Configure the new profile
+
+The new profile becomes active immediately and starts with an empty network
+configuration.
+</Steps>
+
+The name must be between 1 and 100 characters and must be different from the
+name of another profile.
+
+## Rename a profile
+
+1. Select the profile you want to rename.
+2. Open the profile selector and choose **Rename**.
+3. Enter the new name and confirm.
+
+Renaming changes only the label used to identify the profile. Devices,
+gateways, bridge settings, and simulation history remain unchanged.
+
+## Delete a profile
+
+1. Select the profile you want to remove.
+2. Open the profile selector and choose **Delete**.
+3. Review the confirmation message and choose **Delete profile**.
+
+Deleting a profile removes its devices, gateways, gateway bridge settings, and
+simulation history. The application does not allow the last remaining profile
+to be deleted.
+
+## Export a profile
+
+Export creates one file containing the selected network configuration:
+
+- profile name and profile settings;
+- device configurations;
+- gateway configurations;
+- gateway bridge settings;
+- simulation runs and their recorded events.
+
+To export a profile:
+
+<Steps>
+### Select the source profile
+
+Select the profile to export.
+
+### Start the export
+
+Open the profile selector and choose **Export**.
+
+### Save the file
+
+Save the downloaded `.lwn-profile.json` file. The loading state ends when the
+download has started.
+</Steps>
+
+The export operation may take longer for profiles with large simulation
+histories. A loading indicator remains visible until the download starts.
+
+## Import a profile
+
+<Steps>
+### Choose Import
+
+Open the profile selector and choose **Import**.
+
+### Select an archive
+
+Select an `.lwn-profile.json` file from your computer.
+
+### Confirm completion
+
+Wait for the import confirmation. The new profile becomes active only after a
+successful import.
+</Steps>
+
+Import always creates a new profile. It never replaces the currently selected
+profile or overwrites an existing profile. If the imported name is already in
+use, the application assigns the imported profile a distinct name.
+
+After a successful import, the new profile becomes active. Its devices,
+gateways, bridge settings, and available simulation history are then visible in
+the corresponding sections.
+
+## Profile and simulation rules
+
+<Callout type="warning" emoji="⏱️">
+  Only one simulation can be active on a simulator server at a time, even when
+  multiple profiles exist. A profile can still be selected while another
+  profile contains the active run, but a new run cannot start until the current
+  one has stopped or failed.
+</Callout>
+
+When multiple profiles exist, the dashboard identifies the profile that owns
+the active run.
+
+When the same profile is open in multiple browser tabs or connected clients,
+changes to its hardware, bridge configuration, and simulation state are
+reflected in the other views automatically. Each profile remains isolated from
+the others.
