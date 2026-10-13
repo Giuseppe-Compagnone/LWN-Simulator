@@ -2,6 +2,8 @@
 title: Simulation dashboard
 ---
 
+import { Callout, Tabs } from "nextra/components";
+
 # Simulation dashboard
 
 The dashboard is designed for both observation and controlled traffic
@@ -12,6 +14,12 @@ specific LoRaWAN exchange.
 
 The **Network command console** is available while the simulation is running
 or paused. Choose one of its three tabs:
+
+<Callout type="info" emoji="🎛️">
+  The command console injects traffic into the current run. It does not change
+  the saved device configuration, so it is safe to use for one-off protocol
+  checks.
+</Callout>
 
 ### Uplink
 
@@ -52,6 +60,22 @@ Available command families include link checks, data-rate and transmission
 settings, duty-cycle configuration, receive-window configuration, channel
 configuration, device time, ping-slot settings, and beacon frequency.
 
+<Tabs items={["Uplink", "Downlink", "MAC command"]}>
+  <Tabs.Tab>
+    **Uplink** uses the selected device’s configured payload, activation mode,
+    frame settings, and regional behavior. Use it to trigger one application
+    transmission immediately.
+  </Tabs.Tab>
+  <Tabs.Tab>
+    **Downlink** validates the payload, FPort, data rate, and confirmation flags
+    before queueing the message for an eligible receive window.
+  </Tabs.Tab>
+  <Tabs.Tab>
+    **MAC command** exposes only the parameters required by the selected
+    command and keeps the command-specific validation visible in the form.
+  </Tabs.Tab>
+</Tabs>
+
 Every field includes contextual help. Required values and invalid ranges are
 reported before the command is queued.
 
@@ -77,4 +101,3 @@ conditions are unfavorable.
 Confirmed uplinks can open RX1 and RX2 windows and may be retransmitted when an
 acknowledgement is not received. Class B and Class C devices have additional
 downlink opportunities according to their configuration.
-

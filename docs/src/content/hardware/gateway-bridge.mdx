@@ -2,51 +2,86 @@
 title: Gateway Bridge
 ---
 
+import { Callout, Steps } from "nextra/components";
+
 # Gateway Bridge
 
-The Gateway Bridge page configures the UDP endpoint used by real gateways and
-packet-forwarder software. It is separate from virtual gateways: virtual
-gateways stay entirely inside the simulator and do not use this endpoint.
+The Gateway Bridge page configures the Semtech UDP endpoint used to exchange
+traffic with external packet-forwarder software, including ChirpStack Gateway
+Bridge. Virtual gateways can use this endpoint to expose simulated radio
+traffic outside the application. A gateway with type **Real** is configured
+separately with its own IPv4 address and port in the gateway form.
 
 The integration uses the Semtech UDP packet-forwarder protocol. A ChirpStack
 Gateway Bridge can therefore be used as the external transport between a
-real gateway and the simulator. The simulator remains responsible for the
-configured device sessions, radio decisions, packet processing, and runtime
-status; the Gateway Bridge only carries packets between the two sides.
+simulated gateway and an external network-side service. The simulator remains
+responsible for the configured device sessions, radio decisions, packet
+processing, and runtime status; the Gateway Bridge only carries packets
+between the two sides.
+
+<Callout type="warning" emoji="🔌">
+  The Gateway Bridge is a transport connection, not a second simulation
+  network. It does not replace a real gateway record and it does not make
+  gateways communicate directly with each other.
+</Callout>
 
 ## Configuration fields
 
 | Field | Meaning | Value |
 | --- | --- | --- |
-| **Gateway Bridge** | Enables or disables the UDP listener for the next simulation run. | Checkbox. |
-| **Gateway Bridge's address** | Local address on which the simulator listens. | IPv4 address or URL accepted by the form. |
+| **Gateway Bridge** | Enables or disables the external UDP transport for the next simulation run. | Checkbox. |
+| **Gateway Bridge's address** | Network address of the UDP bridge endpoint. | IPv4 address or URL accepted by the form. |
 | **Gateway Bridge's Port** | UDP port used by the bridge. | Numeric port, normally `1700`. |
 
 The address and port are disabled while the bridge checkbox is off. Click
 **Save settings** to store the configuration locally. The page shows the
 effective endpoint, protocol, and whether the settings have been saved.
 
-The address and port identify the local listener used by the simulator. They
-are not the address and port of an individual real gateway. Configure those
-gateway-specific values on the gateway’s **Real** hardware record.
+The address and port identify the bridge endpoint used by the simulator’s UDP
+transport. They are not the address and port of an individual real gateway.
+Configure those gateway-specific values on the gateway’s **Real** hardware
+record.
+
+When the bridge is enabled, use a reachable address. The default
+`0.0.0.0:1700` is a disabled-state default and is not a usable remote bridge
+endpoint by itself.
 
 Use **Reset to default** to restore the default address, port, and disabled
 state.
 
-## Connect a real gateway
+## Connect external gateway software
 
-1. Open **Hardware → Gateway Bridge**.
-2. Enable the bridge and set the address and UDP port.
-3. Save the settings.
-4. Make sure at least one active gateway with type **Real** is configured in Hardware.
-5. Set the real gateway’s IPv4 address and UDP port to the endpoint where that gateway can be reached.
-6. Configure the gateway’s packet forwarder or ChirpStack Gateway Bridge to send Semtech UDP traffic to the saved bridge endpoint.
-7. Start the simulation and monitor the **Connectivity** panel.
+<Steps>
+### Save the bridge endpoint
+
+Open **Hardware → Gateway Bridge**, enable the bridge, set the address and UDP
+port, and click **Save settings**.
+
+### Configure the simulated gateway side
+
+Create or edit an active gateway with type **Virtual**. Its location and
+Gateway EUI identify the gateway whose traffic is exposed through the bridge.
+
+### Point the packet forwarder at the bridge
+
+Configure the gateway’s packet forwarder or ChirpStack Gateway Bridge to send
+Semtech UDP traffic to the saved bridge endpoint.
+
+### Start and observe
+
+Start the simulation with the virtual gateway enabled. Monitor **Connectivity**,
+**Engine activity**, and **Logs** for heartbeats and packet ingress/egress.
+</Steps>
 
 The gateway should move from connecting/reconnecting to connected after its
 heartbeat is received. The runtime panel reports incoming and outgoing packet
 counts. The event stream reports connection changes, heartbeats, UDP ingress,
 UDP egress, and network errors.
+
+For a direct external gateway connection, configure a gateway with type
+**Real** in **Hardware → Gateways**. Set its Gateway EUI, reachable IPv4
+address, and UDP port there; the Gateway Bridge page is not a replacement for
+those gateway-specific settings.
 
 The Gateway EUI configured for the real gateway must match the EUI announced by
 the packet forwarder. This is how packets are associated with the correct
@@ -64,7 +99,7 @@ Use the dashboard to verify the connection:
 - **Logs** keeps the events after the run has stopped, including events linked
   to a specific device or gateway.
 
-Uplinks received from a real gateway update the matching device session. A
+Uplinks received from an external gateway update the matching device session. A
 valid confirmed uplink can produce an acknowledgement through the gateway.
 Downlinks queued from the dashboard are sent back through the gateway when the
 device has an appropriate receive opportunity. If the gateway temporarily
@@ -91,6 +126,11 @@ use a packet forwarder or ChirpStack Gateway Bridge pointed at the configured
 endpoint, then observe the same connection, packet, and error panels in the
 application.
 
+The simulator currently integrates with ChirpStack at the Gateway Bridge
+transport boundary. ChirpStack application/device provisioning and network
+server administration remain outside this page; configure those in your
+ChirpStack installation when your test requires them.
+
 ## Troubleshooting
 
 ### The gateway remains disconnected
@@ -100,7 +140,7 @@ Check that:
 1. the bridge is enabled and saved;
 2. the address is reachable from the packet-forwarder host;
 3. the UDP port is the same on both sides;
-4. the gateway is active and has type **Real**;
+4. at least one matching virtual gateway is active;
 5. no other process is already using the selected port.
 
 ### The gateway is connected but no uplinks arrive
@@ -108,8 +148,8 @@ Check that:
 Confirm that the packet-forwarder is sending `PUSH_DATA`, that its Gateway EUI
 matches the configured Gateway EUI, and that the transmitted LoRaWAN frame is
 valid for the configured device session. Also confirm that the packet
-forwarder targets the Gateway Bridge address and port, not the individual
-gateway endpoint. Check the event stream for ingress or validation errors.
+forwarder targets the configured bridge address and port. Check the event
+stream for ingress or validation errors.
 
 ### No downlink is visible at the gateway
 
@@ -121,8 +161,7 @@ uplink.
 
 ### The bridge cannot start
 
-Check that no other process is using the selected local UDP port. If the
-server is running on another machine, use an address reachable from the
-packet-forwarder and allow the UDP port through the host firewall. Save the
-settings before starting a new simulation; bridge configuration changes apply
-to the next run.
+Check that the selected endpoint is reachable and that the UDP port is open
+through the host firewall. If the server is running on another machine, use an
+address reachable from the packet-forwarder. Save the settings before
+starting a new simulation; bridge configuration changes apply to the next run.

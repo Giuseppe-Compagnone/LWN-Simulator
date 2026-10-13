@@ -2,6 +2,8 @@
 title: LoRaWAN Simulator
 ---
 
+import { Callout, Cards } from "nextra/components";
+
 # LoRaWAN Simulator
 
 Welcome to the official documentation of **LoRaWAN Simulator**.
@@ -13,7 +15,12 @@ The project is available in two editions:
 - **Desktop Edition** – A desktop application that provides a native user interface and can either start a local simulation server or connect to a remote one.
 - **Server Edition** – A standalone application that runs the simulation server and provides the web interface accessible through a browser.
 
-Both editions allow users to interact with the simulator. The main difference is how the application is deployed and accessed.
+Both editions expose the same simulation workspace. The main difference is how
+the application is deployed and accessed.
+
+<Callout type="info" emoji="💡">
+  If you are trying the simulator for the first time, start with [Installation](/getting-started/installation), then follow the [Simulation guide](/simulation).
+</Callout>
 
 ## Documentation
 
@@ -26,6 +33,26 @@ your needs.
 - [Desktop Edition](/getting-started/desktop-edition)
 - [Server Edition](/getting-started/server-edition)
 - [Configuration](/getting-started/configuration)
+- [Troubleshooting](/getting-started/troubleshooting)
+
+<Cards num={2}>
+  <Cards.Card
+    title="Configure a network"
+    href="/hardware"
+    arrow
+  >
+    Create devices and gateways, place them on the map, and configure a
+    Gateway Bridge when you want to connect external gateway software.
+  </Cards.Card>
+  <Cards.Card
+    title="Run and inspect traffic"
+    href="/simulation"
+    arrow
+  >
+    Start a repeatable simulation, inject protocol traffic, follow the live
+    metrics, and inspect every event from Logs.
+  </Cards.Card>
+</Cards>
 
 ### Hardware
 

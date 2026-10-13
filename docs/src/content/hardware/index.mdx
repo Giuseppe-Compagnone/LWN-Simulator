@@ -2,6 +2,8 @@
 title: Hardware management
 ---
 
+import { Callout, Steps } from "nextra/components";
+
 # Hardware management
 
 The Hardware section is the place where the simulated LoRaWAN network is
@@ -35,13 +37,29 @@ network: map, active hardware, health indicators, uptime, and recent events.
 Metrics that depend on simulation traffic remain unavailable until traffic is
 produced.
 
+<Callout type="info" emoji="🧩">
+  Start with a small network while learning the simulator: one device, one
+  gateway, and a location where the device is inside the gateway’s coverage.
+  Add more hardware only after the first traffic is behaving as expected.
+</Callout>
+
 ## Creating hardware
 
-1. Open **Hardware** and select **Devices** or **Gateways**.
-2. Select **Create**.
-3. Complete the form. Required fields are marked by the form validation.
-4. Use the map to select or refine latitude and longitude, when available.
-5. Submit the form and check the notification for the result.
+<Steps>
+### Choose the object type
+
+Open **Hardware** and select **Devices** or **Gateways**.
+
+### Complete the form
+
+Select **Create**, complete the form, and use the map to select or refine
+latitude and longitude when available.
+
+### Save and verify
+
+Submit the form and check the notification for the result. Required fields and
+invalid values are reported before the request is sent.
+</Steps>
 
 New devices are active by default. The create request therefore does not need
 an `active` field. The active state can be changed later from the edit form.

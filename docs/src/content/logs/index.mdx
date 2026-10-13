@@ -2,6 +2,8 @@
 title: Logs
 ---
 
+import { Callout, Steps } from "nextra/components";
+
 # Logs
 
 The Logs section is the historical view of the simulator. It lets you review
@@ -14,6 +16,11 @@ the same simulator server.
 
 Open **Logs** from the main navigation. Runs are shown with the most recent
 one first.
+
+<Callout type="info" emoji="🧾">
+  Logs are read-only evidence of a run. To change the scenario, update the
+  profile hardware or simulation settings and start a new run.
+</Callout>
 
 ## Simulation history
 
@@ -65,6 +72,23 @@ The right-hand panel contains all events recorded by the run. Each entry shows:
 Events can include device registration, join activity, uplinks and downlinks,
 receive windows, radio transmissions, collisions, packet loss, retries, and
 gateway or bridge connectivity changes.
+
+<Steps>
+### Select an object
+
+Choose a device or gateway in the object history list. Use the search field to
+find an object in a large run.
+
+### Read its history
+
+The selected-object panel shows only events involving that object, ordered from
+oldest to newest. Scroll to the beginning to load older entries.
+
+### Compare with the global stream
+
+Use the event stream on the right to see the wider sequence around the selected
+object’s events, including gateway, radio, and scheduler activity.
+</Steps>
 
 ## Live run history
 

@@ -2,6 +2,8 @@
 title: Devices
 ---
 
+import { Callout, Tabs } from "nextra/components";
+
 # Devices
 
 A device represents a LoRaWAN end device participating in the simulation. Its
@@ -21,6 +23,12 @@ location, frame handling, payload generation, and advanced radio behavior.
 
 The interface displays enum values in a readable form. For example,
 `confirmed-data-up` is shown as “confirmed data up”.
+
+<Callout type="warning" emoji="🔐">
+  Treat OTAA keys and ABP session keys as sensitive network credentials. The
+  simulator displays them to support configuration, but they should not be
+  shared in screenshots or public profile exports.
+</Callout>
 
 ## Location
 
@@ -56,6 +64,19 @@ Only the credential group matching the selected activation type is displayed.
 Changing activation mode after creation is intentionally disabled because it
 changes the meaning of the session credentials.
 
+<Tabs items={["OTAA", "ABP"]}>
+  <Tabs.Tab>
+    **OTAA** devices start without application session parameters. They must
+    complete a join exchange before normal application uplinks can be
+    delivered.
+  </Tabs.Tab>
+  <Tabs.Tab>
+    **ABP** devices start with the session address and keys already configured.
+    They do not need an OTAA join exchange before transmitting application
+    traffic.
+  </Tabs.Tab>
+</Tabs>
+
 ## Receive windows
 
 The RX1 and RX2 groups describe how the device listens for downlinks after an
@@ -63,18 +84,18 @@ uplink.
 
 | Group | Field | Meaning | Constraint |
 | --- | --- | --- | --- |
-| RX1 | `delay` | Delay before opening RX1. | Integer, zero or greater. |
-| RX1 | `duration` | RX1 listening duration. | Integer, zero or greater. |
+| RX1 | `delay` | Delay before opening RX1. | Integer, zero or greater, in milliseconds. |
+| RX1 | `duration` | RX1 listening duration. | Integer, zero or greater, in milliseconds. |
 | RX1 | `dataRateOffset` | Data-rate offset applied to RX1. | Integer, zero or greater. |
-| RX2 | `delay` | Delay before opening RX2. | Integer, zero or greater. |
-| RX2 | `duration` | RX2 listening duration. | Integer, zero or greater. |
-| RX2 | `channelFrequency` | Frequency used by RX2. | Positive numeric value. |
+| RX2 | `delay` | Delay before opening RX2. | Integer, zero or greater, in milliseconds. |
+| RX2 | `duration` | RX2 listening duration. | Integer, zero or greater, in milliseconds. |
+| RX2 | `channelFrequency` | Frequency used by RX2. | Positive numeric value in hertz. |
 | RX2 | `dataRate` | Data rate used by RX2. | Integer, zero or greater. |
 | RX2 | `ACKTimeout` | Time allowed for an acknowledgement after a confirmed uplink. | Integer from `1000` to `3000` milliseconds. |
 
-The contract stores the numeric values used by the simulator. Where a field is
-shown without a unit in the form, use the unit expected by the selected
-simulation configuration.
+The form provides contextual information beside the receive-window fields. If
+you are reproducing a network setup, keep the RX1 and RX2 values consistent
+with the receive-window behavior expected by the device.
 
 ## Frame configuration
 

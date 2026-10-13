@@ -2,6 +2,8 @@
 title: Simulation
 ---
 
+import { Callout, Steps } from "nextra/components";
+
 # Simulation
 
 The Simulation area is the operational workspace for running a LoRaWAN
@@ -22,19 +24,36 @@ sure their antenna ranges overlap the gateways that should receive them.
 
 If you are testing real gateways, configure the [Gateway Bridge](../hardware/gateway-bridge)
 and the real gateway records before starting the simulation. The bridge
-endpoint is the simulator’s local UDP listener; each real gateway record still
-needs its own Gateway EUI, address, and port.
+endpoint is the UDP transport boundary used by the simulator; each real gateway
+record still needs its own Gateway EUI, address, and port.
 
 Only one simulation can be active on a simulator server at a time. This rule
 applies across all profiles, so stop or finish the current run before starting
 a run from another profile.
 
+<Callout type="info" emoji="🧪">
+  Use a seed when you want to compare two runs. Keep the profile hardware,
+  speed, and seed unchanged so that differences in the results are meaningful.
+</Callout>
+
 ## Start a simulation
 
-1. Open **Simulation** from the main navigation.
-2. Set the **Speed** multiplier. `1.0x` follows normal simulated time; higher values are useful for testing long scenarios quickly.
-3. Optionally enter a numeric **Seed** to make a scenario repeatable.
-4. Click **Start simulation**.
+<Steps>
+### Open the dashboard
+
+Open **Simulation** from the main navigation.
+
+### Set the run parameters
+
+Set the **Speed** multiplier. `1.0x` follows normal simulated time; higher
+values are useful for testing long scenarios quickly. Optionally enter a
+numeric **Seed** to make a scenario repeatable.
+
+### Start the run
+
+Click **Start simulation**. The seed becomes unavailable after the run starts,
+while the speed remains adjustable.
+</Steps>
 
 The seed becomes unavailable after the run starts. This prevents the active
 scenario from changing unexpectedly. The speed can be changed while the run

@@ -2,9 +2,18 @@
 title: Installation
 ---
 
+import { Callout, Tabs } from "nextra/components";
+
 # Installation
 
-LoRaWAN Simulator is available in two editions depending on your deployment requirements.
+LoRaWAN Simulator is available in two editions depending on your deployment
+requirements.
+
+<Callout type="info" emoji="🧭">
+  Choose the **Desktop Edition** for a guided local or remote connection. Choose
+  the **Server Edition** when the simulator should be hosted once and shared by
+  browsers or desktop clients.
+</Callout>
 
 ## Desktop Edition
 
@@ -29,6 +38,39 @@ It can be used:
 - Remotely, by connecting from another machine through the server address.
 
 The Server Edition is recommended for shared environments, dedicated deployments, and scenarios where multiple users need access to the same simulation instance.
+
+## Platform packages
+
+Use the package that matches the operating system and CPU architecture of the
+machine where the application will run. Do not use a package built for a
+different architecture.
+
+<Tabs items={["Linux", "Windows", "macOS"]}>
+  <Tabs.Tab>
+    Linux distributions are provided as **AppImage**, **DEB**, and **RPM**
+    packages. AppImage is convenient when you do not want to install a system
+    package; DEB and RPM are better suited to distributions that use those
+    package managers.
+  </Tabs.Tab>
+  <Tabs.Tab>
+    Windows distributions are provided as an installer and a portable
+    executable. The installer is recommended for normal use; the portable
+    build is useful when installation privileges are limited.
+  </Tabs.Tab>
+  <Tabs.Tab>
+    macOS distributions are provided as a **DMG** installer and a **ZIP**
+    archive. Select the Intel or Apple Silicon build that matches the Mac.
+  </Tabs.Tab>
+</Tabs>
+
+The Server Edition is distributed as a standalone server executable. The
+Desktop Edition includes the local server when it is started in Local Mode.
+
+<Callout type="warning" emoji="⚠️">
+  If your operating system warns that the application is unsigned, follow the
+  operating system’s normal “open anyway” confirmation only when the file came
+  from a source you trust.
+</Callout>
 
 ## Choosing the right edition
 

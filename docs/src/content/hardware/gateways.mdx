@@ -2,12 +2,21 @@
 title: Gateways
 ---
 
+import { Callout, Tabs } from "nextra/components";
+
 # Gateways
 
 A gateway is the network-side endpoint that forwards LoRaWAN traffic. The
 simulator supports two gateway types. Both share their identity and geographic
 properties, while the connectivity settings depend on whether the gateway is
 virtual or real.
+
+<Callout type="info" emoji="🛰️">
+  Gateway coverage is determined by the distance between the gateway and each
+  device. Gateways do not relay traffic directly to one another; multiple
+  gateways extend coverage by independently receiving the same device
+  transmissions.
+</Callout>
 
 ## Common properties
 
@@ -50,6 +59,17 @@ the network.
 
 The create form only shows these fields when the gateway type is real. The
 gateway’s MAC address and Gateway EUI are still required for real gateways.
+
+<Tabs items={["Virtual", "Real"]}>
+  <Tabs.Tab>
+    A **Virtual** gateway is simulated locally. It is useful for repeatable
+    scenarios and does not require an external packet forwarder.
+  </Tabs.Tab>
+  <Tabs.Tab>
+    A **Real** gateway represents an external station. It uses its configured
+    IPv4 address and UDP port and must be reachable from the simulator.
+  </Tabs.Tab>
+</Tabs>
 
 ## Map and details
 

@@ -2,6 +2,8 @@
 title: Profiles
 ---
 
+import { Callout, Steps } from "nextra/components";
+
 # Profiles
 
 Profiles let you keep multiple independent LoRaWAN network configurations in
@@ -12,11 +14,27 @@ The active profile is shown in the application header, next to the theme
 control. Hardware, Simulation, and Logs use the profile that is currently
 selected there.
 
+<Callout type="info" emoji="🗂️">
+  A profile is a complete network workspace. Switching profiles changes the
+  visible network; it does not merge devices, gateways, or simulation history.
+</Callout>
+
 ## Select a profile
 
-1. Open the profile selector in the application header.
-2. Choose a profile from the list.
-3. Continue to **Hardware**, **Simulation**, or **Logs**.
+<Steps>
+### Open the selector
+
+Open the profile selector in the application header.
+
+### Choose a profile
+
+Select the profile you want to work with.
+
+### Continue working
+
+Open **Hardware**, **Simulation**, or **Logs**. Each page now uses the selected
+profile.
+</Steps>
 
 The selected profile remains active when you reload the page. Switching
 profiles does not copy or remove data: it changes which independent network
@@ -24,13 +42,23 @@ configuration is displayed.
 
 ## Create a profile
 
-1. Open the profile selector.
-2. Select **New profile**.
-3. Enter a name and choose **Create profile**.
+<Steps>
+### Open profile actions
+
+Open the profile selector and choose **New profile**.
+
+### Name the network
+
+Enter a name and choose **Create profile**.
+
+### Configure the new profile
+
+The new profile becomes active immediately and starts with an empty network
+configuration.
+</Steps>
 
 The name must be between 1 and 100 characters and must be different from the
-name of another profile. The new profile becomes active immediately and starts
-with an empty network configuration.
+name of another profile.
 
 ## Rename a profile
 
@@ -63,20 +91,40 @@ Export creates one file containing the selected network configuration:
 
 To export a profile:
 
-1. Select the profile to export.
-2. Open the profile selector.
-3. Choose **Export**.
-4. Save the downloaded `.lwn-profile.json` file.
+<Steps>
+### Select the source profile
+
+Select the profile to export.
+
+### Start the export
+
+Open the profile selector and choose **Export**.
+
+### Save the file
+
+Save the downloaded `.lwn-profile.json` file. The loading state ends when the
+download has started.
+</Steps>
 
 The export operation may take longer for profiles with large simulation
 histories. A loading indicator remains visible until the download starts.
 
 ## Import a profile
 
-1. Open the profile selector.
-2. Choose **Import**.
-3. Select an `.lwn-profile.json` file.
-4. Wait for the import confirmation.
+<Steps>
+### Choose Import
+
+Open the profile selector and choose **Import**.
+
+### Select an archive
+
+Select an `.lwn-profile.json` file from your computer.
+
+### Confirm completion
+
+Wait for the import confirmation. The new profile becomes active only after a
+successful import.
+</Steps>
 
 Import always creates a new profile. It never replaces the currently selected
 profile or overwrites an existing profile. If the imported name is already in
@@ -88,10 +136,15 @@ the corresponding sections.
 
 ## Profile and simulation rules
 
-Only one simulation can be active on a simulator server at a time, even when
-multiple profiles exist. A profile can still be selected while another profile
-contains the active run, but a new run cannot start until the current one has
-stopped or failed.
+<Callout type="warning" emoji="⏱️">
+  Only one simulation can be active on a simulator server at a time, even when
+  multiple profiles exist. A profile can still be selected while another
+  profile contains the active run, but a new run cannot start until the current
+  one has stopped or failed.
+</Callout>
+
+When multiple profiles exist, the dashboard identifies the profile that owns
+the active run.
 
 When the same profile is open in multiple browser tabs or connected clients,
 changes to its hardware, bridge configuration, and simulation state are
