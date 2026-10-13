@@ -60,6 +60,16 @@ func TestProfileRuntimeManagerIsolatesProfilesAndAllowsOneSimulation(t *testing.
 	if firstStorage.Directory() == secondStorage.Directory() {
 		t.Fatal("profiles share storage")
 	}
+	if err := first.Device.ImportDevices([]contracts.Device{
+		validSimulationDevice("a1c6e32b-4f0d-4b50-9fc5-000000000101"),
+	}); err != nil {
+		t.Fatalf("seed first profile device: %v", err)
+	}
+	if err := second.Device.ImportDevices([]contracts.Device{
+		validSimulationDevice("a1c6e32b-4f0d-4b50-9fc5-000000000102"),
+	}); err != nil {
+		t.Fatalf("seed second profile device: %v", err)
+	}
 
 	ctx := context.Background()
 	if _, err := first.Simulation.Start(ctx, contracts.SimulationConfig{Speed: 1}); err != nil {

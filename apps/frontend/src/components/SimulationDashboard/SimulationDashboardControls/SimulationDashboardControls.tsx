@@ -30,6 +30,11 @@ export const SimulationDashboardControls = (
           disabled: !props.canStart,
         }}
       />
+      {props.devicesLoaded && !props.hasActiveDevices && !isRunning && !isPaused && (
+        <p className="simulation-dashboard__simulation-lock" role="status">
+          Add at least one active device before starting a simulation.
+        </p>
+      )}
       {props.activeSimulationIsElsewhere && (
         <p className="simulation-dashboard__simulation-lock" role="status">
           {props.activeSimulationProfileName

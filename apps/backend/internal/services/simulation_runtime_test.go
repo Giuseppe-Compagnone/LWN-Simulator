@@ -108,7 +108,7 @@ func TestSimulationRuntimeSynchronizesHardwareRegistry(t *testing.T) {
 		t.Fatalf("register gateway: %v", err)
 	}
 	snapshot, err := service.Snapshot()
-	if err != nil || snapshot.State.DeviceCount != 1 || snapshot.State.GatewayCount != 1 {
+	if err != nil || snapshot.State.DeviceCount != 2 || snapshot.State.GatewayCount != 1 {
 		t.Fatalf("unexpected synchronized snapshot: %+v, %v", snapshot.State, err)
 	}
 	device.Name = "Updated runtime device"
@@ -117,6 +117,9 @@ func TestSimulationRuntimeSynchronizesHardwareRegistry(t *testing.T) {
 	}
 	if err := service.RemoveDevice(device.ID); err != nil {
 		t.Fatalf("remove device: %v", err)
+	}
+	if err := service.RemoveDevice("a1c6e32b-4f0d-4b50-9fc5-000000000080"); err != nil {
+		t.Fatalf("remove initial device: %v", err)
 	}
 	if err := service.RemoveGateway(gateway.ID); err != nil {
 		t.Fatalf("remove gateway: %v", err)

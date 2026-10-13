@@ -3,11 +3,13 @@ package services
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
+	"lwn-simulator-backend/internal/apperrors"
 )
 
 type memoryCheckpointStore struct {
@@ -37,6 +39,16 @@ func (store *memoryCheckpointStore) Clear() error {
 type simulationDeviceSource struct{}
 
 func (simulationDeviceSource) GetDevices(contracts.GetDevicesRequest) (contracts.GetDevicesResponse, error) {
+	device := validSimulationDevice("a1c6e32b-4f0d-4b50-9fc5-000000000080")
+	device.DevEUI = "70B3D57ED0000080"
+	return contracts.GetDevicesResponse{Devices: []contracts.Device{
+		device,
+	}}, nil
+}
+
+type emptySimulationDeviceSource struct{}
+
+func (emptySimulationDeviceSource) GetDevices(contracts.GetDevicesRequest) (contracts.GetDevicesResponse, error) {
 	return contracts.GetDevicesResponse{Devices: []contracts.Device{}}, nil
 }
 
@@ -96,6 +108,22 @@ func TestSimulationServiceLifecycleAndSingleSession(t *testing.T) {
 	}
 }
 
+func TestSimulationServiceRejectsStartWithoutActiveDevices(t *testing.T) {
+	service := NewSimulationService(
+		emptySimulationDeviceSource{},
+		simulationGatewaySource{},
+		types.Options{EventBuffer: 32},
+	)
+
+	_, err := service.Start(t.Context(), contracts.SimulationConfig{Speed: 1})
+	if err == nil || !errors.Is(err, apperrors.ErrInvalid) {
+		t.Fatalf("start without active devices returned %v, want invalid request", err)
+	}
+	if !strings.Contains(err.Error(), "active device") {
+		t.Fatalf("unexpected empty-device error: %v", err)
+	}
+}
+
 func TestSimulationServiceOutlivesStartRequestContext(t *testing.T) {
 	service := NewSimulationService(
 		simulationDeviceSource{},
@@ -151,8 +179,8 @@ func TestSimulationServiceBroadcastsUpdatesToMultipleSubscribers(t *testing.T) {
 	if _, err := service.Pause(); err != nil {
 		t.Fatalf("pause simulation: %v", err)
 	}
-	firstUpdate := receiveSimulationUpdate(t, first.Updates)
-	secondUpdate := receiveSimulationUpdate(t, second.Updates)
+	firstUpdate := receiveSimulationUpdateOfType(t, first.Updates, contracts.SimulationPaused)
+	secondUpdate := receiveSimulationUpdateOfType(t, second.Updates, contracts.SimulationPaused)
 	if firstUpdate.Event.Type != contracts.SimulationPaused || secondUpdate.Event.Type != contracts.SimulationPaused {
 		t.Fatalf("frontends received different lifecycle updates: %s, %s", firstUpdate.Event.Type, secondUpdate.Event.Type)
 	}
@@ -197,6 +225,26 @@ func receiveSimulationUpdate(t *testing.T, updates <-chan SimulationUpdate) Simu
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for simulation update")
 		return SimulationUpdate{}
+	}
+}
+
+func receiveSimulationUpdateOfType(
+	t *testing.T,
+	updates <-chan SimulationUpdate,
+	expected contracts.SimulationEventType,
+) SimulationUpdate {
+	t.Helper()
+	deadline := time.After(time.Second)
+	for {
+		select {
+		case update := <-updates:
+			if update.Event.Type == expected {
+				return update
+			}
+		case <-deadline:
+			t.Fatalf("timed out waiting for simulation event %s", expected)
+			return SimulationUpdate{}
+		}
 	}
 }
 

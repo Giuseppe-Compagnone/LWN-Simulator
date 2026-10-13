@@ -85,6 +85,8 @@ const SimulationDashboardPage = () => {
     () => deviceService.devices ?? [],
     [deviceService.devices],
   );
+  const devicesLoaded = deviceService.devices !== null;
+  const hasActiveDevices = devices.some((device) => device.active);
   const gateways = useMemo(
     () => gatewayService.gateways ?? [],
     [gatewayService.gateways],
@@ -126,6 +128,8 @@ const SimulationDashboardPage = () => {
       profileService.activeProfileID;
   const canStart =
     canStartFromCurrentProfile &&
+    devicesLoaded &&
+    hasActiveDevices &&
     !profileService.simulationActivityLoading &&
     !hasActiveSimulation;
   const activeSimulationProfile = profileService.profiles.find(
@@ -341,6 +345,8 @@ const SimulationDashboardPage = () => {
         fields={controlFields}
         status={status}
         canStart={canStart}
+        devicesLoaded={devicesLoaded}
+        hasActiveDevices={hasActiveDevices}
         activeSimulationIsElsewhere={activeSimulationIsElsewhere}
         activeSimulationProfileName={activeSimulationProfile?.name}
         onStart={start}

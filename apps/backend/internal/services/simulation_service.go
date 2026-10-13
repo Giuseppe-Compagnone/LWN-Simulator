@@ -198,6 +198,10 @@ func (s *SimulationService) Start(
 		s.finishStarting()
 		return contracts.SimulationSnapshot{}, fmt.Errorf("load devices: %w", err)
 	}
+	if !hasActiveSimulationDevice(devices.Devices) {
+		s.finishStarting()
+		return contracts.SimulationSnapshot{}, apperrors.Invalid("at least one active device is required to start a simulation")
+	}
 	gateways, err := s.gateways.GetGateways(contracts.GetGatewaysRequest{})
 	if err != nil {
 		s.finishStarting()
@@ -302,6 +306,15 @@ func (s *SimulationService) Start(
 	snapshot := runtime.Snapshot()
 	s.publishSnapshot(snapshot)
 	return snapshot, nil
+}
+
+func hasActiveSimulationDevice(devices []contracts.Device) bool {
+	for _, device := range devices {
+		if device.Active {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *SimulationService) Pause() (contracts.SimulationSnapshot, error) {
