@@ -172,6 +172,16 @@ export const mockBackend = async (
       return;
     }
 
+    if (path.endsWith("/gateway/create-gateway")) {
+      await route.fulfill(json({ gateway: { ...activeGateway, id: "gateway-new" } }));
+      return;
+    }
+
+    if (path.endsWith("/device/create-device")) {
+      await route.fulfill(json({ device: { ...activeDevice, id: "device-new" } }));
+      return;
+    }
+
     if (path.endsWith("/configuration/gateway-bridge")) {
       if (route.request().method() !== "GET") {
         try {
