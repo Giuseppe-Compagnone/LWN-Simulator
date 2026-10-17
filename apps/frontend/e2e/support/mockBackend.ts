@@ -237,6 +237,21 @@ export const mockBackend = async (
       return;
     }
 
+    if (path.endsWith("/simulation/uplinks")) {
+      await route.fulfill(json({ id: "action-uplink" }));
+      return;
+    }
+
+    if (path.endsWith("/simulation/downlinks")) {
+      await route.fulfill(json({ id: "action-downlink" }));
+      return;
+    }
+
+    if (path.endsWith("/simulation/mac-commands")) {
+      await route.fulfill(json({ id: "action-mac-command" }));
+      return;
+    }
+
     if (path.endsWith("/simulation/events")) {
       await route.fulfill(json({ events: [], lastSequence: 0 }));
       return;
