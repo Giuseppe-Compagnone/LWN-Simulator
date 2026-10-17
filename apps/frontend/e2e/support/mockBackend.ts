@@ -112,6 +112,7 @@ export const mockBackend = async (
     address: "0.0.0.0",
     port: 1700,
   };
+  let profiles = [profile, secondProfile];
   let simulationStatus = "idle";
 
   const simulationSnapshot = () => ({
@@ -149,7 +150,74 @@ export const mockBackend = async (
     const path = url.pathname.replace(/^\/api/, "");
 
     if (path.endsWith("/profile/get-profiles")) {
-      await route.fulfill(json({ profiles: [profile, secondProfile], total: 2 }));
+      await route.fulfill(json({ profiles, total: profiles.length }));
+      return;
+    }
+
+    if (path.endsWith("/profile/create-profile")) {
+      const body = route.request().postDataJSON() as { name?: string };
+      const createdProfile = {
+        id: `profile-${profiles.length + 1}`,
+        name: body.name ?? "New profile",
+      };
+      profiles = [...profiles, createdProfile];
+      await route.fulfill(json({ profile: createdProfile }));
+      return;
+    }
+
+    if (path.includes("/profile/update-profile/")) {
+      const body = route.request().postDataJSON() as { name?: string };
+      const id = decodeURIComponent(path.split("/").at(-1) ?? "");
+      const updatedProfile = profiles.find((item) => item.id === id);
+      if (!updatedProfile) {
+        await route.fulfill(json({ error: "Profile not found" }));
+        return;
+      }
+      const nextProfile = { ...updatedProfile, name: body.name ?? updatedProfile.name };
+      profiles = profiles.map((item) => (item.id === id ? nextProfile : item));
+      await route.fulfill(json({ profile: nextProfile }));
+      return;
+    }
+
+    if (path.includes("/profile/delete-profile/")) {
+      const id = decodeURIComponent(path.split("/").at(-1) ?? "");
+      profiles = profiles.filter((item) => item.id !== id);
+      await route.fulfill(json({}));
+      return;
+    }
+
+    if (path.includes("/profile/export-profile/")) {
+      const id = decodeURIComponent(path.split("/").at(-1) ?? "");
+      const exportedProfile = profiles.find((item) => item.id === id) ?? profile;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers: {
+          "access-control-allow-origin": "*",
+          "content-disposition": "attachment; filename=profile.json",
+        },
+        body: JSON.stringify({
+          format: "lwn-profile",
+          version: 1,
+          profile: exportedProfile,
+          devices: [],
+          gateways: [],
+          logs: [],
+        }),
+      });
+      return;
+    }
+
+    if (path.endsWith("/profile/import-profile")) {
+      const body = route.request().postDataJSON() as {
+        archive?: { profile?: { name?: string } };
+      };
+      const importedProfile = {
+        id: `profile-imported-${profiles.length + 1}`,
+        name: body.archive?.profile?.name ?? "Imported profile",
+      };
+      profiles = [...profiles, importedProfile];
+      await route.fulfill(json({ profile: importedProfile }));
       return;
     }
 
