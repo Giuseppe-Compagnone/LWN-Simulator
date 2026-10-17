@@ -53,6 +53,12 @@ export const mockBackend = async (
   page: Page,
   options: MockBackendOptions = {},
 ): Promise<void> => {
+  let gatewayBridge = {
+    enabled: false,
+    address: "0.0.0.0",
+    port: 1700,
+  };
+
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     const isBackendRequest =
@@ -86,9 +92,18 @@ export const mockBackend = async (
     }
 
     if (path.endsWith("/configuration/gateway-bridge")) {
-      await route.fulfill(
-        json({ enabled: false, address: "0.0.0.0", port: 1700 }),
-      );
+      if (route.request().method() !== "GET") {
+        try {
+          gatewayBridge = {
+            ...gatewayBridge,
+            ...(route.request().postDataJSON() as Partial<typeof gatewayBridge>),
+          };
+        } catch {
+          // Keep the previous bridge state when the request has no JSON body.
+        }
+      }
+
+      await route.fulfill(json(gatewayBridge));
       return;
     }
 
