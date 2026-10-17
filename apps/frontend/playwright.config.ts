@@ -3,6 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 const repositoryDirectory = path.resolve(process.cwd(), "../..");
 const externalServer = process.env.PLAYWRIGHT_EXTERNAL_SERVER === "true";
+const reuseExport = process.env.PLAYWRIGHT_REUSE_EXPORT === "true";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -26,8 +27,9 @@ export default defineConfig({
   webServer: externalServer
     ? undefined
     : {
-        command:
-          "yarn workspace @lwn-simulator/frontend build && node apps/frontend/e2e/static-server.mjs",
+        command: reuseExport
+          ? "node apps/frontend/e2e/static-server.mjs"
+          : "yarn workspace @lwn-simulator/frontend build && node apps/frontend/e2e/static-server.mjs",
         cwd: repositoryDirectory,
         url: "http://127.0.0.1:3000",
         reuseExistingServer: !process.env.CI,

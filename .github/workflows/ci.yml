@@ -52,6 +52,25 @@ jobs:
       - name: Build frontend assets
         run: yarn workspace @lwn-simulator/frontend build
 
+      - name: Install Playwright Chromium
+        run: yarn workspace @lwn-simulator/frontend exec playwright install --with-deps chromium
+
+      - name: Test frontend unit suite
+        run: yarn test:frontend:coverage
+
+      - name: Test frontend user journeys
+        run: yarn test:e2e
+        env:
+          PLAYWRIGHT_REUSE_EXPORT: true
+
+      - name: Upload frontend coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage-${{ github.sha }}
+          path: apps/frontend/coverage
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Test backend
         run: yarn test
 
