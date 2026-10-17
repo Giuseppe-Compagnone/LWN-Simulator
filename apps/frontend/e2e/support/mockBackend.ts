@@ -1,5 +1,9 @@
 import type { Page } from "@playwright/test";
 
+export type MockBackendOptions = {
+  logs?: "success" | "empty" | "error";
+};
+
 const profile = { id: "profile-1", name: "Default profile" };
 const secondProfile = { id: "profile-2", name: "Test profile" };
 
@@ -45,7 +49,10 @@ const json = (data: unknown) => ({
   body: JSON.stringify(data),
 });
 
-export const mockBackend = async (page: Page): Promise<void> => {
+export const mockBackend = async (
+  page: Page,
+  options: MockBackendOptions = {},
+): Promise<void> => {
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     const isBackendRequest =
@@ -86,6 +93,21 @@ export const mockBackend = async (page: Page): Promise<void> => {
     }
 
     if (path.endsWith("/simulation/logs")) {
+      if (options.logs === "error") {
+        await route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          headers: { "access-control-allow-origin": "*" },
+          body: JSON.stringify({ error: "Backend unavailable" }),
+        });
+        return;
+      }
+
+      if (options.logs === "empty") {
+        await route.fulfill(json({ runs: [], total: 0 }));
+        return;
+      }
+
       await route.fulfill(json({ runs, total: runs.length }));
       return;
     }
