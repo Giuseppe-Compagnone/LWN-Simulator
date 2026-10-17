@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import Form from "./Form";
-import { booleanCheckboxField, textField } from "./components";
+import { booleanCheckboxField, selectField, textField } from "./components";
 import SelectFormField from "./components/SelectFormField/SelectFormField";
 import TextFormField from "./components/TextFormField/TextFormField";
 
@@ -62,6 +62,30 @@ describe("form components", () => {
 
     expect(screen.getByText("This field is required")).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("accepts zero as a valid required numeric value", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(
+      <Form
+        fields={[
+          selectField({
+            name: "dataRate",
+            label: "Data rate",
+            value: 0,
+            error: null,
+            options: [{ value: 0 }],
+            required: true,
+          }),
+        ]}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(onSubmit).toHaveBeenCalledWith({ dataRate: 0 });
   });
 
   it("changes a custom checkbox field through the form logic", async () => {

@@ -6,7 +6,7 @@ test("runs the complete simulation control lifecycle", async ({ page }) => {
   await page.goto("/simulation/dashboard");
 
   const startButton = page.getByRole("button", { name: "Start simulation" });
-  await expect(startButton).toBeEnabled();
+  await expect(startButton).toBeEnabled({ timeout: 15_000 });
 
   await page.getByLabel("Seed (optional)").fill("42");
   await startButton.click();

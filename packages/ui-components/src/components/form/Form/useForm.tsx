@@ -157,7 +157,12 @@ export const useForm = (props: UseFormProps): FormLogic => {
       ) {
         let fieldIsValid = true;
 
-        if (field.required && !field.value) {
+        const isEmpty =
+          field.value === null ||
+          field.value === undefined ||
+          field.value === "";
+
+        if (field.required && isEmpty) {
           fieldIsValid = false;
           field.error = "This field is required";
         }

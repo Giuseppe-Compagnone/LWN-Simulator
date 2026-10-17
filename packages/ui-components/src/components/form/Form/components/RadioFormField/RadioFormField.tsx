@@ -11,7 +11,7 @@ const RadioFormField = (props: RadioFormFieldProps) => {
   useEffect(() => {
     if (disabled) return;
 
-    if (value == "") setValue(null);
+    if (value === "") setValue(null);
   }, [disabled, setValue, value]);
 
   return (
