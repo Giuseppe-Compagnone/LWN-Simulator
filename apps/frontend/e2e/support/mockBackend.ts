@@ -31,7 +31,7 @@ const activeDevice = {
     duration: 1,
     channelFrequency: 869525000,
     dataRate: 0,
-    ACKTimeout: 2,
+    ACKTimeout: 2000,
   },
   advancedConfig: { antennaRange: 5000, ADREnabled: true },
   frameConfig: {
@@ -59,6 +59,15 @@ const activeGateway = {
   latitude: 37.5079,
   longitude: 15.083,
   altitude: 20,
+};
+
+const editableGateway = {
+  ...activeGateway,
+  name: "Catania Physical Gateway",
+  type: "real",
+  gatewayIPv4: "192.168.1.20",
+  gatewayPort: 1700,
+  altitude: 25,
 };
 
 const runs = [
@@ -233,9 +242,51 @@ export const mockBackend = async (
       return;
     }
 
+    if (path.endsWith("/device/get-device/device-1")) {
+      await route.fulfill(json({ device: activeDevice }));
+      return;
+    }
+
+    if (path.includes("/device/update-device/")) {
+      const body = route.request().postDataJSON() as {
+        device?: Record<string, unknown>;
+      };
+      await route.fulfill(
+        json({
+          device: {
+            ...activeDevice,
+            ...(body.device ?? {}),
+            id: "device-1",
+          },
+        }),
+      );
+      return;
+    }
+
     if (path.endsWith("/gateway/get-gateways")) {
       await route.fulfill(
         json({ gateways: options.devices === "active" ? [activeGateway] : [] }),
+      );
+      return;
+    }
+
+    if (path.endsWith("/gateway/get-gateway/gateway-1")) {
+      await route.fulfill(json({ gateway: editableGateway }));
+      return;
+    }
+
+    if (path.includes("/gateway/update-gateway/")) {
+      const body = route.request().postDataJSON() as {
+        gateway?: Record<string, unknown>;
+      };
+      await route.fulfill(
+        json({
+          gateway: {
+            ...editableGateway,
+            ...(body.gateway ?? {}),
+            id: "gateway-1",
+          },
+        }),
       );
       return;
     }

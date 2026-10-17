@@ -34,8 +34,19 @@ import {
   SelectOption,
   textField,
 } from "@lwn-simulator/ui-components";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { DeviceFormProps } from "./DeviceForm.types";
+
+const getRx1DataRateOptions = (region: DeviceRegion): Array<SelectOption> => {
+  const [minimum, maximum] = rx1DataRateOffsetRange[region];
+
+  return Array.from({ length: maximum - minimum + 1 }, (_, index) => ({
+    value: (minimum + index).toString(),
+  }));
+};
+
+const getRx2DataRateOptions = (region: DeviceRegion): Array<SelectOption> =>
+  rx2DataRateOptions[region].map((option) => ({ value: option }));
 
 export const DeviceForm = (props: DeviceFormProps) => {
   // Hooks
@@ -44,7 +55,32 @@ export const DeviceForm = (props: DeviceFormProps) => {
   const mapLogic = useSensorMap({ mode: SensorMapMode.Coords });
 
   // Callbacks
-  const hydrateForm = (logic: FormLogic, device: Device) => {
+  const setRegionDependentFields = useCallback((
+    logic: FormLogic,
+    region: DeviceRegion,
+    values?: {
+      rx1DRO?: string;
+      rx2DR?: number;
+      rx2CF?: string;
+    },
+  ) => {
+    logic.setProp("rx1DRO", "options", getRx1DataRateOptions(region));
+    logic.setProp("rx2DR", "options", getRx2DataRateOptions(region));
+
+    const defaultFrequency = rx2Frequency[region].toString();
+    logic.setProp("rx2CF", "placeholder", defaultFrequency);
+    logic.setValue("rx2CF", values?.rx2CF ?? defaultFrequency);
+
+    if (values?.rx1DRO !== undefined) {
+      logic.setValue("rx1DRO", values.rx1DRO);
+    }
+
+    if (values?.rx2DR !== undefined) {
+      logic.setValue("rx2DR", values.rx2DR);
+    }
+  }, []);
+
+  const hydrateForm = useCallback((logic: FormLogic, device: Device) => {
     const values: Record<string, FormValue> = {
       active: device.active,
       name: device.name,
@@ -85,7 +121,13 @@ export const DeviceForm = (props: DeviceFormProps) => {
     Object.entries(values).forEach(([name, value]) =>
       logic.setValue(name, value),
     );
-  };
+
+    setRegionDependentFields(logic, device.locationConfig.region, {
+      rx1DRO: values.rx1DRO as string,
+      rx2DR: values.rx2DR as number,
+      rx2CF: values.rx2CF as string,
+    });
+  }, [setRegionDependentFields]);
 
   // Effects
   useEffect(() => {
@@ -97,7 +139,7 @@ export const DeviceForm = (props: DeviceFormProps) => {
       hydrateForm(formLogicRef.current, props.device);
       hydratedDeviceIdRef.current = props.device.id;
     }
-  }, [props.device]);
+  }, [hydrateForm, props.device]);
 
   useEffect(() => {
     if (formLogicRef.current && mapLogic.selectedPos) {
@@ -351,37 +393,10 @@ export const DeviceForm = (props: DeviceFormProps) => {
                   logic.setValue("rx1DRO", null);
 
                   if (logic.fieldsState.region.value) {
-                    const range =
-                      rx1DataRateOffsetRange[
-                        logic.fieldsState.region.value as DeviceRegion
-                      ];
-
-                    const values: Array<SelectOption> = [];
-
-                    for (let i = range[0]; i <= range[1]; i++) {
-                      values.push({
-                        value: i.toString(),
-                      });
-                    }
-
-                    logic.setProp("rx1DRO", "options", values);
-                    logic.setProp(
-                      "rx2DR",
-                      "options",
-                      rx2DataRateOptions[
-                        logic.fieldsState.region.value as DeviceRegion
-                      ].map((opt) => {
-                        return { value: opt };
-                      }),
+                    setRegionDependentFields(
+                      logic,
+                      logic.fieldsState.region.value as DeviceRegion,
                     );
-
-                    const freq =
-                      rx2Frequency[
-                        logic.fieldsState.region.value as DeviceRegion
-                      ];
-
-                    logic.setProp("rx2CF", "placeholder", freq.toString());
-                    logic.setValue("rx2CF", freq.toString());
                   } else {
                     logic.setProp(
                       "rx1DRO",
@@ -649,7 +664,9 @@ export const DeviceForm = (props: DeviceFormProps) => {
                 label: "RX1 Data Rate offset",
                 error: null,
                 placeholder: "Select DRO",
-                options: [],
+                options: props.device
+                  ? getRx1DataRateOptions(props.device.locationConfig.region)
+                  : [],
                 info: {
                   default: "Offset applied to the uplink data rate for RX1",
                 },
@@ -709,7 +726,9 @@ export const DeviceForm = (props: DeviceFormProps) => {
                 label: "RX2 Data Rate",
                 value: "",
                 placeholder: "0",
-                options: [],
+                options: props.device
+                  ? getRx2DataRateOptions(props.device.locationConfig.region)
+                  : [],
                 info: {
                   default:
                     "Data rate used for receiving downlink messages during RX2",

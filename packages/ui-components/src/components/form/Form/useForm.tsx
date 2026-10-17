@@ -124,11 +124,25 @@ export const useForm = (props: UseFormProps): FormLogic => {
       const nextState = Object.fromEntries(
         props.fields.map((field) => {
           const currentField = currentState[field.name];
+          const currentOptions = (
+            currentField as FormField & { options?: Array<unknown> } | undefined
+          )?.options;
+          const configuredOptions = (
+            field as FormField & { options?: Array<unknown> }
+          ).options;
+          const shouldPreserveRuntimeOptions =
+            Array.isArray(currentOptions) &&
+            currentOptions.length > 0 &&
+            Array.isArray(configuredOptions) &&
+            configuredOptions.length === 0;
 
           return [
             field.name,
             {
               ...field,
+              ...(shouldPreserveRuntimeOptions
+                ? { options: currentOptions }
+                : {}),
               value: currentField?.value ?? field.value,
               error: currentField?.error ?? field.error,
             },

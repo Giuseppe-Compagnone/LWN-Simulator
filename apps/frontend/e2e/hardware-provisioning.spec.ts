@@ -163,6 +163,59 @@ test("creates an ABP class C device", async ({ page }) => {
   await expect(page).toHaveURL(/\/hardware\/devices\/?$/);
 });
 
+test("loads dependent RX fields when editing a device", async ({ page }) => {
+  await mockBackend(page);
+  await page.goto("/hardware/devices");
+  await page.goto("/hardware/devices/new?deviceId=device-1");
+
+  const rx1DataRateOffset = page
+    .locator(".form-field-wrapper")
+    .filter({
+      has: page.locator(".field-label", { hasText: "RX1 Data Rate offset" }),
+    })
+    .locator(".selected-box");
+
+  await expect(page.getByLabel("RX2 Channel Frequency")).toHaveValue(
+    "869525000",
+  );
+  await expect(
+    page
+      .locator(".form-field-wrapper")
+      .filter({ has: page.locator(".field-label", { hasText: "RX2 Data Rate" }) })
+      .locator(".selected-box"),
+  ).toHaveText("0");
+  await expect(rx1DataRateOffset).toHaveText("0");
+});
+
+test("loads and saves an edited device", async ({ page }) => {
+  await mockBackend(page);
+  await page.goto("/hardware/devices");
+  await page.goto("/hardware/devices/new?deviceId=device-1");
+
+  await expect(page.getByLabel("Name")).toHaveValue("Catania Weather Station");
+  await expect(page.getByLabel("RX2 Channel Frequency")).toHaveValue(
+    "869525000",
+  );
+  await page.getByLabel("Name").fill("Catania Weather Station Updated");
+  await page.getByRole("button", { name: "Save" }).click();
+
+  await expect(page).toHaveURL(/\/hardware\/devices\/?$/);
+});
+
+test("loads and saves an edited real gateway", async ({ page }) => {
+  await mockBackend(page);
+  await page.goto("/hardware/gateways");
+  await page.goto("/hardware/gateways/new?gatewayId=gateway-1");
+
+  await expect(page.getByLabel("Name")).toHaveValue("Catania Physical Gateway");
+  await expect(page.getByLabel("Gateway IPv4")).toHaveValue("192.168.1.20");
+  await expect(page.getByLabel("Gateway Port")).toHaveValue("1700");
+  await page.getByLabel("Name").fill("Catania Physical Gateway Updated");
+  await page.getByRole("button", { name: "Save" }).click();
+
+  await expect(page).toHaveURL(/\/hardware\/gateways\/?$/);
+});
+
 test("keeps invalid device identifiers from being submitted", async ({ page }) => {
   await mockBackend(page);
   await page.goto("/hardware/devices/new");
