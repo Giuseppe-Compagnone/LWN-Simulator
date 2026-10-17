@@ -53,6 +53,7 @@ export const DeviceForm = (props: DeviceFormProps) => {
   const formLogicRef = useRef<FormLogic | null>(null);
   const hydratedDeviceIdRef = useRef<string | null>(null);
   const mapLogic = useSensorMap({ mode: SensorMapMode.Coords });
+  const { setAntennaRange, updatePos } = mapLogic;
 
   // Callbacks
   const setRegionDependentFields = useCallback((
@@ -127,7 +128,17 @@ export const DeviceForm = (props: DeviceFormProps) => {
       rx2DR: values.rx2DR as number,
       rx2CF: values.rx2CF as string,
     });
-  }, [setRegionDependentFields]);
+
+    updatePos(
+      device.locationConfig.latitude,
+      device.locationConfig.longitude,
+    );
+    setAntennaRange(device.advancedConfig.antennaRange);
+  }, [
+    setAntennaRange,
+    updatePos,
+    setRegionDependentFields,
+  ]);
 
   // Effects
   useEffect(() => {

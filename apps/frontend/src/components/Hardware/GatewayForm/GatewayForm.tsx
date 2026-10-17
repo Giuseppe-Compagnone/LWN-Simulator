@@ -22,7 +22,7 @@ import {
   radioField,
   textField,
 } from "@lwn-simulator/ui-components";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { GatewayFormProps } from "./GatewayForm.types";
 
 export const GatewayForm = (props: GatewayFormProps) => {
@@ -30,9 +30,10 @@ export const GatewayForm = (props: GatewayFormProps) => {
   const formLogicRef = useRef<FormLogic | null>(null);
   const hydratedGatewayIdRef = useRef<string | null>(null);
   const mapLogic = useSensorMap({ mode: SensorMapMode.Coords });
+  const { updatePos } = mapLogic;
 
   // Callbacks
-  const hydrateForm = (logic: FormLogic, gateway: Gateway) => {
+  const hydrateForm = useCallback((logic: FormLogic, gateway: Gateway) => {
     const values: Record<string, FormValue> = {
       active: gateway.active,
       name: gateway.name,
@@ -47,7 +48,9 @@ export const GatewayForm = (props: GatewayFormProps) => {
       altitude: gateway.altitude.toString(),
     };
     Object.entries(values).forEach(([name, value]) => logic.setValue(name, value));
-  };
+
+    updatePos(gateway.latitude, gateway.longitude);
+  }, [updatePos]);
 
   const coordinateFormat = (raw: string) =>
     raw
@@ -79,7 +82,7 @@ export const GatewayForm = (props: GatewayFormProps) => {
       hydrateForm(formLogicRef.current, props.gateway);
       hydratedGatewayIdRef.current = props.gateway.id;
     }
-  }, [props.gateway]);
+  }, [hydrateForm, props.gateway]);
 
   useEffect(() => {
     if (formLogicRef.current && mapLogic.selectedPos) {

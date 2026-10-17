@@ -178,6 +178,7 @@ test("loads dependent RX fields when editing a device", async ({ page }) => {
   await expect(page.getByLabel("RX2 Channel Frequency")).toHaveValue(
     "869525000",
   );
+  await expect(page.locator(".pos-marker")).toBeVisible();
   await expect(
     page
       .locator(".form-field-wrapper")

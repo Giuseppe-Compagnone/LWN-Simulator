@@ -611,6 +611,21 @@ func TestUDPVirtualGatewaySendsKeepaliveAndUplinkToBridge(t *testing.T) {
 	if err != nil || string(decoded) != "uplink" {
 		t.Fatalf("unexpected virtual uplink payload: %q (%v)", decoded, err)
 	}
+
+	downlinkBody := []byte(`{"txpk":{"imme":true,"freq":869.525,"modu":"LORA","datr":"SF9BW125","size":8,"data":"ZG93bmxpbms="}}`)
+	downlink := append(packetHeader([2]byte{0x34, 0x56}, pullResponseType), downlinkBody...)
+	if _, err := bridgeSocket.WriteToUDP(downlink, mustUDPAddr(adapter)); err != nil {
+		t.Fatalf("send bridge downlink to virtual gateway: %v", err)
+	}
+	readSemtechPacket(t, bridgeSocket, txAckType)
+	select {
+	case received := <-adapter.Packets():
+		if received.Kind != types.GatewayPacketDownlink || string(received.Payload) != "downlink" || received.Frequency != 869525000 {
+			t.Fatalf("unexpected virtual bridge downlink: %+v", received)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for virtual bridge downlink")
+	}
 }
 
 func mustUDPAddr(adapter types.GatewayAdapter) *net.UDPAddr {

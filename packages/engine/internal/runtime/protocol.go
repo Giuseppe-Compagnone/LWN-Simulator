@@ -154,6 +154,9 @@ func (e *Engine) processReceiveWindowLocked(scheduled types.ScheduledEvent) []co
 	if !ok {
 		return nil
 	}
+	if scheduled.FrameCounter < 0 && session.PendingJoinRequest == nil {
+		return nil
+	}
 	window := scheduled.Window
 	if window == "" {
 		if scheduled.Kind == types.ScheduledEventRX2Window {

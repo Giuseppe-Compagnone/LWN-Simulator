@@ -245,6 +245,9 @@ func (e *Engine) handleGatewayPacket(packet types.GatewayPacket) {
 }
 
 func (e *Engine) processExternalDownlinkLocked(packet types.GatewayPacket, decoded lorawan.Packet) []contracts.SimulationEvent {
+	if decoded.MType == lorawan.MTypeJoinAccept {
+		return e.processExternalJoinAcceptLocked(packet, decoded)
+	}
 	if decoded.MType != lorawan.MTypeUnconfirmedDataDown && decoded.MType != lorawan.MTypeConfirmedDataDown {
 		return []contracts.SimulationEvent{e.newPacketEventLocked(
 			contracts.DeviceDownlinkDropped,
@@ -268,7 +271,7 @@ func (e *Engine) processExternalDownlinkLocked(packet types.GatewayPacket, decod
 			device.ID, packet.GatewayID, "", uuid.NewString(),
 		)}
 	}
-	if decoded.FCnt <= uint32(session.FrameCounterDown) {
+	if session.ExternalDownlinkFrameCounterSet && decoded.FCnt <= session.LastExternalDownlinkFrameCounter {
 		e.metrics.FrameCounterErrors++
 		return []contracts.SimulationEvent{e.newProtocolEventLocked(
 			contracts.FrameCounterRejected,
@@ -300,6 +303,8 @@ func (e *Engine) processExternalDownlinkLocked(packet types.GatewayPacket, decod
 		}
 		downlink.Payload = payload
 	}
+	session.LastExternalDownlinkFrameCounter = decoded.FCnt
+	session.ExternalDownlinkFrameCounterSet = true
 	session.FrameCounterDown = int64(decoded.FCnt)
 	event := e.newDownlinkEventLocked(
 		contracts.DeviceDownlinkTransmitted,
@@ -321,6 +326,80 @@ func (e *Engine) processExternalDownlinkLocked(packet types.GatewayPacket, decod
 	events := []contracts.SimulationEvent{event}
 	events = append(events, e.applyDownlinkEffectsLocked(device, session, downlink, e.clock.Now())...)
 	return events
+}
+
+func (e *Engine) processExternalJoinAcceptLocked(packet types.GatewayPacket, decoded lorawan.Packet) []contracts.SimulationEvent {
+	for _, device := range e.registry.ActiveDevices() {
+		if device.OOTAConfig == nil {
+			continue
+		}
+		session := e.sessions[device.ID]
+		if session == nil || session.PendingJoinRequest == nil ||
+			!pendingJoinGateway(session.PendingJoinRequest, packet.GatewayID) {
+			continue
+		}
+		appKey, err := lorawan.DecodeHex(device.OOTAConfig.AppKey)
+		if err != nil {
+			return []contracts.SimulationEvent{e.newPacketEventLocked(
+				contracts.DeviceDownlinkDropped,
+				"external Join-Accept could not be decoded because the device AppKey is invalid",
+				device.ID, packet.GatewayID, "", uuid.NewString(),
+			)}
+		}
+		joinAccept, err := lorawan.DecodeJoinAccept(decoded.Raw, appKey)
+		if err != nil {
+			return []contracts.SimulationEvent{e.newPacketEventLocked(
+				contracts.DeviceDownlinkDropped,
+				"external Join-Accept was rejected because its MIC is invalid",
+				device.ID, packet.GatewayID, "", uuid.NewString(),
+			)}
+		}
+		nwkSKey, appSKey, err := lorawan.DeriveSessionKeys(appKey, joinAccept.AppNonce, joinAccept.NetID, session.DevNonce)
+		if err != nil {
+			return []contracts.SimulationEvent{e.newPacketEventLocked(
+				contracts.DeviceDownlinkDropped,
+				"external Join-Accept could not derive the device session keys",
+				device.ID, packet.GatewayID, "", uuid.NewString(),
+			)}
+		}
+		session.Joined = true
+		session.PendingJoinRequest = nil
+		session.DeviceAddress = fmt.Sprintf("%08X", joinAccept.DevAddr)
+		session.NwkSKey = nwkSKey
+		session.AppSKey = appSKey
+		session.RX1DataRateOffset = joinAccept.RX1DataRateOffset
+		session.RX2DataRate = joinAccept.RX2DataRate
+		rxDelay := joinAccept.RXDelay
+		session.ReceiveDelay = durationSeconds(&rxDelay)
+		session.FrameCounterDown = 0
+		packetID := uuid.NewString()
+		e.metrics.JoinAccepts++
+		return []contracts.SimulationEvent{e.newProtocolEventLocked(
+			contracts.JoinAcceptReceived,
+			fmt.Sprintf("OTAA Join-Accept received from external network server for DevAddr %s", session.DeviceAddress),
+			device.ID, packet.GatewayID, "", packetID, -1, 1, false, nil,
+		)}
+	}
+	return []contracts.SimulationEvent{e.newPacketEventLocked(
+		contracts.DeviceDownlinkDropped,
+		"external Join-Accept targets a device without a pending join request",
+		"", packet.GatewayID, "", uuid.NewString(),
+	)}
+}
+
+func pendingJoinGateway(pending *types.PendingJoinRequest, gatewayID string) bool {
+	if pending == nil {
+		return false
+	}
+	if len(pending.GatewayIDs) == 0 {
+		return true
+	}
+	for _, id := range pending.GatewayIDs {
+		if id == gatewayID {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *Engine) processRealUplinkLocked(packet types.GatewayPacket, decoded lorawan.Packet) []contracts.SimulationEvent {

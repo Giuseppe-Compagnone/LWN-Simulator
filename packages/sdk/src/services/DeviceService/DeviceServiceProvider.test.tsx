@@ -80,6 +80,18 @@ describe("DeviceServiceProvider", () => {
     expect(result.current.devices).toEqual([device]);
     expect(postSpy).toHaveBeenCalledWith("/create-device", {});
 
+    act(() =>
+      TestWebSocket.latest().message(
+        JSON.stringify({
+          type: "device.created",
+          timestampMilliseconds: 2,
+          profileID: "profile-1",
+          device,
+        }),
+      ),
+    );
+    await waitFor(() => expect(result.current.devices).toEqual([device]));
+
     await act(async () => {
       await result.current.deleteDevice({ id: device.id });
     });

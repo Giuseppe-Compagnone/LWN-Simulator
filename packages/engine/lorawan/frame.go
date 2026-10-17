@@ -59,6 +59,15 @@ type JoinRequestOptions struct {
 	AppKey   []byte
 }
 
+type JoinAccept struct {
+	AppNonce          uint32
+	NetID             uint32
+	DevAddr           uint32
+	RX1DataRateOffset int
+	RX2DataRate       int
+	RXDelay           int
+}
+
 func Parse(raw []byte) (Packet, error) {
 	if len(raw) < 5 {
 		return Packet{}, fmt.Errorf("%w: frame is too short", ErrInvalidFrame)
@@ -246,6 +255,38 @@ func BuildJoinAccept(options JoinAcceptOptions) ([]byte, error) {
 		return nil, err
 	}
 	return append(mhdr, encrypted...), nil
+}
+
+func DecodeJoinAccept(raw, appKey []byte) (JoinAccept, error) {
+	if len(raw) != 17 || raw[0] != MTypeJoinAccept<<5 {
+		return JoinAccept{}, fmt.Errorf("%w: join accept must contain 17 bytes", ErrInvalidFrame)
+	}
+	if len(appKey) != 16 {
+		return JoinAccept{}, fmt.Errorf("%w: AppKey must be 16 bytes", ErrInvalidFrame)
+	}
+	decrypted, err := aesEncrypt(appKey, raw[1:])
+	if err != nil {
+		return JoinAccept{}, err
+	}
+	message := append([]byte{raw[0]}, decrypted[:12]...)
+	mac, err := cmac(appKey, message)
+	if err != nil {
+		return JoinAccept{}, err
+	}
+	for index := 0; index < 4; index++ {
+		if mac[index] != decrypted[12+index] {
+			return JoinAccept{}, fmt.Errorf("%w: join accept MIC is invalid", ErrInvalidFrame)
+		}
+	}
+	settings := decrypted[10]
+	return JoinAccept{
+		AppNonce:          uint32(decrypted[0]) | uint32(decrypted[1])<<8 | uint32(decrypted[2])<<16,
+		NetID:             uint32(decrypted[3]) | uint32(decrypted[4])<<8 | uint32(decrypted[5])<<16,
+		DevAddr:           binary.LittleEndian.Uint32(decrypted[6:10]),
+		RX1DataRateOffset: int(settings >> 4),
+		RX2DataRate:       int(settings & 0x0f),
+		RXDelay:           int(decrypted[11]),
+	}, nil
 }
 
 func BuildJoinRequest(options JoinRequestOptions) ([]byte, error) {

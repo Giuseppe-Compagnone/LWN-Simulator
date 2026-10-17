@@ -449,6 +449,106 @@ func TestPhaseFiveRealOTAAJoinQueuesEncryptedJoinAccept(t *testing.T) {
 	}
 }
 
+func TestVirtualGatewayBridgeJoinAcceptCompletesExternalOTAAJoin(t *testing.T) {
+	adapter := newVirtualUplinkTestAdapter()
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000046")
+	gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c46")
+	clock := types.NewManualClock(0)
+	engine, err := New(
+		contracts.SimulationConfig{Speed: 1},
+		[]contracts.Device{device},
+		[]contracts.Gateway{gateway},
+		types.Options{Clock: clock, EventBuffer: 256, GatewayAdapterFactory: &virtualUplinkTestFactory{adapter: adapter}},
+	)
+	if err != nil {
+		t.Fatalf("create engine: %v", err)
+	}
+	startEngine(t, engine)
+	defer stopEngine(t, engine)
+
+	var joinAt time.Duration
+	foundJoin := false
+	for _, scheduled := range engine.Checkpoint().Scheduled {
+		if scheduled.Kind == types.ScheduledEventJoinRequest {
+			joinAt = scheduled.At
+			foundJoin = true
+			break
+		}
+	}
+	if !foundJoin {
+		t.Fatal("engine did not schedule an OTAA join request")
+	}
+	if err := clock.Advance(joinAt + 500*time.Millisecond); err != nil {
+		t.Fatalf("advance clock to the gateway uplink: %v", err)
+	}
+
+	var joinRequest types.GatewayPacket
+	select {
+	case joinRequest = <-adapter.uplinks:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for the virtual gateway join request")
+	}
+	decodedRequest, err := lorawan.Parse(joinRequest.Payload)
+	if err != nil || decodedRequest.MType != lorawan.MTypeJoinRequest {
+		t.Fatalf("unexpected bridge join request: packet=%+v error=%v", decodedRequest, err)
+	}
+	appKey, err := lorawan.DecodeHex(device.OOTAConfig.AppKey)
+	if err != nil {
+		t.Fatalf("decode AppKey: %v", err)
+	}
+	joinAccept, err := lorawan.BuildJoinAccept(lorawan.JoinAcceptOptions{
+		AppNonce:    0x010203,
+		NetID:       0x000001,
+		DevAddr:     0x26011BDA,
+		RX2DataRate: 5,
+		AppKey:      appKey,
+	})
+	if err != nil {
+		t.Fatalf("build external Join-Accept: %v", err)
+	}
+	adapter.packets <- types.GatewayPacket{
+		GatewayID: gateway.ID,
+		Kind:      types.GatewayPacketDownlink,
+		Payload:   joinAccept,
+	}
+	waitForEventType(t, engine.Events(), contracts.JoinAcceptReceived)
+
+	checkpoint := engine.Checkpoint()
+	session := checkpoint.Sessions[device.ID]
+	if !session.Joined || session.PendingJoinRequest != nil || session.DeviceAddress != "26011BDA" {
+		t.Fatalf("external Join-Accept did not complete the session: %+v", session)
+	}
+	expectedNwk, expectedApp, err := lorawan.DeriveSessionKeys(appKey, 0x010203, 0x000001, decodedRequest.DevNonce)
+	if err != nil {
+		t.Fatalf("derive expected session keys: %v", err)
+	}
+	if string(session.NwkSKey) != string(expectedNwk) || string(session.AppSKey) != string(expectedApp) {
+		t.Fatal("external Join-Accept did not install the network-server session keys")
+	}
+	fPort := byte(1)
+	downlink, err := lorawan.BuildDataFrame(lorawan.DataFrameOptions{
+		DevAddr:   0x26011BDA,
+		FCnt:      0,
+		FPort:     &fPort,
+		Payload:   []byte("server command"),
+		Direction: 1,
+		NwkSKey:   expectedNwk,
+		AppSKey:   expectedApp,
+	})
+	if err != nil {
+		t.Fatalf("build first external downlink: %v", err)
+	}
+	adapter.packets <- types.GatewayPacket{
+		GatewayID: gateway.ID,
+		Kind:      types.GatewayPacketDownlink,
+		Payload:   downlink,
+	}
+	downlinkEvent := waitForEventType(t, engine.Events(), contracts.DeviceDownlinkTransmitted)
+	if downlinkEvent.DeviceID == nil || *downlinkEvent.DeviceID != device.ID {
+		t.Fatalf("first external downlink was not applied to the joined device: %+v", downlinkEvent)
+	}
+}
+
 type fakeGatewayFactory struct {
 	adapter *fakeGatewayAdapter
 }

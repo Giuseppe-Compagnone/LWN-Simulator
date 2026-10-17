@@ -56,7 +56,8 @@ describe("SimulationServiceProvider", () => {
       await result.current.start({ speed: 1 });
     });
 
-    expect(result.current.snapshot).toBe(snapshot);
+    expect(result.current.snapshot?.state.status).toBe("running");
+    expect(result.current.snapshot?.state.speed).toBe(1);
     expect(postSpy).toHaveBeenCalledWith("/start", { speed: 1 });
     expect(result.current.events).toEqual([]);
   });
@@ -96,5 +97,32 @@ describe("SimulationServiceProvider", () => {
     });
 
     expect(result.current.events).toEqual([event]);
+  });
+
+  it("keeps the displayed simulation clock moving between realtime updates", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(ApiCaller.prototype, "get").mockResolvedValue({
+      events: [],
+      lastSequence: 0,
+    } as never);
+    vi.spyOn(ApiCaller.prototype, "post").mockResolvedValue({
+      ...snapshot,
+      state: { ...snapshot.state, elapsedMilliseconds: 1000 },
+    } as never);
+    const { result } = renderHook(() => useSimulationService(), { wrapper });
+    TestWebSocket.latest().open();
+
+    await act(async () => {
+      await result.current.start({ speed: 2 });
+    });
+    const initialElapsed = result.current.snapshot?.state.elapsedMilliseconds ?? 0;
+
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(result.current.snapshot?.state.elapsedMilliseconds).toBeGreaterThan(
+      initialElapsed,
+    );
   });
 });

@@ -81,6 +81,7 @@ func TestDeriveSessionKeysIsDeterministic(t *testing.T) {
 }
 
 func TestBuildJoinAcceptCreatesEncryptedPayload(t *testing.T) {
+	key := make([]byte, 16)
 	frame, err := BuildJoinAccept(JoinAcceptOptions{
 		AppNonce:          1,
 		NetID:             2,
@@ -88,7 +89,7 @@ func TestBuildJoinAcceptCreatesEncryptedPayload(t *testing.T) {
 		RX2DataRate:       5,
 		RX1DataRateOffset: 1,
 		RXDelay:           1,
-		AppKey:            make([]byte, 16),
+		AppKey:            key,
 	})
 	if err != nil {
 		t.Fatalf("build join accept: %v", err)
@@ -98,6 +99,18 @@ func TestBuildJoinAcceptCreatesEncryptedPayload(t *testing.T) {
 	}
 	if string(frame[1:]) == string(make([]byte, 16)) {
 		t.Fatal("join accept payload was not encrypted")
+	}
+	decoded, err := DecodeJoinAccept(frame, key)
+	if err != nil {
+		t.Fatalf("decode join accept: %v", err)
+	}
+	if decoded.AppNonce != 1 || decoded.NetID != 2 || decoded.DevAddr != 0x26011bda ||
+		decoded.RX1DataRateOffset != 1 || decoded.RX2DataRate != 5 || decoded.RXDelay != 1 {
+		t.Fatalf("unexpected decoded join accept: %+v", decoded)
+	}
+	frame[len(frame)-1] ^= 0xff
+	if _, err := DecodeJoinAccept(frame, key); err == nil {
+		t.Fatal("tampered join accept MIC was accepted")
 	}
 }
 
