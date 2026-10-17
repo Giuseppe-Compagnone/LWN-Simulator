@@ -4,6 +4,27 @@ import { defineConfig, devices } from "@playwright/test";
 const repositoryDirectory = path.resolve(process.cwd(), "../..");
 const externalServer = process.env.PLAYWRIGHT_EXTERNAL_SERVER === "true";
 const reuseExport = process.env.PLAYWRIGHT_REUSE_EXPORT === "true";
+const crossBrowser = process.env.PLAYWRIGHT_CROSS_BROWSER === "true";
+
+const projects = [
+  {
+    name: "chromium",
+    use: { ...devices["Desktop Chrome"] },
+  },
+];
+
+if (crossBrowser) {
+  projects.push(
+    {
+      name: "firefox",
+      use: { ...devices["Desktop Firefox"] },
+    },
+    {
+      name: "webkit",
+      use: { ...devices["Desktop Safari"] },
+    },
+  );
+}
 
 export default defineConfig({
   testDir: "./e2e",
@@ -18,12 +39,7 @@ export default defineConfig({
     screenshot: "only-on-failure",
     video: "retain-on-failure",
   },
-  projects: [
-    {
-      name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
-    },
-  ],
+  projects,
   webServer: externalServer
     ? undefined
     : {

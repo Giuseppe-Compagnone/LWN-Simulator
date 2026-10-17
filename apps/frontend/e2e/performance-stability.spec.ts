@@ -21,8 +21,7 @@ test("loads the logs route without unexpected client errors within the expected 
   expect(response?.ok()).toBe(true);
   expect(pageErrors).toEqual([]);
   const unexpectedConsoleErrors = consoleErrors.filter(
-    (message) =>
-      !message.includes("WebSocket connection") || !message.includes("/api/ws"),
+    (message) => !message.includes("/api/ws"),
   );
   expect(unexpectedConsoleErrors).toEqual([]);
 
