@@ -21,6 +21,8 @@
     "test:frontend:coverage": "yarn workspace @lwn-simulator/frontend test:coverage",
     "test:sdk": "yarn workspace @lwn-simulator/sdk test",
     "test:sdk:coverage": "yarn workspace @lwn-simulator/sdk test:coverage",
+    "test:ui-components": "yarn workspace @lwn-simulator/ui-components test",
+    "test:ui-components:coverage": "yarn workspace @lwn-simulator/ui-components test:coverage",
     "test:e2e": "yarn workspace @lwn-simulator/frontend test:e2e",
     "test:engine": "cd packages/engine && go test ./...",
     "test:race": "cd apps/backend && go test -race ./... && cd ../../packages/engine && go test -race ./...",
