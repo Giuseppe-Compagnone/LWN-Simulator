@@ -5,6 +5,7 @@ const repositoryDirectory = path.resolve(process.cwd(), "../..");
 const externalServer = process.env.PLAYWRIGHT_EXTERNAL_SERVER === "true";
 const reuseExport = process.env.PLAYWRIGHT_REUSE_EXPORT === "true";
 const crossBrowser = process.env.PLAYWRIGHT_CROSS_BROWSER === "true";
+const playwrightPort = process.env.PLAYWRIGHT_PORT ?? "3000";
 
 const projects = [
   {
@@ -52,7 +53,7 @@ export default defineConfig({
           ? "node apps/frontend/e2e/static-server.mjs"
           : "yarn workspace @lwn-simulator/frontend build && node apps/frontend/e2e/static-server.mjs",
         cwd: repositoryDirectory,
-        url: "http://127.0.0.1:3000",
+        url: `http://127.0.0.1:${playwrightPort}`,
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,
       },
