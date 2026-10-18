@@ -197,10 +197,21 @@ test("loads and saves an edited device", async ({ page }) => {
   await expect(page.getByLabel("RX2 Channel Frequency")).toHaveValue(
     "869525000",
   );
+  await expect(page.getByLabel("Payload Codec", { exact: true })).toBeChecked();
+  await expect(page.getByLabel("JavaScript Payload Codec")).toHaveValue(
+    "function decodeUplink(input) { return { data: {} }; }",
+  );
   await page.getByLabel("Name").fill("Catania Weather Station Updated");
+  await page
+    .getByLabel("JavaScript Payload Codec")
+    .fill("function decodeUplink(input) { return { data: { ok: true } }; }");
   await page.getByRole("button", { name: "Save" }).click();
 
   await expect(page).toHaveURL(/\/hardware\/devices\/?$/);
+  await page.goto("/hardware/devices/new?deviceId=device-1");
+  await expect(page.getByLabel("JavaScript Payload Codec")).toHaveValue(
+    "function decodeUplink(input) { return { data: { ok: true } }; }",
+  );
 });
 
 test("disables and re-enables a device while the simulation is running", async ({ page }) => {

@@ -24,6 +24,7 @@ import {
   Button,
   ButtonLayout,
   ButtonType,
+  codeEditorField,
   Form,
   FormField,
   FormLogic,
@@ -126,6 +127,8 @@ export const DeviceForm = (props: DeviceFormProps) => {
       MType: device.payloadConfig.MType,
       payload: device.payloadConfig.payload,
       base64Encoded: device.payloadConfig.base64Encoded,
+      payloadCodecEnabled: device.payloadConfig.payloadCodec?.enabled ?? false,
+      payloadCodec: device.payloadConfig.payloadCodec?.script ?? "",
       antennaRange: device.advancedConfig.antennaRange.toString(),
       ADREnabled: device.advancedConfig.ADREnabled,
     };
@@ -965,6 +968,33 @@ export const DeviceForm = (props: DeviceFormProps) => {
                     logic.setProp("payload", "validations", undefined);
                   }
                 },
+              }),
+              booleanCheckboxField({
+                value: false,
+                name: "payloadCodecEnabled",
+                label: "Payload Codec",
+                error: null,
+                text: "Enable",
+                info: {
+                  default:
+                    "Uses a JavaScript decoder to convert uplink bytes into readable data",
+                },
+              }),
+              codeEditorField({
+                name: "payloadCodec",
+                label: "JavaScript Payload Codec",
+                value: "",
+                placeholder:
+                  "function decodeUplink(input) {\\n  return { data: {} };\\n}",
+                info: {
+                  default:
+                    "Provide a decodeUplink(input) function compatible with the payload codec API",
+                },
+                error: null,
+                required: true,
+                resize: true,
+                display: (fieldsState: Record<string, FormField>) =>
+                  fieldsState.payloadCodecEnabled.value === true,
               }),
               textField({
                 name: "antennaRange",

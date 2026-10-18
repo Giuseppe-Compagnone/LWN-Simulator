@@ -120,6 +120,14 @@ const NewDevicePage = () => {
         MType: values.MType as DeviceMType,
         payload: values.payload as string,
         base64Encoded: values.base64Encoded as boolean,
+        ...(values.payloadCodecEnabled
+          ? {
+              payloadCodec: {
+                enabled: true,
+                script: values.payloadCodec as string,
+              },
+            }
+          : {}),
       },
       ...((values.activation as DeviceActivation) == DeviceActivation.Oota
         ? {
@@ -142,16 +150,26 @@ const NewDevicePage = () => {
 
     try {
       if (editingDevice) {
+        const device = {
+          ...editingDevice,
+          ...req,
+          devEUI: editingDevice.devEUI,
+          class: editingDevice.class,
+          activation: editingDevice.activation,
+          active: values.active as boolean,
+          payloadConfig: {
+            ...editingDevice.payloadConfig,
+            ...req.payloadConfig,
+          },
+        };
+
+        if (!values.payloadCodecEnabled) {
+          delete device.payloadConfig.payloadCodec;
+        }
+
         await deviceService.updateDevice({
           id: editingDevice.id,
-          device: {
-            ...editingDevice,
-            ...req,
-            devEUI: editingDevice.devEUI,
-            class: editingDevice.class,
-            activation: editingDevice.activation,
-            active: values.active as boolean,
-          },
+          device,
         });
         NotificationHandler.instance.success("Device updated");
         router.back();

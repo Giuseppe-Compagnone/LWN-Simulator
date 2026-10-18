@@ -45,6 +45,10 @@ const activeDevice = {
     MType: "unconfirmed-data-up",
     payload: "AQID",
     base64Encoded: true,
+    payloadCodec: {
+      enabled: true,
+      script: "function decodeUplink(input) { return { data: {} }; }",
+    },
   },
 };
 
