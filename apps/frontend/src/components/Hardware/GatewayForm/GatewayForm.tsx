@@ -25,6 +25,16 @@ import {
 import { useCallback, useEffect, useRef } from "react";
 import { GatewayFormProps } from "./GatewayForm.types";
 
+const lockFieldsDuringSimulation = (
+  fields: Array<FormField>,
+  locked: boolean,
+): Array<FormField> =>
+  fields.map((field) =>
+    locked && field.name !== "active"
+      ? { ...field, disabled: true, toolbar: undefined }
+      : field,
+  );
+
 export const GatewayForm = (props: GatewayFormProps) => {
   // Hooks
   const formLogicRef = useRef<FormLogic | null>(null);
@@ -121,7 +131,7 @@ export const GatewayForm = (props: GatewayFormProps) => {
               hydratedGatewayIdRef.current = props.gateway.id;
             }
           }}
-          fields={[
+          fields={lockFieldsDuringSimulation([
             booleanCheckboxField({
               value: props.gateway?.active ?? false,
               name: "active",
@@ -359,7 +369,7 @@ export const GatewayForm = (props: GatewayFormProps) => {
                 />
               ),
             }),
-          ]}
+          ], !!props.gateway && props.simulationActive)}
         />
       </div>
       <SensorMap logic={mapLogic} mode={SensorMapMode.Coords} />

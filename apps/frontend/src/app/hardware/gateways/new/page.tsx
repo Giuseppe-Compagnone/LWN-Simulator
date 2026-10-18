@@ -6,7 +6,7 @@ import {
   Gateway,
   GatewayType,
 } from "@lwn-simulator/contracts";
-import { useGatewayService } from "@lwn-simulator/sdk";
+import { useGatewayService, useProfileService } from "@lwn-simulator/sdk";
 import {
   FormValue,
   NotificationHandler,
@@ -19,13 +19,16 @@ import { Suspense, useEffect, useState } from "react";
 const NewGatewayPage = () => {
   // Hooks
   const gatewayService = useGatewayService();
+  const profileService = useProfileService();
   const router = useRouter();
   const searchParams = useSearchParams();
   const gatewayId = searchParams.get("gatewayId");
+  const simulationActive = profileService.simulationActivity?.active === true;
 
   // States
   const [editingGateway, setEditingGateway] = useState<Gateway | null>(null);
   const [isLoadingEdit, setIsLoadingEdit] = useState(!!gatewayId);
+  const editLocked = editingGateway !== null && simulationActive;
 
   // Effects
   useEffect(() => {
@@ -48,6 +51,20 @@ const NewGatewayPage = () => {
 
   // Callbacks
   const handleSubmit = async (values: Record<string, FormValue>) => {
+    if (editingGateway && simulationActive) {
+      try {
+        await gatewayService.updateGateway({
+          id: editingGateway.id,
+          gateway: { ...editingGateway, active: values.active as boolean },
+        });
+        NotificationHandler.instance.success("Gateway updated");
+        router.back();
+      } catch {
+        NotificationHandler.instance.error("Failed to update gateway");
+      }
+      return;
+    }
+
     const type = values.type as GatewayType;
     const req: CreateGatewayRequest = {
       name: values.name as string,
@@ -87,8 +104,19 @@ const NewGatewayPage = () => {
 
   return (
     <div className="page new-device-page new-gateway-page">
-      <PageHeader title={editingGateway ? "Edit Gateway" : "Create new Gateway"} />
-      <GatewayForm gateway={editingGateway} onSubmit={handleSubmit} />
+      <PageHeader
+        title={editingGateway ? "Edit Gateway" : "Create new Gateway"}
+        subTitle={
+          editLocked
+            ? "Simulation is active. Only the gateway status can be changed."
+            : undefined
+        }
+      />
+      <GatewayForm
+        gateway={editingGateway}
+        simulationActive={simulationActive}
+        onSubmit={handleSubmit}
+      />
     </div>
   );
 };

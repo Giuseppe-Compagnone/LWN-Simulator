@@ -167,6 +167,50 @@ func TestRuntimeControlsToggleEntitiesAndQueueManualUplink(t *testing.T) {
 	}
 }
 
+func TestUpdateDeviceCanDisableAndReenableTrafficDuringSimulation(t *testing.T) {
+	clock := types.NewManualClock(0)
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000003")
+	configureABP(&device)
+	device.PayloadConfig.UplinkInterval = 10
+	gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c03")
+	engine := newTestEngine(t, clock, device, gateway)
+	defer stopEngine(t, engine)
+
+	if err := clock.Advance(time.Second); err != nil {
+		t.Fatalf("advance to first uplink: %v", err)
+	}
+	waitForEventType(t, engine.Events(), contracts.GatewayPacketReceived)
+	if got := engine.Snapshot().Metrics.TotalUplinks; got != 1 {
+		t.Fatalf("expected one initial uplink, got %d", got)
+	}
+
+	device.Active = false
+	if err := engine.UpdateDevice(device); err != nil {
+		t.Fatalf("disable device during simulation: %v", err)
+	}
+	if snapshot := engine.Snapshot(); snapshot.Metrics.ActiveDevices != 0 {
+		t.Fatalf("disabled device remained active in runtime metrics: %+v", snapshot.Metrics)
+	}
+	if err := clock.Advance(20 * time.Second); err != nil {
+		t.Fatalf("advance while device is disabled: %v", err)
+	}
+	if got := engine.Snapshot().Metrics.TotalUplinks; got != 1 {
+		t.Fatalf("disabled device generated traffic: total uplinks=%d", got)
+	}
+
+	device.Active = true
+	if err := engine.UpdateDevice(device); err != nil {
+		t.Fatalf("re-enable device during simulation: %v", err)
+	}
+	if err := clock.Advance(2 * time.Second); err != nil {
+		t.Fatalf("advance after re-enabling device: %v", err)
+	}
+	waitForEventType(t, engine.Events(), contracts.GatewayPacketReceived)
+	if snapshot := engine.Snapshot(); snapshot.Metrics.ActiveDevices != 1 || snapshot.Metrics.TotalUplinks != 2 {
+		t.Fatalf("re-enabled device did not resume traffic: %+v", snapshot.Metrics)
+	}
+}
+
 func TestUpdateDeviceResetsSessionWhenCredentialsChange(t *testing.T) {
 	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000001")
 	configureABP(&device)

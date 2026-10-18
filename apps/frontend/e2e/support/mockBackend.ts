@@ -123,6 +123,8 @@ export const mockBackend = async (
   };
   let profiles = [profile, secondProfile];
   let simulationStatus = "idle";
+  let runtimeDevice = { ...activeDevice };
+  let runtimeGateway = { ...editableGateway };
 
   const simulationSnapshot = () => ({
     state: {
@@ -148,9 +150,7 @@ export const mockBackend = async (
 
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
-    const isBackendRequest =
-      url.port === "8080" ||
-      (url.port === "3000" && url.pathname.startsWith("/api/"));
+    const isBackendRequest = url.pathname.startsWith("/api/");
     if (!isBackendRequest) {
       await route.continue();
       return;
@@ -231,19 +231,24 @@ export const mockBackend = async (
     }
 
     if (path.endsWith("/simulation/activity")) {
-      await route.fulfill(json({ active: false, status: "idle" }));
+      await route.fulfill(
+        json({
+          active: simulationStatus === "running" || simulationStatus === "paused",
+          status: simulationStatus,
+        }),
+      );
       return;
     }
 
     if (path.endsWith("/device/get-devices")) {
       await route.fulfill(
-        json({ devices: options.devices === "active" ? [activeDevice] : [] }),
+        json({ devices: options.devices === "active" ? [runtimeDevice] : [] }),
       );
       return;
     }
 
     if (path.endsWith("/device/get-device/device-1")) {
-      await route.fulfill(json({ device: activeDevice }));
+      await route.fulfill(json({ device: runtimeDevice }));
       return;
     }
 
@@ -251,27 +256,24 @@ export const mockBackend = async (
       const body = route.request().postDataJSON() as {
         device?: Record<string, unknown>;
       };
-      await route.fulfill(
-        json({
-          device: {
-            ...activeDevice,
-            ...(body.device ?? {}),
-            id: "device-1",
-          },
-        }),
-      );
+      runtimeDevice = {
+        ...runtimeDevice,
+        ...(body.device ?? {}),
+        id: "device-1",
+      };
+      await route.fulfill(json({ device: runtimeDevice }));
       return;
     }
 
     if (path.endsWith("/gateway/get-gateways")) {
       await route.fulfill(
-        json({ gateways: options.devices === "active" ? [activeGateway] : [] }),
+        json({ gateways: options.devices === "active" ? [runtimeGateway] : [] }),
       );
       return;
     }
 
     if (path.endsWith("/gateway/get-gateway/gateway-1")) {
-      await route.fulfill(json({ gateway: editableGateway }));
+      await route.fulfill(json({ gateway: runtimeGateway }));
       return;
     }
 
@@ -279,14 +281,13 @@ export const mockBackend = async (
       const body = route.request().postDataJSON() as {
         gateway?: Record<string, unknown>;
       };
+      runtimeGateway = {
+        ...runtimeGateway,
+        ...(body.gateway ?? {}),
+        id: "gateway-1",
+      };
       await route.fulfill(
-        json({
-          gateway: {
-            ...editableGateway,
-            ...(body.gateway ?? {}),
-            id: "gateway-1",
-          },
-        }),
+        json({ gateway: runtimeGateway }),
       );
       return;
     }

@@ -48,6 +48,16 @@ const getRx1DataRateOptions = (region: DeviceRegion): Array<SelectOption> => {
 const getRx2DataRateOptions = (region: DeviceRegion): Array<SelectOption> =>
   rx2DataRateOptions[region].map((option) => ({ value: option }));
 
+const lockFieldsDuringSimulation = (
+  fields: Array<FormField>,
+  locked: boolean,
+): Array<FormField> =>
+  fields.map((field) =>
+    locked && field.name !== "active"
+      ? { ...field, disabled: true, toolbar: undefined }
+      : field,
+  );
+
 export const DeviceForm = (props: DeviceFormProps) => {
   // Hooks
   const formLogicRef = useRef<FormLogic | null>(null);
@@ -202,7 +212,7 @@ export const DeviceForm = (props: DeviceFormProps) => {
                 hydratedDeviceIdRef.current = props.device.id;
               }
             }}
-            fields={[
+            fields={lockFieldsDuringSimulation([
               booleanCheckboxField({
                 value: props.device?.active ?? false,
                 name: "active",
@@ -995,7 +1005,7 @@ export const DeviceForm = (props: DeviceFormProps) => {
                     "Allows the network to optimize the device's data rate and transmission power",
                 },
               }),
-            ]}
+            ], !!props.device && props.simulationActive)}
           />
         </div>
         <SensorMap logic={mapLogic} mode={SensorMapMode.Coords} />

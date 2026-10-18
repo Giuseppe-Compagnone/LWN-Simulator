@@ -10,7 +10,7 @@ import {
   DeviceRegion,
   OversizedPayloadBehavior,
 } from "@lwn-simulator/contracts";
-import { useDeviceService } from "@lwn-simulator/sdk";
+import { useDeviceService, useProfileService } from "@lwn-simulator/sdk";
 import {
   FormValue,
   NotificationHandler,
@@ -27,9 +27,12 @@ const NewDevicePage = () => {
 
   // Hooks
   const deviceService = useDeviceService();
+  const profileService = useProfileService();
   const router = useRouter();
   const searchParams = useSearchParams();
   const deviceId = searchParams.get("deviceId");
+  const simulationActive = profileService.simulationActivity?.active === true;
+  const editLocked = editingDevice !== null && simulationActive;
 
   // Effects
   useEffect(() => {
@@ -61,6 +64,20 @@ const NewDevicePage = () => {
 
   // Callbacks
   const handleSubmit = async (values: Record<string, FormValue>) => {
+    if (editingDevice && simulationActive) {
+      try {
+        await deviceService.updateDevice({
+          id: editingDevice.id,
+          device: { ...editingDevice, active: values.active as boolean },
+        });
+        NotificationHandler.instance.success("Device updated");
+        router.back();
+      } catch {
+        NotificationHandler.instance.error("Failed to update device");
+      }
+      return;
+    }
+
     const req: CreateDeviceRequest = {
       devEUI: values.devEUI as string,
       name: values.name as string,
@@ -159,8 +176,19 @@ const NewDevicePage = () => {
 
   return (
     <div className="page new-device-page">
-      <PageHeader title={editingDevice ? "Edit Device" : "Create new Device"} />
-      <DeviceForm device={editingDevice} onSubmit={handleSubmit} />
+      <PageHeader
+        title={editingDevice ? "Edit Device" : "Create new Device"}
+        subTitle={
+          editLocked
+            ? "Simulation is active. Only the device status can be changed."
+            : undefined
+        }
+      />
+      <DeviceForm
+        device={editingDevice}
+        simulationActive={simulationActive}
+        onSubmit={handleSubmit}
+      />
     </div>
   );
 };

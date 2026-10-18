@@ -203,6 +203,69 @@ test("loads and saves an edited device", async ({ page }) => {
   await expect(page).toHaveURL(/\/hardware\/devices\/?$/);
 });
 
+test("disables and re-enables a device while the simulation is running", async ({ page }) => {
+  await mockBackend(page, { devices: "active" });
+  await page.goto("/simulation/dashboard");
+
+  await page.getByRole("button", { name: "Start simulation" }).click();
+  await expect(page.getByText("Running", { exact: true })).toBeVisible();
+
+  await page.goto("/hardware/devices");
+  await page.goto("/hardware/devices/new?deviceId=device-1");
+  const activeField = page.locator('input[name="active"]');
+  const activeControl = page
+    .locator(".boolean-checkbox-form-field")
+    .filter({ has: activeField });
+  await expect(activeField).toBeChecked();
+  await expect(page.getByLabel("Name")).toBeDisabled();
+  await expect(page.getByLabel("Latitude")).toBeDisabled();
+  await expect(activeField).toBeEnabled();
+  await activeControl.locator(".box").click();
+  await expect(activeField).not.toBeChecked();
+  await page.getByRole("button", { name: "Save" }).click();
+
+  await expect(page).toHaveURL(/\/hardware\/devices\/?$/);
+  await expect(page.getByText("inactive", { exact: true })).toBeVisible();
+
+  await page.goto("/hardware/devices/new?deviceId=device-1");
+  await expect(activeField).not.toBeChecked();
+  await activeControl.locator(".box").click();
+  await expect(activeField).toBeChecked();
+  await page.getByRole("button", { name: "Save" }).click();
+
+  await expect(page).toHaveURL(/\/hardware\/devices\/?$/);
+  await expect(page.getByText("active", { exact: true })).toBeVisible();
+  await page.goto("/simulation/dashboard");
+  await expect(page.getByText("Running", { exact: true })).toBeVisible();
+});
+
+test("allows only gateway status changes while the simulation is running", async ({
+  page,
+}) => {
+  await mockBackend(page, { devices: "active" });
+  await page.goto("/simulation/dashboard");
+
+  await page.getByRole("button", { name: "Start simulation" }).click();
+  await expect(page.getByText("Running", { exact: true })).toBeVisible();
+
+  await page.goto("/hardware/gateways");
+  await page.goto("/hardware/gateways/new?gatewayId=gateway-1");
+  const activeField = page.locator('input[name="active"]');
+  const activeControl = page
+    .locator(".boolean-checkbox-form-field")
+    .filter({ has: activeField });
+
+  await expect(activeField).toBeChecked();
+  await expect(page.getByLabel("Name")).toBeDisabled();
+  await expect(page.getByLabel("Gateway IPv4")).toBeDisabled();
+  await expect(activeField).toBeEnabled();
+  await activeControl.locator(".box").click();
+  await page.getByRole("button", { name: "Save" }).click();
+
+  await expect(page).toHaveURL(/\/hardware\/gateways\/?$/);
+  await expect(page.getByText("inactive", { exact: true })).toBeVisible();
+});
+
 test("loads and saves an edited real gateway", async ({ page }) => {
   await mockBackend(page);
   await page.goto("/hardware/gateways");
