@@ -48,6 +48,7 @@ func (e *Engine) processJoinRequestLocked(scheduled types.ScheduledEvent) []cont
 	}
 
 	packetID := uuid.NewString()
+	session.DevNonce++
 	e.metrics.JoinRequests++
 	gateways := e.coveredGateways(device)
 	session.PendingJoinRequest = &types.PendingJoinRequest{
@@ -196,7 +197,8 @@ func (e *Engine) processReceiveWindowLocked(scheduled types.ScheduledEvent) []co
 
 	if session.PendingJoinRequest != nil && session.PendingJoinRequest.PacketID == scheduled.PacketID {
 		pending := session.PendingJoinRequest
-		if len(pending.GatewayIDs) > 0 && !windowExpired {
+		usesExternalTransport := e.gatewaysUseExternalTransportLocked(pending.GatewayIDs)
+		if len(pending.GatewayIDs) > 0 && !usesExternalTransport && !windowExpired {
 			session.Joined = true
 			session.JoinEUI = pending.JoinEUI
 			session.DeviceAddress = joinedDeviceAddress(session)
@@ -217,7 +219,10 @@ func (e *Engine) processReceiveWindowLocked(scheduled types.ScheduledEvent) []co
 	}
 
 	pending := session.PendingUplink
-	if pending == nil || pending.PacketID != scheduled.PacketID || pending.FrameCounter != scheduled.FrameCounter {
+	if pending == nil {
+		return events
+	}
+	if pending.PacketID != scheduled.PacketID || pending.FrameCounter != scheduled.FrameCounter {
 		e.metrics.FrameCounterErrors++
 		return append(events, e.newProtocolEventLocked(
 			contracts.FrameCounterRejected, "receive window does not match the pending frame counter",
@@ -226,7 +231,8 @@ func (e *Engine) processReceiveWindowLocked(scheduled types.ScheduledEvent) []co
 		))
 	}
 	continuousReceive := device.Class == contracts.ClassC
-	if len(pending.GatewayIDs) > 0 && (!windowExpired || continuousReceive) {
+	usesExternalTransport := e.gatewaysUseExternalTransportLocked(pending.GatewayIDs)
+	if len(pending.GatewayIDs) > 0 && !usesExternalTransport && (!windowExpired || continuousReceive) {
 		session.FrameCounterDown++
 		e.applyADRLocked(device, session)
 		e.metrics.AcknowledgedUplinks++
@@ -303,6 +309,15 @@ func (e *Engine) processReceiveWindowLocked(scheduled types.ScheduledEvent) []co
 	return append(events, e.scheduleUplinkLocked(device, scheduled.At)...)
 }
 
+func (e *Engine) gatewaysUseExternalTransportLocked(gatewayIDs []string) bool {
+	for _, gatewayID := range gatewayIDs {
+		if _, ok := e.gatewayAdapters[gatewayID]; ok {
+			return true
+		}
+	}
+	return false
+}
+
 func (e *Engine) applyADRLocked(device contracts.Device, session *types.DeviceSession) {
 	if !device.AdvancedConfig.ADREnabled || session == nil {
 		return
@@ -346,7 +361,7 @@ func gatewayIDs(gateways []contracts.Gateway) []string {
 }
 
 func (e *Engine) scheduleWindowLocked(device contracts.Device, source types.ScheduledEvent, window contracts.SimulationRxWindow, packetID string, frameCounter int64, confirmed bool) contracts.SimulationEvent {
-	delay := durationSeconds(device.RX1Config.Delay)
+	delay := durationMilliseconds(device.RX1Config.Delay)
 	session := e.sessions[device.ID]
 	if session != nil && session.ReceiveDelay > 0 {
 		delay = session.ReceiveDelay
@@ -355,8 +370,9 @@ func (e *Engine) scheduleWindowLocked(device contracts.Device, source types.Sche
 	dataRate := currentDeviceDataRate(e.sessions[device.ID], device)
 	frequency := source.ChannelFrequency
 	if window == contracts.RX2 {
-		delay = durationSeconds(device.RX2Config.Delay)
-		if session != nil && session.ReceiveDelay > 0 {
+		delay = durationMilliseconds(device.RX2Config.Delay)
+		configuredRX1Delay := durationMilliseconds(device.RX1Config.Delay)
+		if session != nil && session.ReceiveDelay > 0 && session.ReceiveDelay != configuredRX1Delay {
 			delay = session.ReceiveDelay + time.Second
 		}
 		kind = types.ScheduledEventRX2Window
@@ -516,6 +532,13 @@ func durationMilliseconds(value *int) time.Duration {
 		return 0
 	}
 	return time.Duration(*value) * time.Millisecond
+}
+
+func millisecondsAsWholeSeconds(value *int) int {
+	if value == nil || *value <= 0 {
+		return 0
+	}
+	return (*value + 999) / 1000
 }
 
 func intValue(value *int) int {

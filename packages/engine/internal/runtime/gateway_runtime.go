@@ -324,8 +324,53 @@ func (e *Engine) processExternalDownlinkLocked(packet types.GatewayPacket, decod
 	}
 	e.eventLog[len(e.eventLog)-1] = event
 	events := []contracts.SimulationEvent{event}
+	if decoded.ACK {
+		events = append(events, e.completeExternalUplinkACKLocked(device, session, packet.GatewayID)...)
+	}
 	events = append(events, e.applyDownlinkEffectsLocked(device, session, downlink, e.clock.Now())...)
 	return events
+}
+
+func (e *Engine) completeExternalUplinkACKLocked(device contracts.Device, session *types.DeviceSession, gatewayID string) []contracts.SimulationEvent {
+	pending := session.PendingUplink
+	if pending == nil || !pending.Confirmed {
+		return nil
+	}
+	e.metrics.AcknowledgedUplinks++
+	events := []contracts.SimulationEvent{e.newProtocolEventLocked(
+		contracts.UplinkACKReceived,
+		"uplink acknowledgement received from external network server",
+		device.ID,
+		gatewayID,
+		"",
+		pending.PacketID,
+		pending.FrameCounter,
+		pending.Attempt,
+		true,
+		nil,
+	)}
+	if pending.FragmentIndex+1 < pending.FragmentCount {
+		pending.FragmentIndex++
+		pending.Attempt = 1
+		pending.GatewayIDs = nil
+		next := types.ScheduledEvent{
+			ID: uuid.NewString(), At: e.clock.Now(), Type: contracts.DeviceUplinkTransmitted,
+			Message: "next application payload fragment scheduled", DeviceID: device.ID,
+			Kind: types.ScheduledEventDeviceUplink, Attempt: 1, PacketID: pending.PacketID,
+			FrameCounter: pending.FrameCounter, Confirmed: true,
+			FragmentIndex: pending.FragmentIndex, FragmentCount: pending.FragmentCount,
+		}
+		if err := e.scheduler.Schedule(next); err != nil {
+			session.PendingUplink = nil
+			return append(events, e.newEventLocked(contracts.PacketDropped, "next payload fragment could not be scheduled", device.ID, "", next.ID))
+		}
+		return append(events, e.newEventLocked(contracts.DeviceUplinkScheduled, "next application payload fragment scheduled", device.ID, "", next.ID))
+	}
+	session.PendingUplink = nil
+	e.metrics.SuccessfulUplinks++
+	e.metrics.PacketSuccessRate = e.packetSuccessRate()
+	events = append(events, e.newPacketEventLocked(contracts.MetricsUpdated, "simulation metrics updated", device.ID, gatewayID, "", pending.PacketID))
+	return append(events, e.scheduleUplinkLocked(device, pending.TransmissionAt)...)
 }
 
 func (e *Engine) processExternalJoinAcceptLocked(packet types.GatewayPacket, decoded lorawan.Packet) []contracts.SimulationEvent {
@@ -374,11 +419,12 @@ func (e *Engine) processExternalJoinAcceptLocked(packet types.GatewayPacket, dec
 		session.FrameCounterDown = 0
 		packetID := uuid.NewString()
 		e.metrics.JoinAccepts++
-		return []contracts.SimulationEvent{e.newProtocolEventLocked(
+		events := []contracts.SimulationEvent{e.newProtocolEventLocked(
 			contracts.JoinAcceptReceived,
 			fmt.Sprintf("OTAA Join-Accept received from external network server for DevAddr %s", session.DeviceAddress),
 			device.ID, packet.GatewayID, "", packetID, -1, 1, false, nil,
 		)}
+		return append(events, e.scheduleUplinkLocked(device, e.clock.Now())...)
 	}
 	return []contracts.SimulationEvent{e.newPacketEventLocked(
 		contracts.DeviceDownlinkDropped,
@@ -605,7 +651,7 @@ func (e *Engine) queueRealACKLocked(packet types.GatewayPacket, device contracts
 	if err != nil {
 		return false
 	}
-	delay := durationSeconds(device.RX1Config.Delay)
+	delay := durationMilliseconds(device.RX1Config.Delay)
 	transmitAt := time.Now().Add(time.Duration(float64(delay) / e.state.Speed))
 	dataRate := gatewayPacketDataRate(device, packet)
 	if dataRate < 0 {
@@ -641,13 +687,13 @@ func (e *Engine) queueRealJoinAcceptLocked(packet types.GatewayPacket, device co
 		DevAddr:           devAddr,
 		RX2DataRate:       intValue(device.RX2Config.DataRate),
 		RX1DataRateOffset: intValue(device.RX1Config.DataRateOffset),
-		RXDelay:           intValue(device.RX1Config.Delay),
+		RXDelay:           millisecondsAsWholeSeconds(device.RX1Config.Delay),
 		AppKey:            appKey,
 	})
 	if err != nil {
 		return false
 	}
-	delay := durationSeconds(device.RX1Config.Delay)
+	delay := durationMilliseconds(device.RX1Config.Delay)
 	transmitAt := time.Now().Add(time.Duration(float64(delay) / e.state.Speed))
 	bandwidth := gatewayPacketBandwidth(packet)
 	e.gatewayPackets = append(e.gatewayPackets, types.GatewayPacket{

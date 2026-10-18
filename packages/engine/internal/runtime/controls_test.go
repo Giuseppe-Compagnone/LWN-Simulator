@@ -1,12 +1,86 @@
 package runtime
 
 import (
+	"errors"
 	"testing"
 	"time"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 )
+
+func TestRuntimeSpeedAndSchedulerControls(t *testing.T) {
+	clock := types.NewManualClock(0)
+	engine, err := New(contracts.SimulationConfig{Speed: 1}, nil, nil, types.Options{Clock: clock, EventBuffer: 32})
+	if err != nil {
+		t.Fatalf("create engine: %v", err)
+	}
+	if err := engine.SetSpeed(2); !errors.Is(err, ErrInvalidTransition) {
+		t.Fatalf("speed change before start should fail with transition error: %v", err)
+	}
+	if err := engine.Cancel("missing"); !errors.Is(err, ErrInvalidTransition) {
+		t.Fatalf("cancel before start should fail with transition error: %v", err)
+	}
+	startEngine(t, engine)
+	defer stopEngine(t, engine)
+	if err := engine.SetSpeed(4); err != nil {
+		t.Fatalf("set runtime speed: %v", err)
+	}
+	if snapshot := engine.Snapshot(); snapshot.State.Speed != 4 {
+		t.Fatalf("runtime speed was not updated: %+v", snapshot.State)
+	}
+	if err := engine.SetSpeed(0); err == nil {
+		t.Fatal("invalid runtime speed was accepted")
+	}
+	event := types.ScheduledEvent{ID: "cancel-me", At: time.Hour, Type: contracts.DeviceRegistered, Message: "never run"}
+	if err := engine.Schedule(event); err != nil {
+		t.Fatalf("schedule cancellable event: %v", err)
+	}
+	if err := engine.Cancel(event.ID); err != nil {
+		t.Fatalf("cancel event: %v", err)
+	}
+	if err := engine.Cancel(event.ID); !errors.Is(err, ErrEventNotFound) {
+		t.Fatalf("second cancellation should report missing event: %v", err)
+	}
+	if !containsEventType(engine.EventLog(), contracts.SchedulerEventCancelled) {
+		t.Fatal("scheduler cancellation was not logged")
+	}
+}
+
+func TestRuntimeControlErrorsAreExplicit(t *testing.T) {
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000205")
+	configureABP(&device)
+	gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7205")
+	engine, err := New(contracts.SimulationConfig{Speed: 1}, []contracts.Device{device}, []contracts.Gateway{gateway}, types.Options{Clock: types.NewManualClock(0)})
+	if err != nil {
+		t.Fatalf("create engine: %v", err)
+	}
+	startEngine(t, engine)
+	defer stopEngine(t, engine)
+
+	if err := engine.RegisterDevice(device); err == nil {
+		t.Fatal("duplicate device registration was accepted")
+	}
+	if err := engine.RegisterGateway(gateway); err == nil {
+		t.Fatal("duplicate gateway registration was accepted")
+	}
+	if err := engine.RemoveDevice("missing"); !errors.Is(err, ErrDeviceNotFound) {
+		t.Fatalf("missing device removal returned the wrong error: %v", err)
+	}
+	if err := engine.RemoveGateway("missing"); !errors.Is(err, ErrGatewayNotFound) {
+		t.Fatalf("missing gateway removal returned the wrong error: %v", err)
+	}
+	missingDevice := device
+	missingDevice.ID = "a1c6e32b-4f0d-4b50-9fc5-000000000299"
+	if err := engine.UpdateDevice(missingDevice); !errors.Is(err, ErrDeviceNotFound) {
+		t.Fatalf("missing device update returned the wrong error: %v", err)
+	}
+	missingGateway := gateway
+	missingGateway.ID = "6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7299"
+	if err := engine.UpdateGateway(missingGateway); !errors.Is(err, ErrGatewayNotFound) {
+		t.Fatalf("missing gateway update returned the wrong error: %v", err)
+	}
+}
 
 func TestUpdateDeviceAppliesRuntimeConfigurationAndPersistsIt(t *testing.T) {
 	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000001")

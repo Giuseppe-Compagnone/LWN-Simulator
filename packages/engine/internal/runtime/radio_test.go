@@ -1,12 +1,51 @@
 package runtime
 
 import (
+	"encoding/base64"
 	"testing"
 	"time"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 )
+
+func TestPayloadAndRadioParameterHelpers(t *testing.T) {
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000207")
+	device.PayloadConfig.Payload = base64.StdEncoding.EncodeToString([]byte("binary payload"))
+	device.PayloadConfig.Base64Encoded = true
+	if got := string(payloadBytes(device)); got != "binary payload" {
+		t.Fatalf("base64 payload was not decoded: %q", got)
+	}
+	if size := effectivePayloadSize(device, 5); size != len("binary payload") {
+		t.Fatalf("effective payload size ignored encoding: %d", size)
+	}
+	device.PayloadConfig.Payload = "invalid%%"
+	if payload := payloadBytes(device); payload != nil {
+		t.Fatalf("invalid base64 should not produce bytes: %x", payload)
+	}
+
+	configured := 2
+	device.AdvancedConfig.UplinkDataRate = &configured
+	if got := currentDeviceDataRate(nil, device); got != 2 {
+		t.Fatalf("configured data rate was ignored: %d", got)
+	}
+	session := newDeviceSession(device)
+	session.CurrentDataRate = 4
+	if got := currentDeviceDataRate(session, device); got != 4 {
+		t.Fatalf("session data rate was ignored: %d", got)
+	}
+	session.CurrentDataRate = 99
+	if got := currentDeviceDataRate(session, device); got != 2 {
+		t.Fatalf("invalid session rate should fall back to configured rate: %d", got)
+	}
+
+	if minimumRequiredSNR(7) != -7.5 || minimumRequiredSNR(99) != -20 {
+		t.Fatal("spreading-factor SNR thresholds are incorrect")
+	}
+	if dataRateString(6, 125_000) != "" || dataRateString(7, 0) != "" || dataRateString(12, 125_000) != "SF12BW125" {
+		t.Fatal("Semtech data-rate formatting accepted invalid modulation parameters")
+	}
+}
 
 func TestPhaseFourRadioEventsExposeLinkMetrics(t *testing.T) {
 	clock := types.NewManualClock(0)

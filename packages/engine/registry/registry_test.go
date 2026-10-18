@@ -90,8 +90,8 @@ func completeRegistryDevice(device *contracts.Device) {
 	device.Activation = contracts.ABP
 	device.ABPConfig = &contracts.ABPConfig{DevAddr: "26011BDA", NwkSKey: "00000000000000000000000000000000", AppSKey: "00000000000000000000000000000000"}
 	device.LocationConfig = contracts.LocationConfig{Latitude: float32Pointer(37.5), Longitude: float32Pointer(15.1), Altitude: float32Pointer(100), Region: contracts.EU868}
-	device.RX1Config = contracts.RX1Config{Delay: intPointer(1), Duration: intPointer(1000), DataRateOffset: intPointer(0)}
-	device.RX2Config = contracts.RX2Config{Delay: intPointer(1), Duration: intPointer(1000), ChannelFrequency: 869525000, DataRate: intPointer(5), ACKTimeout: 2000}
+	device.RX1Config = contracts.RX1Config{Delay: intPointer(1000), Duration: intPointer(1000), DataRateOffset: intPointer(0)}
+	device.RX2Config = contracts.RX2Config{Delay: intPointer(2000), Duration: intPointer(1000), ChannelFrequency: 869525000, DataRate: intPointer(5), ACKTimeout: 2000}
 	device.FrameConfig.Retransmission = intPointer(0)
 	device.PayloadConfig = contracts.PayloadConfig{UplinkInterval: 10, OversizedPayloadBehavior: contracts.Truncate, MType: contracts.UnconfirmedDataUp}
 	device.AdvancedConfig.AntennaRange = 1000

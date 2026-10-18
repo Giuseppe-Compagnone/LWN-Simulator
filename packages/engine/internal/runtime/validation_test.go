@@ -117,12 +117,12 @@ func validDevice(id string) contracts.Device {
 			Region:    contracts.EU868,
 		},
 		RX1Config: contracts.RX1Config{
-			Delay:          intPtr(1),
+			Delay:          intPtr(1000),
 			Duration:       intPtr(1000),
 			DataRateOffset: intPtr(0),
 		},
 		RX2Config: contracts.RX2Config{
-			Delay:            intPtr(1),
+			Delay:            intPtr(2000),
 			Duration:         intPtr(1000),
 			ChannelFrequency: 869525000,
 			DataRate:         intPtr(5),

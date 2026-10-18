@@ -8,6 +8,46 @@ import (
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 )
 
+func TestReceiveWindowConfigurationUsesMilliseconds(t *testing.T) {
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000099")
+	device.RX1Config.Delay = intPtr(1000)
+	device.RX1Config.Duration = intPtr(3000)
+	device.RX2Config.Delay = intPtr(2000)
+	device.RX2Config.Duration = intPtr(3000)
+	engine, err := New(contracts.SimulationConfig{Speed: 1}, []contracts.Device{device}, nil, types.Options{})
+	if err != nil {
+		t.Fatalf("create engine: %v", err)
+	}
+	if got := engine.sessions[device.ID].ReceiveDelay; got != time.Second {
+		t.Fatalf("RX1 delay was not converted from milliseconds: got %s want %s", got, time.Second)
+	}
+
+	source := types.ScheduledEvent{At: 500 * time.Millisecond, WindowBaseAt: 500 * time.Millisecond, DeviceID: device.ID}
+	engine.mu.Lock()
+	engine.scheduleWindowLocked(device, source, contracts.RX1, "packet", -1, false)
+	engine.scheduleWindowLocked(device, source, contracts.RX2, "packet", -1, false)
+	engine.mu.Unlock()
+
+	foundRX1, foundRX2 := false, false
+	for _, scheduled := range engine.scheduler.Events() {
+		switch scheduled.Kind {
+		case types.ScheduledEventRX1Window:
+			foundRX1 = true
+			if scheduled.At != 1500*time.Millisecond || scheduled.WindowDuration != 3*time.Second {
+				t.Fatalf("unexpected RX1 timing: at=%s duration=%s", scheduled.At, scheduled.WindowDuration)
+			}
+		case types.ScheduledEventRX2Window:
+			foundRX2 = true
+			if scheduled.At != 2500*time.Millisecond || scheduled.WindowDuration != 3*time.Second {
+				t.Fatalf("unexpected RX2 timing: at=%s duration=%s", scheduled.At, scheduled.WindowDuration)
+			}
+		}
+	}
+	if !foundRX1 || !foundRX2 {
+		t.Fatalf("receive windows were not both scheduled: rx1=%t rx2=%t", foundRX1, foundRX2)
+	}
+}
+
 func TestPhaseThreeOTAAJoinOpensRX1AndStartsUplinks(t *testing.T) {
 	clock := types.NewManualClock(0)
 	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000001")

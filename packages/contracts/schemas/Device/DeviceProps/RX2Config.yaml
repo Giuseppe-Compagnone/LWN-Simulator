@@ -13,7 +13,8 @@ properties:
     x-oapi-codegen-extra-tags:
       validate: "required,min=0"
   channelFrequency:
-    type: number
+    type: integer
+    format: int64
     x-oapi-codegen-extra-tags:
       validate: "required,gt=0"
   dataRate:

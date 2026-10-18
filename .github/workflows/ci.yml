@@ -82,7 +82,24 @@ jobs:
           retention-days: 7
 
       - name: Test backend
-        run: yarn test
+        working-directory: apps/backend
+        run: go test ./...
+
+      - name: Test engine with coverage
+        working-directory: packages/engine
+        run: |
+          mkdir -p coverage
+          go test ./... -covermode=atomic -coverprofile=coverage/engine.out
+          coverage="$(go tool cover -func=coverage/engine.out | awk '/^total:/ {gsub(/%/, "", $3); print $3}')"
+          awk -v coverage="$coverage" 'BEGIN { if (coverage + 0 < 84.0) { printf "Engine coverage %.1f%% is below the required 84.0%%\n", coverage; exit 1 } }'
+
+      - name: Upload engine coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine-coverage-${{ github.sha }}
+          path: packages/engine/coverage/engine.out
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Vet backend
         working-directory: apps/backend

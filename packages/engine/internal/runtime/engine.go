@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"math/rand"
@@ -90,8 +91,17 @@ func New(
 	}
 	sessions := make(map[string]*types.DeviceSession, len(devices))
 	gatewayRuntime := make(map[string]*types.GatewayRuntime, len(gateways))
+	externalVirtualTransport := false
+	if factory, ok := options.GatewayAdapterFactory.(types.VirtualGatewayAdapterFactory); ok {
+		externalVirtualTransport = factory.SupportsVirtualGateways()
+	}
 	for _, device := range registry.Devices() {
-		sessions[device.ID] = newDeviceSession(device)
+		session := newDeviceSession(device)
+		if externalVirtualTransport && device.OOTAConfig != nil {
+			identifier := uuid.New()
+			session.DevNonce = binary.BigEndian.Uint16(identifier[:2])
+		}
+		sessions[device.ID] = session
 	}
 	for _, gateway := range registry.Gateways() {
 		state := contracts.Connected
@@ -838,7 +848,7 @@ func newDeviceSession(device contracts.Device) *types.DeviceSession {
 		RX1DataRateOffset:      intValue(device.RX1Config.DataRateOffset),
 		RX2DataRate:            intValue(device.RX2Config.DataRate),
 		RX2Frequency:           int64(device.RX2Config.ChannelFrequency),
-		ReceiveDelay:           durationSeconds(device.RX1Config.Delay),
+		ReceiveDelay:           durationMilliseconds(device.RX1Config.Delay),
 		MaximumEIRP:            int(radioTransmitPowerDBm),
 		PingSlotDataRate:       plan.PingSlotDataRate,
 		PingSlotFrequency:      plan.PingSlotFrequency,

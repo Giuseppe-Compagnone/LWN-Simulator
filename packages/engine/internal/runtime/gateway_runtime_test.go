@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -403,6 +404,7 @@ func TestRealClassADownlinkCarriesACKFPendingAndMACCommands(t *testing.T) {
 func TestPhaseFiveRealOTAAJoinQueuesEncryptedJoinAccept(t *testing.T) {
 	adapter := newFakeGatewayAdapter()
 	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000042")
+	device.RX1Config.Delay = intPtr(1000)
 	gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c42")
 	gateway.Type = contracts.Real
 	gateway.KeepAlive = nil
@@ -444,6 +446,10 @@ func TestPhaseFiveRealOTAAJoinQueuesEncryptedJoinAccept(t *testing.T) {
 		if packet.TransmitAt.IsZero() {
 			t.Fatal("Join-Accept packet is not scheduled for RX1")
 		}
+		joinAccept, decodeErr := lorawan.DecodeJoinAccept(packet.Payload, appKey)
+		if decodeErr != nil || joinAccept.RXDelay != 1 {
+			t.Fatalf("Join-Accept did not encode the 1000 ms RX1 delay as one second: %+v error=%v", joinAccept, decodeErr)
+		}
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for real Join-Accept")
 	}
@@ -452,6 +458,8 @@ func TestPhaseFiveRealOTAAJoinQueuesEncryptedJoinAccept(t *testing.T) {
 func TestVirtualGatewayBridgeJoinAcceptCompletesExternalOTAAJoin(t *testing.T) {
 	adapter := newVirtualUplinkTestAdapter()
 	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000046")
+	device.RX1Config.Delay = intPtr(1000)
+	device.RX2Config.Delay = intPtr(1000)
 	gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c46")
 	clock := types.NewManualClock(0)
 	engine, err := New(
@@ -492,6 +500,30 @@ func TestVirtualGatewayBridgeJoinAcceptCompletesExternalOTAAJoin(t *testing.T) {
 	if err != nil || decodedRequest.MType != lorawan.MTypeJoinRequest {
 		t.Fatalf("unexpected bridge join request: packet=%+v error=%v", decodedRequest, err)
 	}
+	if err := clock.Advance(time.Second); err != nil {
+		t.Fatalf("advance clock through the external RX1 window: %v", err)
+	}
+	waitForEventType(t, engine.Events(), contracts.RX1WindowOpened)
+	if engine.Snapshot().Devices[0].Joined {
+		t.Fatal("device joined without receiving a Join-Accept from the external network server")
+	}
+	if err := clock.Advance(11 * time.Second); err != nil {
+		t.Fatalf("advance clock to the next external join attempt: %v", err)
+	}
+	var retryRequest types.GatewayPacket
+	select {
+	case retryRequest = <-adapter.uplinks:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for the retried virtual gateway join request")
+	}
+	decodedRetry, err := lorawan.Parse(retryRequest.Payload)
+	if err != nil || decodedRetry.MType != lorawan.MTypeJoinRequest {
+		t.Fatalf("unexpected retried bridge join request: packet=%+v error=%v", decodedRetry, err)
+	}
+	if decodedRetry.DevNonce == decodedRequest.DevNonce {
+		t.Fatalf("retried Join-Request reused DevNonce %d", decodedRetry.DevNonce)
+	}
+	decodedRequest = decodedRetry
 	appKey, err := lorawan.DecodeHex(device.OOTAConfig.AppKey)
 	if err != nil {
 		t.Fatalf("decode AppKey: %v", err)
@@ -511,12 +543,18 @@ func TestVirtualGatewayBridgeJoinAcceptCompletesExternalOTAAJoin(t *testing.T) {
 		Kind:      types.GatewayPacketDownlink,
 		Payload:   joinAccept,
 	}
-	waitForEventType(t, engine.Events(), contracts.JoinAcceptReceived)
+	joinEvent := waitForEventType(t, engine.Events(), contracts.JoinAcceptReceived)
+	if !strings.Contains(joinEvent.Message, "external network server") {
+		t.Fatalf("join was not completed by the external network server: %+v", joinEvent)
+	}
 
 	checkpoint := engine.Checkpoint()
 	session := checkpoint.Sessions[device.ID]
 	if !session.Joined || session.PendingJoinRequest != nil || session.DeviceAddress != "26011BDA" {
 		t.Fatalf("external Join-Accept did not complete the session: %+v", session)
+	}
+	if !engine.Snapshot().Devices[0].Joined {
+		t.Fatal("external Join-Accept did not update the device status to joined")
 	}
 	expectedNwk, expectedApp, err := lorawan.DeriveSessionKeys(appKey, 0x010203, 0x000001, decodedRequest.DevNonce)
 	if err != nil {
@@ -524,6 +562,18 @@ func TestVirtualGatewayBridgeJoinAcceptCompletesExternalOTAAJoin(t *testing.T) {
 	}
 	if string(session.NwkSKey) != string(expectedNwk) || string(session.AppSKey) != string(expectedApp) {
 		t.Fatal("external Join-Accept did not install the network-server session keys")
+	}
+	if err := clock.Advance(11 * time.Second); err != nil {
+		t.Fatalf("advance clock to the first post-join uplink: %v", err)
+	}
+	select {
+	case uplink := <-adapter.uplinks:
+		decodedUplink, parseErr := lorawan.Parse(uplink.Payload)
+		if parseErr != nil || decodedUplink.MType != lorawan.MTypeUnconfirmedDataUp || decodedUplink.DevAddr != 0x26011BDA {
+			t.Fatalf("unexpected first post-join uplink: packet=%+v decoded=%+v error=%v", uplink, decodedUplink, parseErr)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for the first post-join uplink")
 	}
 	fPort := byte(1)
 	downlink, err := lorawan.BuildDataFrame(lorawan.DataFrameOptions{
@@ -546,6 +596,163 @@ func TestVirtualGatewayBridgeJoinAcceptCompletesExternalOTAAJoin(t *testing.T) {
 	downlinkEvent := waitForEventType(t, engine.Events(), contracts.DeviceDownlinkTransmitted)
 	if downlinkEvent.DeviceID == nil || *downlinkEvent.DeviceID != device.ID {
 		t.Fatalf("first external downlink was not applied to the joined device: %+v", downlinkEvent)
+	}
+	adapter.packets <- types.GatewayPacket{
+		GatewayID: gateway.ID,
+		Kind:      types.GatewayPacketDownlink,
+		Payload:   downlink,
+	}
+	waitForEventType(t, engine.Events(), contracts.FrameCounterRejected)
+	if got := engine.Snapshot().Devices[0].FrameCounterDown; got != 0 {
+		t.Fatalf("duplicate external downlink changed the frame counter: %d", got)
+	}
+}
+
+func TestExternalJoinAcceptRejectsInvalidMICAndKeepsDeviceJoining(t *testing.T) {
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000047")
+	gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c47")
+	engine, err := New(contracts.SimulationConfig{Speed: 1}, []contracts.Device{device}, []contracts.Gateway{gateway}, types.Options{})
+	if err != nil {
+		t.Fatalf("create engine: %v", err)
+	}
+	session := engine.sessions[device.ID]
+	session.PendingJoinRequest = &types.PendingJoinRequest{PacketID: "join-request", GatewayIDs: []string{gateway.ID}}
+
+	joinAccept, err := lorawan.BuildJoinAccept(lorawan.JoinAcceptOptions{
+		AppNonce: 0x010203,
+		NetID:    0x000001,
+		DevAddr:  0x26011BDA,
+		AppKey:   mustAppKey(device),
+	})
+	if err != nil {
+		t.Fatalf("build Join-Accept: %v", err)
+	}
+	joinAccept[len(joinAccept)-1] ^= 0xff
+	decoded, err := lorawan.Parse(joinAccept)
+	if err != nil {
+		t.Fatalf("parse invalid Join-Accept: %v", err)
+	}
+
+	engine.mu.Lock()
+	events := engine.processExternalJoinAcceptLocked(types.GatewayPacket{
+		GatewayID: gateway.ID,
+		Kind:      types.GatewayPacketDownlink,
+		Payload:   joinAccept,
+	}, decoded)
+	engine.mu.Unlock()
+
+	if len(events) != 1 || events[0].Type != contracts.DeviceDownlinkDropped {
+		t.Fatalf("invalid Join-Accept was not rejected: %+v", events)
+	}
+	if session.Joined || session.PendingJoinRequest == nil {
+		t.Fatalf("invalid Join-Accept changed the pending join state: %+v", session)
+	}
+}
+
+func TestExternalDownlinkACKCompletesConfirmedUplink(t *testing.T) {
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000049")
+	configureABP(&device)
+	device.PayloadConfig.MType = contracts.ConfirmedDataUp
+	gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c49")
+	engine, err := New(contracts.SimulationConfig{Speed: 1}, []contracts.Device{device}, []contracts.Gateway{gateway}, types.Options{})
+	if err != nil {
+		t.Fatalf("create engine: %v", err)
+	}
+	session := engine.sessions[device.ID]
+	session.PendingUplink = &types.PendingUplink{
+		PacketID: "confirmed-uplink", FrameCounter: 1, Attempt: 1, Confirmed: true,
+		TransmissionAt: time.Second, FragmentCount: 1, GatewayIDs: []string{gateway.ID},
+	}
+	engine.metrics.TotalUplinks = 1
+	downlink, err := lorawan.BuildDataFrame(lorawan.DataFrameOptions{
+		DevAddr: 0x26011BDA, FCnt: 0, ACK: true, Direction: 1,
+		NwkSKey: session.NwkSKey, AppSKey: session.AppSKey,
+	})
+	if err != nil {
+		t.Fatalf("build external ACK: %v", err)
+	}
+	decoded, err := lorawan.Parse(downlink)
+	if err != nil {
+		t.Fatalf("parse external ACK: %v", err)
+	}
+
+	engine.mu.Lock()
+	events := engine.processExternalDownlinkLocked(types.GatewayPacket{
+		GatewayID: gateway.ID, Kind: types.GatewayPacketDownlink, Payload: downlink,
+	}, decoded)
+	engine.mu.Unlock()
+
+	if !containsEventType(events, contracts.UplinkACKReceived) || !containsEventType(events, contracts.MetricsUpdated) {
+		t.Fatalf("external ACK did not complete the confirmed uplink: %+v", events)
+	}
+	if session.PendingUplink != nil {
+		t.Fatalf("external ACK left the confirmed uplink pending: %+v", session.PendingUplink)
+	}
+	if engine.metrics.AcknowledgedUplinks != 1 || engine.metrics.SuccessfulUplinks != 1 || engine.metrics.PacketSuccessRate != 1 {
+		t.Fatalf("external ACK did not update metrics: %+v", engine.metrics)
+	}
+}
+
+func TestExternalJoinAcceptFromUnexpectedGatewayIsRejected(t *testing.T) {
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000048")
+	gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c48")
+	engine, err := New(contracts.SimulationConfig{Speed: 1}, []contracts.Device{device}, []contracts.Gateway{gateway}, types.Options{})
+	if err != nil {
+		t.Fatalf("create engine: %v", err)
+	}
+	session := engine.sessions[device.ID]
+	session.PendingJoinRequest = &types.PendingJoinRequest{PacketID: "join-request", GatewayIDs: []string{gateway.ID}}
+	joinAccept, err := lorawan.BuildJoinAccept(lorawan.JoinAcceptOptions{
+		AppNonce: 0x010203,
+		NetID:    0x000001,
+		DevAddr:  0x26011BDA,
+		AppKey:   mustAppKey(device),
+	})
+	if err != nil {
+		t.Fatalf("build Join-Accept: %v", err)
+	}
+	decoded, err := lorawan.Parse(joinAccept)
+	if err != nil {
+		t.Fatalf("parse Join-Accept: %v", err)
+	}
+
+	engine.mu.Lock()
+	events := engine.processExternalJoinAcceptLocked(types.GatewayPacket{
+		GatewayID: "unexpected-gateway",
+		Kind:      types.GatewayPacketDownlink,
+		Payload:   joinAccept,
+	}, decoded)
+	engine.mu.Unlock()
+
+	if len(events) != 1 || events[0].Type != contracts.DeviceDownlinkDropped {
+		t.Fatalf("Join-Accept from an unexpected gateway was not rejected: %+v", events)
+	}
+	if session.Joined || session.PendingJoinRequest == nil {
+		t.Fatalf("unexpected gateway changed the pending join state: %+v", session)
+	}
+}
+
+func TestStaleExternalJoinReceiveWindowIsIgnoredAfterJoin(t *testing.T) {
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000049")
+	engine, err := New(contracts.SimulationConfig{Speed: 1}, []contracts.Device{device}, nil, types.Options{})
+	if err != nil {
+		t.Fatalf("create engine: %v", err)
+	}
+	session := engine.sessions[device.ID]
+	session.Joined = true
+	session.PendingJoinRequest = nil
+
+	engine.mu.Lock()
+	events := engine.processReceiveWindowLocked(types.ScheduledEvent{
+		DeviceID:     device.ID,
+		Kind:         types.ScheduledEventRX1Window,
+		Window:       contracts.RX1,
+		FrameCounter: -1,
+	})
+	engine.mu.Unlock()
+
+	if len(events) != 0 {
+		t.Fatalf("stale join receive window produced events after the session joined: %+v", events)
 	}
 }
 

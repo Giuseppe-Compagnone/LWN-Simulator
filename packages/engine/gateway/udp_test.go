@@ -548,6 +548,84 @@ func TestUDPFactoryConfiguresGatewayBridgeBeforeStart(t *testing.T) {
 	}
 }
 
+func TestGatewayAndBridgeEndpointParameterMatrix(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		config  contracts.GatewayBridgeConfig
+		wantErr bool
+	}{
+		{"URL address", contracts.GatewayBridgeConfig{Enabled: true, Address: "udp://127.0.0.1", Port: 1700}, false},
+		{"hostname", contracts.GatewayBridgeConfig{Enabled: true, Address: "localhost", Port: 1700}, false},
+		{"missing address", contracts.GatewayBridgeConfig{Enabled: true, Port: 1700}, true},
+		{"unspecified address", contracts.GatewayBridgeConfig{Enabled: true, Address: "0.0.0.0", Port: 1700}, true},
+		{"whitespace", contracts.GatewayBridgeConfig{Enabled: true, Address: "bad host", Port: 1700}, true},
+		{"port below range", contracts.GatewayBridgeConfig{Enabled: true, Address: "127.0.0.1", Port: 0}, true},
+		{"port above range", contracts.GatewayBridgeConfig{Enabled: true, Address: "127.0.0.1", Port: 65536}, true},
+	} {
+		t.Run("bridge "+test.name, func(t *testing.T) {
+			_, err := gatewayBridgeEndpoint(test.config)
+			if test.wantErr && err == nil {
+				t.Fatal("invalid bridge endpoint was accepted")
+			}
+			if !test.wantErr && err != nil {
+				t.Fatalf("valid bridge endpoint was rejected: %v", err)
+			}
+		})
+	}
+
+	factory := NewUDPFactory(UDPOptions{})
+	real := testRealGateway(1700)
+	for _, test := range []struct {
+		name   string
+		mutate func(*contracts.Gateway)
+	}{
+		{"short EUI", func(gateway *contracts.Gateway) { gateway.GatewayEUI = "abcd" }},
+		{"non-hex EUI", func(gateway *contracts.Gateway) { gateway.GatewayEUI = "ZZZZZZZZZZZZZZZZ" }},
+		{"missing IPv4", func(gateway *contracts.Gateway) { gateway.GatewayIPv4 = nil }},
+		{"non-IPv4 endpoint", func(gateway *contracts.Gateway) { gateway.GatewayIPv4 = gatewayStringPtr("::1") }},
+		{"missing port", func(gateway *contracts.Gateway) { gateway.GatewayPort = nil }},
+		{"invalid port", func(gateway *contracts.Gateway) { gateway.GatewayPort = gatewayInt32Ptr(0) }},
+		{"unsupported type", func(gateway *contracts.Gateway) { gateway.Type = contracts.GatewayType("unsupported") }},
+	} {
+		t.Run("gateway "+test.name, func(t *testing.T) {
+			gateway := real
+			test.mutate(&gateway)
+			if _, err := factory.NewGatewayAdapter(gateway); err == nil {
+				t.Fatal("invalid gateway endpoint was accepted")
+			}
+		})
+	}
+	virtual := real
+	virtual.Type = contracts.Virtual
+	virtual.GatewayIPv4 = nil
+	virtual.GatewayPort = nil
+	if _, err := factory.NewGatewayAdapter(virtual); !errors.Is(err, ErrGatewayNotConnected) {
+		t.Fatalf("virtual gateway without bridge returned the wrong error: %v", err)
+	}
+}
+
+func TestUDPFactoryCloseStopsAllAdapters(t *testing.T) {
+	gatewaySocket, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
+	if err != nil {
+		t.Fatalf("listen fake gateway: %v", err)
+	}
+	defer gatewaySocket.Close()
+	factory := NewUDPFactory(UDPOptions{LocalAddress: "127.0.0.1:0"})
+	adapter, err := factory.NewGatewayAdapter(testRealGateway(gatewaySocket.LocalAddr().(*net.UDPAddr).Port))
+	if err != nil {
+		t.Fatalf("create adapter: %v", err)
+	}
+	if err := adapter.Start(t.Context()); err != nil {
+		t.Fatalf("start adapter: %v", err)
+	}
+	if err := factory.Close(); err != nil {
+		t.Fatalf("close factory: %v", err)
+	}
+	if factory.runtime != nil {
+		t.Fatal("factory retained a closed runtime")
+	}
+}
+
 func TestUDPVirtualGatewaySendsKeepaliveAndUplinkToBridge(t *testing.T) {
 	bridgeSocket, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0})
 	if err != nil {
