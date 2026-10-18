@@ -120,6 +120,10 @@ properties:
   error:
     type: string
     x-go-name: Error
+  decodedPayload:
+    type: object
+    additionalProperties: true
+    x-go-name: DecodedPayload
 
 required:
   - id

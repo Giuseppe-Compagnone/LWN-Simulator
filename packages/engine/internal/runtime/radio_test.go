@@ -94,6 +94,32 @@ func TestPhaseFourRadioEventsExposeLinkMetrics(t *testing.T) {
 	}
 }
 
+func TestRadioEventsExposeDecodedPayloadWhenCodecIsEnabled(t *testing.T) {
+	clock := types.NewManualClock(0)
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000209")
+	configureABP(&device)
+	device.PayloadConfig.Payload = "21"
+	device.PayloadConfig.PayloadCodec = &contracts.PayloadCodec{
+		Enabled: true,
+		Script:  "function decodeUplink(input) { return { data: { value: input.bytes[0], port: input.fPort } }; }",
+	}
+	gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c09")
+	engine := newTestEngine(t, clock, device, gateway)
+	defer stopEngine(t, engine)
+
+	if err := clock.Advance(time.Second); err != nil {
+		t.Fatalf("advance clock: %v", err)
+	}
+	event := waitForEventType(t, engine.Events(), contracts.RadioTransmissionStarted)
+	if event.DecodedPayload == nil {
+		t.Fatalf("expected decoded payload on radio event: %+v", event)
+	}
+	decoded := *event.DecodedPayload
+	if decoded["value"] != float64('2') || decoded["port"] != float64(device.FrameConfig.FPort) {
+		t.Fatalf("unexpected decoded payload: %#v", decoded)
+	}
+}
+
 func TestPhaseFourRadioDetectsOverlappingSameChannelTransmissions(t *testing.T) {
 	clock := types.NewManualClock(0)
 	first := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000001")

@@ -570,6 +570,15 @@ func (e *Engine) processRealUplinkLocked(packet types.GatewayPacket, decoded lor
 		"uplink received from real gateway",
 		device.ID, packet.GatewayID, "", packetID, int64(frameCounter), 1, decoded.Confirmed, nil,
 	)}
+	decodeKey := session.AppSKey
+	if decoded.FPort != nil && *decoded.FPort == 0 {
+		decodeKey = session.NwkSKey
+	}
+	decodedPayload, decodeErr := lorawan.DecryptPayload(decoded, decodeKey, 0)
+	if decoded.FPort != nil && len(decoded.FRMPayload) > 0 && decodeErr == nil {
+		decorateDecodedPayload(&events[0], device, decodedPayload, int(*decoded.FPort))
+		e.eventLog[len(e.eventLog)-1] = events[0]
+	}
 	if len(session.PendingClassADownlinks) > 0 {
 		downlink := session.PendingClassADownlinks[0]
 		session.PendingClassADownlinks = session.PendingClassADownlinks[1:]

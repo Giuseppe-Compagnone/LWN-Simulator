@@ -334,6 +334,10 @@ func (e *Engine) newRadioEventLocked(eventType contracts.SimulationEventType, me
 	event.RSSI = &rssi
 	event.SNR = &snr
 	event.Collision = &collision
+	device, ok := e.registry.Device(deviceID)
+	if ok {
+		decorateDecodedRadioPayload(&event, device, transmission, e.sessions[deviceID])
+	}
 	if reason != "" {
 		reasonValue := reason
 		event.RadioLossReason = &reasonValue
