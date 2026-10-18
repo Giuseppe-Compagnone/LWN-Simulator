@@ -16,6 +16,8 @@ properties:
     type: string
   base64Encoded:
     type: boolean
+  payloadCodec:
+    $ref: "./PayloadCodec.yaml"
 
 required:
   - uplinkInterval
