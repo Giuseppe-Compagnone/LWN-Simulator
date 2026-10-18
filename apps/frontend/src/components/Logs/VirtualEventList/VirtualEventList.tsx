@@ -1,5 +1,6 @@
 "use client";
 
+import { SimulationEvent } from "@lwn-simulator/contracts";
 import { CSSProperties, UIEvent, useEffect, useRef, useState } from "react";
 import { VirtualEventListProps } from "./VirtualEventList.types";
 
@@ -12,6 +13,17 @@ const formatEventType = (value: string): string =>
 const formatSimulationTime = (milliseconds: number): string => {
   const totalSeconds = Math.max(0, milliseconds) / 1000;
   return `t+${totalSeconds.toFixed(totalSeconds >= 100 ? 0 : 1)}s`;
+};
+
+const formatDecodedPayload = (
+  payload: SimulationEvent["decodedPayload"],
+): string | null => {
+  if (!payload) return null;
+  try {
+    return JSON.stringify(payload);
+  } catch {
+    return null;
+  }
 };
 
 export const VirtualEventList = (props: VirtualEventListProps) => {
@@ -70,6 +82,7 @@ export const VirtualEventList = (props: VirtualEventListProps) => {
       >
         {props.events.slice(start, end).map((event, offset) => {
           const index = start + offset;
+          const decodedPayload = formatDecodedPayload(event.decodedPayload);
           const style: CSSProperties = {
             height: eventRowHeight,
             transform: `translateY(${index * eventRowHeight}px)`,
@@ -86,6 +99,7 @@ export const VirtualEventList = (props: VirtualEventListProps) => {
                 {event.message}
                 {event.gatewayID ? ` · Gateway ${event.gatewayID}` : ""}
                 {event.deviceID ? ` · Device ${event.deviceID}` : ""}
+                {decodedPayload ? ` · Decoded ${decodedPayload}` : ""}
               </small>
             </div>
           );

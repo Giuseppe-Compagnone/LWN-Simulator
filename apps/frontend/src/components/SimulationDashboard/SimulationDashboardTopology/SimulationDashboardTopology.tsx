@@ -1,6 +1,7 @@
 "use client";
 
 import { Card, CardLayout } from "@lwn-simulator/ui-components";
+import { SimulationEvent } from "@lwn-simulator/contracts";
 import { SensorMap } from "@/components/SensorMap";
 import { SimulationDashboardTopologyProps } from "./SimulationDashboardTopology.types";
 
@@ -14,6 +15,17 @@ const formatDuration = (milliseconds: number): string => {
   const seconds = totalSeconds % 60;
 
   return `${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
+};
+
+const formatDecodedPayload = (
+  payload: SimulationEvent["decodedPayload"],
+): string | null => {
+  if (!payload) return null;
+  try {
+    return JSON.stringify(payload);
+  } catch {
+    return null;
+  }
 };
 
 export const SimulationDashboardTopology = (
@@ -61,13 +73,19 @@ export const SimulationDashboardTopology = (
               Events will appear when the engine starts.
             </p>
           )}
-          {visibleEvents.map((event) => (
-            <div className="simulation-dashboard__event" key={event.id}>
-              <time>{formatDuration(event.timestampMilliseconds)}</time>
-              <strong>{formatEventType(event.type)}</strong>
-              <span>{event.message}</span>
-            </div>
-          ))}
+          {visibleEvents.map((event) => {
+            const decodedPayload = formatDecodedPayload(event.decodedPayload);
+            return (
+              <div className="simulation-dashboard__event" key={event.id}>
+                <time>{formatDuration(event.timestampMilliseconds)}</time>
+                <strong>{formatEventType(event.type)}</strong>
+                <span title={decodedPayload ?? undefined}>
+                  {event.message}
+                  {decodedPayload ? ` · Decoded ${decodedPayload}` : ""}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </Card>
     </section>
