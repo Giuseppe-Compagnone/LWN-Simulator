@@ -6,6 +6,7 @@ import Form from "./Form";
 import { booleanCheckboxField, selectField, textField } from "./components";
 import SelectFormField from "./components/SelectFormField/SelectFormField";
 import TextFormField from "./components/TextFormField/TextFormField";
+import CodeEditorFormField from "./components/CodeEditorFormField/CodeEditorFormField";
 
 describe("form components", () => {
   it("formats text input and keeps disabled fields out of submitted values", async () => {
@@ -168,5 +169,44 @@ describe("form components", () => {
 
     render(<ControlledText />);
     expect(screen.getByDisplayValue("initial")).toBeDisabled();
+  });
+
+  it("edits multiline code and respects the character limit", async () => {
+    const user = userEvent.setup();
+    const CodeEditor = () => {
+      const [value, setValue] = useState("");
+
+      return (
+        <CodeEditorFormField
+          name="codec"
+          label="Payload codec"
+          value={value}
+          error={null}
+          charsMax={20}
+          setValue={setValue}
+        />
+      );
+    };
+
+    render(<CodeEditor />);
+
+    await user.type(screen.getByLabelText("Payload codec"), "line 1\nline 2");
+
+    expect(screen.getByLabelText("Payload codec")).toHaveValue("line 1\nline 2");
+  });
+
+  it("renders the code editor disabled", () => {
+    render(
+      <CodeEditorFormField
+        name="codec"
+        label="Payload codec"
+        value="function decodeUplink() {}"
+        error={null}
+        setValue={vi.fn()}
+        disabled
+      />,
+    );
+
+    expect(screen.getByLabelText("Payload codec")).toBeDisabled();
   });
 });
