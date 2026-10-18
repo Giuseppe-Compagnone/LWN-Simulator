@@ -416,6 +416,8 @@ components:
       properties:
         uplinkInterval:
           type: number
+          exclusiveMinimum: 0
+          description: Interval between automatically scheduled uplinks, in seconds.
           x-oapi-codegen-extra-tags:
             validate: required,gt=0
         oversizedPayloadBehavior:
@@ -657,6 +659,8 @@ components:
         keepAlive:
           type: integer
           format: int32
+          minimum: 1
+          description: Interval between virtual gateway keepalive messages, in seconds.
           x-oapi-codegen-extra-tags:
             validate: omitempty,gt=0
         gatewayIPv4:
@@ -721,6 +725,8 @@ components:
         keepAlive:
           type: integer
           format: int32
+          minimum: 1
+          description: Interval between virtual gateway keepalive messages, in seconds.
           x-oapi-codegen-extra-tags:
             validate: omitempty,gt=0
         gatewayIPv4:
@@ -2140,19 +2146,26 @@ components:
       properties:
         delay:
           type: integer
+          minimum: 1
+          description: Delay before the RX1 receive window opens, in milliseconds.
           x-go-type: '*int'
           x-oapi-codegen-extra-tags:
-            validate: required,min=0
+            validate: required,gt=0
         duration:
           type: integer
+          minimum: 1
+          description: Duration of the RX1 receive window, in milliseconds.
           x-go-type: '*int'
           x-oapi-codegen-extra-tags:
-            validate: required,min=0
+            validate: required,gt=0
         dataRateOffset:
           type: integer
+          minimum: 0
+          maximum: 5
+          description: Regional RX1 data-rate offset applied to the uplink data rate.
           x-go-type: '*int'
           x-oapi-codegen-extra-tags:
-            validate: required,min=0
+            validate: required,min=0,max=5
       required:
         - delay
         - duration
@@ -2163,26 +2176,38 @@ components:
       properties:
         delay:
           type: integer
+          minimum: 1
+          description: Delay before the RX2 receive window opens, in milliseconds.
           x-go-type: '*int'
           x-oapi-codegen-extra-tags:
-            validate: required,min=0
+            validate: required,gt=0
         duration:
           type: integer
+          minimum: 1
+          description: Duration of the RX2 receive window, in milliseconds.
           x-go-type: '*int'
           x-oapi-codegen-extra-tags:
-            validate: required,min=0
+            validate: required,gt=0
         channelFrequency:
           type: integer
           format: int64
+          minimum: 1
+          description: RX2 channel center frequency, in hertz.
           x-oapi-codegen-extra-tags:
             validate: required,gt=0
         dataRate:
           type: integer
+          minimum: 0
+          maximum: 15
+          description: Regional data-rate index used by RX2.
           x-go-type: '*int'
           x-oapi-codegen-extra-tags:
-            validate: required,min=0
+            validate: required,min=0,max=15
         ACKTimeout:
           type: integer
+          minimum: 1000
+          maximum: 3000
+          description: Time to wait for an acknowledgement before retrying, in milliseconds.
           x-oapi-codegen-extra-tags:
             validate: required,min=1000,max=3000
       required:

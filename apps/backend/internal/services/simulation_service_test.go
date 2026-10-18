@@ -89,14 +89,14 @@ func TestSimulationServiceLifecycleAndSingleSession(t *testing.T) {
 	if _, err := service.Pause(); err != nil {
 		t.Fatalf("pause simulation: %v", err)
 	}
-	if update := receiveSimulationUpdate(t, subscription.Updates); update.Event.Type != contracts.SimulationPaused {
+	if update := receiveSimulationUpdateOfType(t, subscription.Updates, contracts.SimulationPaused); update.Event.Type != contracts.SimulationPaused {
 		t.Fatalf("unexpected pause event: %s", update.Event.Type)
 	}
 
 	if _, err := service.Resume(); err != nil {
 		t.Fatalf("resume simulation: %v", err)
 	}
-	if update := receiveSimulationUpdate(t, subscription.Updates); update.Event.Type != contracts.SimulationResumed {
+	if update := receiveSimulationUpdateOfType(t, subscription.Updates, contracts.SimulationResumed); update.Event.Type != contracts.SimulationResumed {
 		t.Fatalf("unexpected resume event: %s", update.Event.Type)
 	}
 
@@ -184,7 +184,7 @@ func TestSimulationServiceBroadcastsUpdatesToMultipleSubscribers(t *testing.T) {
 	if firstUpdate.Event.Type != contracts.SimulationPaused || secondUpdate.Event.Type != contracts.SimulationPaused {
 		t.Fatalf("frontends received different lifecycle updates: %s, %s", firstUpdate.Event.Type, secondUpdate.Event.Type)
 	}
-	if message := receiveRealtimeMessage(t, publisher.messages); message.Type != contracts.RealtimeSimulationEventMessage || message.Event == nil || message.Event.Type != contracts.SimulationPaused {
+	if message := receiveRealtimeSimulationEventOfType(t, publisher.messages, contracts.SimulationPaused); message.Event == nil || message.Event.Type != contracts.SimulationPaused {
 		t.Fatalf("shared websocket did not receive pause event: %+v", message)
 	}
 }
@@ -217,17 +217,6 @@ func TestSimulationServicePersistsAndFinalizesSimulationLog(t *testing.T) {
 	}
 }
 
-func receiveSimulationUpdate(t *testing.T, updates <-chan SimulationUpdate) SimulationUpdate {
-	t.Helper()
-	select {
-	case update := <-updates:
-		return update
-	case <-time.After(time.Second):
-		t.Fatal("timed out waiting for simulation update")
-		return SimulationUpdate{}
-	}
-}
-
 func receiveSimulationUpdateOfType(
 	t *testing.T,
 	updates <-chan SimulationUpdate,
@@ -244,6 +233,26 @@ func receiveSimulationUpdateOfType(
 		case <-deadline:
 			t.Fatalf("timed out waiting for simulation event %s", expected)
 			return SimulationUpdate{}
+		}
+	}
+}
+
+func receiveRealtimeSimulationEventOfType(
+	t *testing.T,
+	messages <-chan contracts.RealtimeWebSocketMessage,
+	expected contracts.SimulationEventType,
+) contracts.RealtimeWebSocketMessage {
+	t.Helper()
+	deadline := time.After(time.Second)
+	for {
+		select {
+		case message := <-messages:
+			if message.Type == contracts.RealtimeSimulationEventMessage && message.Event != nil && message.Event.Type == expected {
+				return message
+			}
+		case <-deadline:
+			t.Fatalf("timed out waiting for realtime simulation event %s", expected)
+			return contracts.RealtimeWebSocketMessage{}
 		}
 	}
 }

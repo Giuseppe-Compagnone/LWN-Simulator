@@ -70,8 +70,9 @@ func TestEngineVirtualGatewayBridgeOTAAOverSemtechUDP(t *testing.T) {
 
 	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000091")
 	device.PayloadConfig.UplinkInterval = 1
+	device.PayloadConfig.MType = contracts.ConfirmedDataUp
 	device.RX1Config.Delay = intPtr(1000)
-	device.RX2Config.Delay = intPtr(1000)
+	device.RX2Config.Delay = intPtr(2000)
 	gatewayConfig := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c91")
 	clock := types.NewManualClock(0)
 	engine, err := New(
@@ -101,19 +102,31 @@ func TestEngineVirtualGatewayBridgeOTAAOverSemtechUDP(t *testing.T) {
 		t.Fatalf("bridge did not receive a valid OTAA Join Request: packet=%x error=%v", joinRequest, err)
 	}
 
-	joinAccept, err := lorawan.BuildJoinAccept(lorawan.JoinAcceptOptions{
+	joinAcceptOptions := lorawan.JoinAcceptOptions{
 		AppNonce:    0x010203,
 		NetID:       0x000001,
 		DevAddr:     0x26011BDA,
 		RX2DataRate: 5,
+		RXDelay:     1,
 		AppKey:      mustAppKey(device),
-	})
+		CFList: []byte{
+			0x18, 0x4f, 0x84, 0xe8, 0x56, 0x84, 0xb8, 0x5e,
+			0x84, 0x88, 0x66, 0x84, 0x00, 0x00, 0x00, 0x00,
+		},
+	}
+	joinAccept, err := lorawan.BuildJoinAccept(joinAcceptOptions)
 	if err != nil {
 		t.Fatalf("build bridge Join-Accept: %v", err)
+	}
+	if len(joinAccept) != 33 {
+		t.Fatalf("bridge integration test requires a 33-byte Join-Accept, got %d", len(joinAccept))
 	}
 	writeIntegrationPullResponse(t, bridgeSocket, bridgePeer, [2]byte{0x31, 0x32}, joinAccept)
 	readIntegrationPacket(t, bridgeSocket, semtechTxAck)
 	waitForEventType(t, engine.Events(), contracts.JoinAcceptReceived)
+	if snapshot := engine.Snapshot(); len(snapshot.Devices) != 1 || !snapshot.Devices[0].Joined {
+		t.Fatalf("device did not enter the joined state after the external Join-Accept: %+v", snapshot.Devices)
+	}
 
 	if err := clock.Advance(2 * time.Second); err != nil {
 		t.Fatalf("advance bridge simulation to first uplink: %v", err)
@@ -121,8 +134,43 @@ func TestEngineVirtualGatewayBridgeOTAAOverSemtechUDP(t *testing.T) {
 	dataPacket := readIntegrationPacket(t, bridgeSocket, semtechPushData)
 	dataUplink := decodeIntegrationUplink(t, dataPacket.body, gatewayConfig.GatewayEUI)
 	decodedDataUplink, err := lorawan.Parse(dataUplink)
-	if err != nil || decodedDataUplink.MType != lorawan.MTypeUnconfirmedDataUp || decodedDataUplink.DevAddr != 0x26011BDA {
-		t.Fatalf("bridge did not receive the first post-join uplink: packet=%x decoded=%+v error=%v", dataUplink, decodedDataUplink, err)
+	if err != nil || decodedDataUplink.MType != lorawan.MTypeConfirmedDataUp || decodedDataUplink.DevAddr != joinAcceptOptions.DevAddr || decodedDataUplink.FCnt != 1 {
+		t.Fatalf("bridge did not receive the first confirmed post-join uplink: packet=%x decoded=%+v error=%v", dataUplink, decodedDataUplink, err)
+	}
+	nwkSKey, appSKey, err := lorawan.DeriveSessionKeys(
+		joinAcceptOptions.AppKey,
+		joinAcceptOptions.AppNonce,
+		joinAcceptOptions.NetID,
+		decodedJoinRequest.DevNonce,
+	)
+	if err != nil {
+		t.Fatalf("derive bridge session keys: %v", err)
+	}
+	if !lorawan.VerifyDataMIC(decodedDataUplink, nwkSKey, 0) {
+		t.Fatal("post-join uplink MIC does not match the negotiated network session key")
+	}
+	decryptedPayload, err := lorawan.DecryptPayload(decodedDataUplink, appSKey, 0)
+	if err != nil || string(decryptedPayload) != device.PayloadConfig.Payload {
+		t.Fatalf("post-join payload was not transported intact: payload=%q error=%v", decryptedPayload, err)
+	}
+
+	downlinkACK, err := lorawan.BuildDataFrame(lorawan.DataFrameOptions{
+		DevAddr:   joinAcceptOptions.DevAddr,
+		FCnt:      0,
+		Direction: 1,
+		ACK:       true,
+		NwkSKey:   nwkSKey,
+		AppSKey:   appSKey,
+	})
+	if err != nil {
+		t.Fatalf("build bridge downlink ACK: %v", err)
+	}
+	writeIntegrationPullResponse(t, bridgeSocket, bridgePeer, [2]byte{0x33, 0x34}, downlinkACK)
+	readIntegrationPacket(t, bridgeSocket, semtechTxAck)
+	waitForEventType(t, engine.Events(), contracts.UplinkACKReceived)
+	metrics := engine.Snapshot().Metrics
+	if metrics.TotalUplinks != 1 || metrics.SuccessfulUplinks != 1 || metrics.AcknowledgedUplinks != 1 || metrics.PacketSuccessRate != 1 {
+		t.Fatalf("external ACK did not complete the confirmed uplink: %+v", metrics)
 	}
 }
 

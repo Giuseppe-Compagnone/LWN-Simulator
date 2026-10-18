@@ -279,7 +279,7 @@ func TestRealGatewaysCanIngestTheSameDeviceThroughMultipleAdapters(t *testing.T)
 		firstGateway.ID: first, secondGateway.ID: second,
 	}}
 	engine, err := New(contracts.SimulationConfig{Speed: 1}, []contracts.Device{device}, []contracts.Gateway{firstGateway, secondGateway}, types.Options{
-		EventBuffer: 256, GatewayAdapterFactory: factory,
+		Clock: types.NewManualClock(0), EventBuffer: 256, GatewayAdapterFactory: factory,
 	})
 	if err != nil {
 		t.Fatalf("create engine: %v", err)
@@ -292,6 +292,17 @@ func TestRealGatewaysCanIngestTheSameDeviceThroughMultipleAdapters(t *testing.T)
 	second.emit(types.GatewayAdapterEvent{GatewayID: secondGateway.ID, State: contracts.Connected})
 	waitForEventType(t, engine.Events(), contracts.GatewayConnected)
 	waitForEventType(t, engine.Events(), contracts.GatewayConnected)
+	baseline := engine.Snapshot()
+	deadline := time.After(time.Second)
+	for baseline.Metrics.TotalUplinks < 1 {
+		select {
+		case <-deadline:
+			t.Fatalf("initial device uplink was not processed: %+v", baseline)
+		default:
+			time.Sleep(time.Millisecond)
+			baseline = engine.Snapshot()
+		}
+	}
 
 	nwkSKey, _ := lorawan.DecodeHex(device.ABPConfig.NwkSKey)
 	appSKey, _ := lorawan.DecodeHex(device.ABPConfig.AppSKey)
@@ -306,14 +317,18 @@ func TestRealGatewaysCanIngestTheSameDeviceThroughMultipleAdapters(t *testing.T)
 		}
 		return frame
 	}
-	first.packets <- types.GatewayPacket{GatewayID: firstGateway.ID, Payload: build(1), Bandwidth: 125_000, SpreadingFactor: 7}
+	firstCounter := uint32(baseline.Devices[0].FrameCounterUp + 1)
+	secondCounter := firstCounter + 1
+	first.packets <- types.GatewayPacket{GatewayID: firstGateway.ID, Payload: build(firstCounter), Bandwidth: 125_000, SpreadingFactor: 7}
 	waitForEventType(t, engine.Events(), contracts.GatewayPacketIngress)
-	second.packets <- types.GatewayPacket{GatewayID: secondGateway.ID, Payload: build(2), Bandwidth: 125_000, SpreadingFactor: 7}
-	deadline := time.After(time.Second)
+	second.packets <- types.GatewayPacket{GatewayID: secondGateway.ID, Payload: build(secondCounter), Bandwidth: 125_000, SpreadingFactor: 7}
+	deadline = time.After(time.Second)
 	var snapshot contracts.SimulationSnapshot
 	for {
 		snapshot = engine.Snapshot()
-		if snapshot.Metrics.GatewayIngressPackets == 2 {
+		if snapshot.Metrics.GatewayIngressPackets == baseline.Metrics.GatewayIngressPackets+2 &&
+			snapshot.Devices[0].FrameCounterUp == int64(secondCounter) &&
+			snapshot.Metrics.SuccessfulUplinks == baseline.Metrics.SuccessfulUplinks+2 {
 			break
 		}
 		select {
@@ -323,7 +338,7 @@ func TestRealGatewaysCanIngestTheSameDeviceThroughMultipleAdapters(t *testing.T)
 			time.Sleep(time.Millisecond)
 		}
 	}
-	if snapshot.Metrics.GatewayIngressPackets != 2 || snapshot.Devices[0].FrameCounterUp != 2 ||
+	if snapshot.Metrics.GatewayIngressPackets != baseline.Metrics.GatewayIngressPackets+2 || snapshot.Devices[0].FrameCounterUp != int64(secondCounter) ||
 		snapshot.Gateways[0].IngressPackets != 1 || snapshot.Gateways[1].IngressPackets != 1 {
 		t.Fatalf("multiple real gateway uplinks were not processed: metrics=%+v device=%+v gateways=%+v", snapshot.Metrics, snapshot.Devices[0], snapshot.Gateways)
 	}

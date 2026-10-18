@@ -589,6 +589,7 @@ func (e *Engine) QueueDownlink(downlink types.Downlink) (string, error) {
 		if scheduleEvent != nil {
 			deferredScheduleEvent := *scheduleEvent
 			e.mu.Unlock()
+			e.signalWake()
 			e.publish(deferredScheduleEvent)
 			e.publish(event)
 			return downlink.ID, nil
@@ -598,6 +599,7 @@ func (e *Engine) QueueDownlink(downlink types.Downlink) (string, error) {
 		if scheduled := e.scheduleClassCDownlinkLocked(device, session, e.eventTimestampLocked()); scheduled != nil {
 			deferredScheduleEvent := *scheduled
 			e.mu.Unlock()
+			e.signalWake()
 			e.publish(deferredScheduleEvent)
 			e.publish(event)
 			return downlink.ID, nil

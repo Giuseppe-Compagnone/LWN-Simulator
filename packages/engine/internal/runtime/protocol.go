@@ -516,11 +516,11 @@ func uplinkMessage(attempt int, confirmed bool) string {
 	return "device uplink transmitted"
 }
 
-func durationSeconds(value *int) time.Duration {
-	if value == nil || *value <= 0 {
-		return 0
+func joinAcceptReceiveDelay(value int) time.Duration {
+	if value == 0 {
+		value = 1
 	}
-	return time.Duration(*value) * time.Second
+	return time.Duration(value) * time.Second
 }
 
 func durationSecondsFloat(value float32) time.Duration {

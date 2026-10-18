@@ -414,8 +414,7 @@ func (e *Engine) processExternalJoinAcceptLocked(packet types.GatewayPacket, dec
 		session.AppSKey = appSKey
 		session.RX1DataRateOffset = joinAccept.RX1DataRateOffset
 		session.RX2DataRate = joinAccept.RX2DataRate
-		rxDelay := joinAccept.RXDelay
-		session.ReceiveDelay = durationSeconds(&rxDelay)
+		session.ReceiveDelay = joinAcceptReceiveDelay(joinAccept.RXDelay)
 		session.FrameCounterDown = 0
 		packetID := uuid.NewString()
 		e.metrics.JoinAccepts++

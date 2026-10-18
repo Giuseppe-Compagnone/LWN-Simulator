@@ -48,6 +48,24 @@ func TestReceiveWindowConfigurationUsesMilliseconds(t *testing.T) {
 	}
 }
 
+func TestJoinAcceptReceiveDelayUsesLoRaWANSecondsEncoding(t *testing.T) {
+	tests := []struct {
+		name  string
+		value int
+		want  time.Duration
+	}{
+		{name: "zero encodes one second", value: 0, want: time.Second},
+		{name: "five encodes five seconds", value: 5, want: 5 * time.Second},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := joinAcceptReceiveDelay(test.value); got != test.want {
+				t.Fatalf("unexpected Join-Accept RXDelay conversion: got %s want %s", got, test.want)
+			}
+		})
+	}
+}
+
 func TestPhaseThreeOTAAJoinOpensRX1AndStartsUplinks(t *testing.T) {
 	clock := types.NewManualClock(0)
 	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000001")

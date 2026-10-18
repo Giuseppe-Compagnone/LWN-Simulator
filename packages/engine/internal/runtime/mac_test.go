@@ -139,11 +139,9 @@ func TestQueueMACCommandUsesClassCDownlinkPath(t *testing.T) {
 	if _, err := engine.QueueMACCommand(device.ID, types.MACCommand{Type: types.MACLinkADRReq, DataRate: &dataRate, NbTrans: &repetitions}); err != nil {
 		t.Fatalf("queue MAC command: %v", err)
 	}
+	waitForEventType(t, engine.Events(), contracts.DeviceDownlinkScheduled)
 	dataRate = 5
 	repetitions = 1
-	if err := clock.Advance(time.Millisecond); err != nil {
-		t.Fatalf("advance clock: %v", err)
-	}
 	waitForEventType(t, engine.Events(), contracts.DeviceDownlinkTransmitted)
 
 	engine.mu.RLock()

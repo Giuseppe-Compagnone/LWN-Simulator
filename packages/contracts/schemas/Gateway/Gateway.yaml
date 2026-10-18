@@ -26,6 +26,8 @@ properties:
   keepAlive:
     type: integer
     format: int32
+    minimum: 1
+    description: Interval between virtual gateway keepalive messages, in seconds.
     x-oapi-codegen-extra-tags:
       validate: "omitempty,gt=0"
   gatewayIPv4:

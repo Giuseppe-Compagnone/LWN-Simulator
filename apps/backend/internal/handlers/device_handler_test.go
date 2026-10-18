@@ -135,16 +135,16 @@ func validCreateDeviceJSON() string {
 
 		"RX1Config": {
 			"dataRateOffset": 0,
-			"delay": 1,
-			"duration": 1
+			"delay": 1000,
+			"duration": 3000
 		},
 
 		"RX2Config": {
 			"ACKTimeout": 1000,
 			"channelFrequency": 869525000,
 			"dataRate": 0,
-			"delay": 1,
-			"duration": 1
+			"delay": 2000,
+			"duration": 3000
 		},
 
 		"advancedConfig": {
@@ -195,16 +195,16 @@ func validDeviceJSON(id string) string {
 
 		"RX1Config": {
 			"dataRateOffset": 0,
-			"delay": 1,
-			"duration": 1
+			"delay": 1000,
+			"duration": 3000
 		},
 
 		"RX2Config": {
 			"ACKTimeout": 1000,
 			"channelFrequency": 869525000,
 			"dataRate": 0,
-			"delay": 1,
-			"duration": 1
+			"delay": 2000,
+			"duration": 3000
 		},
 
 		"advancedConfig": {
@@ -255,16 +255,16 @@ func validUpdateDeviceJSON(id, devEUI, name string, active bool) string {
 
 			"RX1Config": {
 				"dataRateOffset": 0,
-				"delay": 1,
-				"duration": 1
+				"delay": 1000,
+				"duration": 3000
 			},
 
 			"RX2Config": {
 				"ACKTimeout": 1000,
 				"channelFrequency": 869525000,
 				"dataRate": 0,
-				"delay": 1,
-				"duration": 1
+				"delay": 2000,
+				"duration": 3000
 			},
 
 			"advancedConfig": {
@@ -371,6 +371,71 @@ func TestDeviceHandler_CreateDevice(t *testing.T) {
 			body: `{
 				"devEUI": "0102030405060708"
 			}`,
+			service:        &mockDeviceService{},
+			wantStatusCode: http.StatusBadRequest,
+			wantCalls:      0,
+		},
+		{
+			name:           "returns bad request for a zero RX1 delay",
+			body:           strings.Replace(validCreateDeviceJSON(), `"delay": 1000`, `"delay": 0`, 1),
+			service:        &mockDeviceService{},
+			wantStatusCode: http.StatusBadRequest,
+			wantCalls:      0,
+		},
+		{
+			name:           "returns bad request for a zero RX1 duration",
+			body:           strings.Replace(validCreateDeviceJSON(), `"duration": 3000`, `"duration": 0`, 1),
+			service:        &mockDeviceService{},
+			wantStatusCode: http.StatusBadRequest,
+			wantCalls:      0,
+		},
+		{
+			name:           "returns bad request for an out of range RX1 data rate offset",
+			body:           strings.Replace(validCreateDeviceJSON(), `"dataRateOffset": 0`, `"dataRateOffset": 6`, 1),
+			service:        &mockDeviceService{},
+			wantStatusCode: http.StatusBadRequest,
+			wantCalls:      0,
+		},
+		{
+			name:           "returns bad request for a zero RX2 delay",
+			body:           strings.Replace(validCreateDeviceJSON(), `"delay": 2000`, `"delay": 0`, 1),
+			service:        &mockDeviceService{},
+			wantStatusCode: http.StatusBadRequest,
+			wantCalls:      0,
+		},
+		{
+			name: "returns bad request for a zero RX2 duration",
+			body: strings.Replace(validCreateDeviceJSON(), `"delay": 2000,
+			"duration": 3000`, `"delay": 2000,
+			"duration": 0`, 1),
+			service:        &mockDeviceService{},
+			wantStatusCode: http.StatusBadRequest,
+			wantCalls:      0,
+		},
+		{
+			name:           "returns bad request for a zero RX2 frequency",
+			body:           strings.Replace(validCreateDeviceJSON(), `"channelFrequency": 869525000`, `"channelFrequency": 0`, 1),
+			service:        &mockDeviceService{},
+			wantStatusCode: http.StatusBadRequest,
+			wantCalls:      0,
+		},
+		{
+			name:           "returns bad request for an out of range RX2 data rate",
+			body:           strings.Replace(validCreateDeviceJSON(), `"dataRate": 0`, `"dataRate": 16`, 1),
+			service:        &mockDeviceService{},
+			wantStatusCode: http.StatusBadRequest,
+			wantCalls:      0,
+		},
+		{
+			name:           "returns bad request for an ACK timeout expressed as seconds",
+			body:           strings.Replace(validCreateDeviceJSON(), `"ACKTimeout": 1000`, `"ACKTimeout": 1`, 1),
+			service:        &mockDeviceService{},
+			wantStatusCode: http.StatusBadRequest,
+			wantCalls:      0,
+		},
+		{
+			name:           "returns bad request for a zero uplink interval",
+			body:           strings.Replace(validCreateDeviceJSON(), `"uplinkInterval": 10`, `"uplinkInterval": 0`, 1),
 			service:        &mockDeviceService{},
 			wantStatusCode: http.StatusBadRequest,
 			wantCalls:      0,
