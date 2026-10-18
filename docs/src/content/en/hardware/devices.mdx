@@ -117,6 +117,46 @@ with the receive-window behavior expected by the device.
 | `payload` | Application data transmitted by the device. | Required text or encoded data. |
 | `base64Encoded` | Whether `payload` is Base64 encoded. | Toggle. When enabled, the form validates Base64 input. |
 
+### Payload codec
+
+Enable **Payload Codec** when the application payload should also be shown as
+structured data. Paste a JavaScript function named `decodeUplink` into the
+multiline editor:
+
+```js
+function decodeUplink(input) {
+  return {
+    data: {
+      temperature: input.bytes[0],
+      humidity: input.bytes[1],
+    },
+  };
+}
+```
+
+The function receives:
+
+| Property | Meaning |
+| --- | --- |
+| `input.bytes` | The decrypted application payload as an array of byte values. |
+| `input.fPort` | The application port configured for the uplink. |
+
+Return an object with a `data` object containing the values you want to see in
+the event stream. The simulator checks the JavaScript syntax and the presence
+of `decodeUplink` when the device is saved. During a run, the function is
+executed with a short time limit; a codec error is reported on the event and
+does not stop the simulation.
+
+When decoding succeeds, the event stream and the simulation log show the
+result next to the original event as **Decoded** data. The codec is applied to
+application uplinks only, after the LoRaWAN payload has been decrypted.
+
+<Callout type="warning" emoji="⚠️">
+  Treat codec scripts as configuration code. Keep them small, deterministic,
+  and free of external dependencies. The simulator does not provide access to
+  the application, the filesystem, or network services from a codec.
+</Callout>
+
 ## Advanced configuration
 
 | Field | Meaning | Accepted value |
