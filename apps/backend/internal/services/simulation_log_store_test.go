@@ -15,14 +15,15 @@ func TestFileSimulationLogStorePersistsRunsAndFiltersByEventAtReadTime(t *testin
 		t.Fatal(err)
 	}
 	deviceID := "550e8400-e29b-41d4-a716-446655440001"
-	if err := store.Append(run.Summary.Id, contracts.SimulationEvent{ID: "550e8400-e29b-41d4-a716-446655440002", Sequence: 1, Type: contracts.DeviceUplinkTransmitted, DeviceID: &deviceID, Message: "uplink"}); err != nil {
+	decoded := map[string]interface{}{"temperature": 21.5, "humidity": 48.0}
+	if err := store.Append(run.Summary.Id, contracts.SimulationEvent{ID: "550e8400-e29b-41d4-a716-446655440002", Sequence: 1, Type: contracts.DeviceUplinkTransmitted, DeviceID: &deviceID, Message: "uplink", DecodedPayload: &decoded}); err != nil {
 		t.Fatal(err)
 	}
 	loaded, events, err := store.Get(run.Summary.Id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Summary.EventCount != 1 || len(events) != 1 || events[0].DeviceID == nil || *events[0].DeviceID != deviceID {
+	if loaded.Summary.EventCount != 1 || len(events) != 1 || events[0].DeviceID == nil || *events[0].DeviceID != deviceID || events[0].DecodedPayload == nil || (*events[0].DecodedPayload)["temperature"] != 21.5 {
 		t.Fatalf("unexpected persisted run: %+v %+v", loaded, events)
 	}
 	updatedSummary := loaded.Summary
