@@ -20,6 +20,7 @@
     "@lwn-simulator/contracts": "workspace:*",
     "@lwn-simulator/sdk": "workspace:*",
     "@lwn-simulator/ui-components": "workspace:*",
+    "acorn": "^8.18.0",
     "classnames": "^2.5.1",
     "maplibre-gl": "5.9.0",
     "material-symbols": "^0.45.10",

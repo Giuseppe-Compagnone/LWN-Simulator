@@ -1,7 +1,25 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FormField, FormLogic, FormValue, UseFormProps } from "./Form.types";
+import {
+  FormField,
+  FormLogic,
+  FormValidation,
+  FormValue,
+  UseFormProps,
+} from "./Form.types";
+
+const passesValidation = (
+  validation: FormValidation,
+  value: FormValue,
+): boolean => {
+  if (typeof validation.rule === "function") {
+    return validation.rule(value);
+  }
+
+  validation.rule.lastIndex = 0;
+  return validation.rule.test(String(value));
+};
 
 export const useForm = (props: UseFormProps): FormLogic => {
   // States
@@ -33,7 +51,7 @@ export const useForm = (props: UseFormProps): FormLogic => {
       for (const validation of updatedField.validations) {
         if (!validation.realtime) continue;
 
-        const isValid = validation.rule.test(updatedField.value as string);
+        const isValid = passesValidation(validation, updatedField.value);
 
         if (!isValid) {
           updatedField.error = validation.error;
@@ -185,7 +203,7 @@ export const useForm = (props: UseFormProps): FormLogic => {
           for (let i = 0; i < field.validations.length; i++) {
             const validation = field.validations[i];
 
-            fieldIsValid = validation.rule.test((field.value as string) || "");
+            fieldIsValid = passesValidation(validation, field.value);
             if (!fieldIsValid) {
               field.error = validation.error;
               break;

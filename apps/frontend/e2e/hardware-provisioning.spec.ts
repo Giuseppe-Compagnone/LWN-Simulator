@@ -78,7 +78,7 @@ const fillDeviceLocationAndRadioFields = async (
   await page.getByLabel("Uplink Interval").fill("10");
   await selectRadioOption(page, "oversizedPayloadBehavior-truncate");
   await selectRadioOption(page, "MType-unconfirmed-data-up");
-  await page.getByLabel("Payload").fill("Hello LoRaWAN");
+  await page.getByRole("textbox", { name: "Payload*" }).fill("Hello LoRaWAN");
   await page.getByLabel("Antenna Range").fill("10000");
 };
 
@@ -87,6 +87,10 @@ test("creates an OTAA class A device", async ({ page }) => {
   await page.goto("/hardware/devices/new");
 
   await fillDeviceLocationAndRadioFields(page, "Catania OTAA Sensor");
+  await page.locator('input[name="payloadCodecEnabled"]').locator("..").click();
+  await expect(page.getByLabel("JavaScript Payload Codec")).toHaveValue(
+    "function decodeUplink(input) {\n  return { data: {} };\n}",
+  );
   await selectRadioOption(page, "activation-oota");
   await page.getByLabel("JoinEUI").fill("0000000000000001");
   await page.getByLabel("AppKey").fill("00000000000000000000000000000001");
@@ -213,6 +217,43 @@ test("loads and saves an edited device", async ({ page }) => {
     "function decodeUplink(input) { return { data: { ok: true } }; }",
   );
 });
+
+test("prevents saving a payload codec with invalid JavaScript", async ({
+  page,
+}) => {
+  await mockBackend(page);
+  await page.goto("/hardware/devices");
+  await page.goto("/hardware/devices/new?deviceId=device-1");
+
+  await page
+    .getByLabel("JavaScript Payload Codec")
+    .fill("function decodeUplink(input) { return { data: }; }");
+  await page.getByRole("button", { name: "Save" }).click();
+
+  await expect(page.getByText("Enter valid JavaScript syntax")).toBeVisible();
+  await expect(page).toHaveURL(/deviceId=device-1/);
+});
+
+for (const deviceCodec of ["empty", "absent"] as const) {
+  test(`loads the default codec when the saved codec is ${deviceCodec}`, async ({
+    page,
+  }) => {
+    await mockBackend(page, { deviceCodec });
+    await page.goto("/hardware/devices");
+    await page.goto("/hardware/devices/new?deviceId=device-1");
+
+    if (deviceCodec === "absent") {
+      await page
+        .locator('input[name="payloadCodecEnabled"]')
+        .locator("..")
+        .click();
+    }
+
+    await expect(page.getByLabel("JavaScript Payload Codec")).toHaveValue(
+      "function decodeUplink(input) {\n  return { data: {} };\n}",
+    );
+  });
+}
 
 test("disables and re-enables a device while the simulation is running", async ({ page }) => {
   await mockBackend(page, { devices: "active" });

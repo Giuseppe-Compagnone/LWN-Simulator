@@ -3,6 +3,7 @@ import type { Page } from "@playwright/test";
 export type MockBackendOptions = {
   logs?: "success" | "empty" | "error";
   devices?: "empty" | "active";
+  deviceCodec?: "configured" | "empty" | "absent";
 };
 
 const profile = { id: "profile-1", name: "Default profile" };
@@ -127,7 +128,23 @@ export const mockBackend = async (
   };
   let profiles = [profile, secondProfile];
   let simulationStatus = "idle";
-  let runtimeDevice = { ...activeDevice };
+  const runtimeDevicePayloadConfig: Omit<
+    typeof activeDevice.payloadConfig,
+    "payloadCodec"
+  > & {
+    payloadCodec?: typeof activeDevice.payloadConfig.payloadCodec;
+  } = { ...activeDevice.payloadConfig };
+
+  if (options.deviceCodec === "empty") {
+    runtimeDevicePayloadConfig.payloadCodec = { enabled: true, script: "" };
+  } else if (options.deviceCodec === "absent") {
+    delete runtimeDevicePayloadConfig.payloadCodec;
+  }
+
+  let runtimeDevice = {
+    ...activeDevice,
+    payloadConfig: runtimeDevicePayloadConfig,
+  };
   let runtimeGateway = { ...editableGateway };
 
   const simulationSnapshot = () => ({

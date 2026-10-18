@@ -6,6 +6,7 @@ const externalServer = process.env.PLAYWRIGHT_EXTERNAL_SERVER === "true";
 const reuseExport = process.env.PLAYWRIGHT_REUSE_EXPORT === "true";
 const crossBrowser = process.env.PLAYWRIGHT_CROSS_BROWSER === "true";
 const playwrightPort = process.env.PLAYWRIGHT_PORT ?? "3000";
+const playwrightBaseURL = `http://127.0.0.1:${playwrightPort}`;
 
 const projects = [
   {
@@ -40,7 +41,7 @@ export default defineConfig({
       ]
     : "list",
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000",
+    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? playwrightBaseURL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",

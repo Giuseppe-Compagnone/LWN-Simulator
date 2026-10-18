@@ -4,6 +4,7 @@ import { SensorMap, SensorMapMode, useSensorMap } from "@/components/SensorMap";
 import {
   estimateRegion,
   getAltitude,
+  isValidJavaScript,
   latValidation,
   lngValidation,
   randomDevEUI,
@@ -49,6 +50,10 @@ const getRx1DataRateOptions = (region: DeviceRegion): Array<SelectOption> => {
 const getRx2DataRateOptions = (region: DeviceRegion): Array<SelectOption> =>
   rx2DataRateOptions[region].map((option) => ({ value: option }));
 
+const defaultPayloadCodec = `function decodeUplink(input) {
+  return { data: {} };
+}`;
+
 const lockFieldsDuringSimulation = (
   fields: Array<FormField>,
   locked: boolean,
@@ -67,91 +72,96 @@ export const DeviceForm = (props: DeviceFormProps) => {
   const { setAntennaRange, updatePos } = mapLogic;
 
   // Callbacks
-  const setRegionDependentFields = useCallback((
-    logic: FormLogic,
-    region: DeviceRegion,
-    values?: {
-      rx1DRO?: string;
-      rx2DR?: number;
-      rx2CF?: string;
+  const setRegionDependentFields = useCallback(
+    (
+      logic: FormLogic,
+      region: DeviceRegion,
+      values?: {
+        rx1DRO?: string;
+        rx2DR?: number;
+        rx2CF?: string;
+      },
+    ) => {
+      logic.setProp("rx1DRO", "options", getRx1DataRateOptions(region));
+      logic.setProp("rx2DR", "options", getRx2DataRateOptions(region));
+
+      const defaultFrequency = rx2Frequency[region].toString();
+      logic.setProp("rx2CF", "placeholder", defaultFrequency);
+      logic.setValue("rx2CF", values?.rx2CF ?? defaultFrequency);
+
+      if (values?.rx1DRO !== undefined) {
+        logic.setValue("rx1DRO", values.rx1DRO);
+      }
+
+      if (values?.rx2DR !== undefined) {
+        logic.setValue("rx2DR", values.rx2DR);
+      }
     },
-  ) => {
-    logic.setProp("rx1DRO", "options", getRx1DataRateOptions(region));
-    logic.setProp("rx2DR", "options", getRx2DataRateOptions(region));
+    [],
+  );
 
-    const defaultFrequency = rx2Frequency[region].toString();
-    logic.setProp("rx2CF", "placeholder", defaultFrequency);
-    logic.setValue("rx2CF", values?.rx2CF ?? defaultFrequency);
+  const hydrateForm = useCallback(
+    (logic: FormLogic, device: Device) => {
+      const values: Record<string, FormValue> = {
+        active: device.active,
+        name: device.name,
+        devEUI: device.devEUI,
+        latitude: device.locationConfig.latitude.toString(),
+        longitude: device.locationConfig.longitude.toString(),
+        altitude: device.locationConfig.altitude.toString(),
+        region: device.locationConfig.region,
+        class: device.class,
+        activation: device.activation,
+        joinEUI: device.OOTAConfig?.joinEUI ?? "",
+        appKey: device.OOTAConfig?.appKey ?? "",
+        devAddr: device.ABPConfig?.devAddr ?? "",
+        nwkSKey: device.ABPConfig?.nwkSKey ?? "",
+        appSKey: device.ABPConfig?.appSKey ?? "",
+        rx1Delay: device.RX1Config.delay.toString(),
+        rx1Duration: device.RX1Config.duration.toString(),
+        rx1DRO: device.RX1Config.dataRateOffset.toString(),
+        rx2Delay: device.RX2Config.delay.toString(),
+        rx2Duration: device.RX2Config.duration.toString(),
+        rx2CF: device.RX2Config.channelFrequency.toString(),
+        rx2DR: device.RX2Config.dataRate,
+        rx2ACKT: device.RX2Config.ACKTimeout.toString(),
+        fPort: device.frameConfig.fPort.toString(),
+        retransmission: device.frameConfig.retransmission.toString(),
+        fCntUp: device.frameConfig.FCntUp?.toString() ?? "",
+        fCntDown: device.frameConfig.FCntDown?.toString() ?? "",
+        disableFrameCounterValidation:
+          device.frameConfig.disableFrameCounterValidation,
+        uplinkInterval: device.payloadConfig.uplinkInterval.toString(),
+        oversizedPayloadBehavior: device.payloadConfig.oversizedPayloadBehavior,
+        MType: device.payloadConfig.MType,
+        payload: device.payloadConfig.payload,
+        base64Encoded: device.payloadConfig.base64Encoded,
+        payloadCodecEnabled:
+          device.payloadConfig.payloadCodec?.enabled ?? false,
+        payloadCodec:
+          device.payloadConfig.payloadCodec?.script?.trim() ||
+          defaultPayloadCodec,
+        antennaRange: device.advancedConfig.antennaRange.toString(),
+        ADREnabled: device.advancedConfig.ADREnabled,
+      };
+      Object.entries(values).forEach(([name, value]) =>
+        logic.setValue(name, value),
+      );
 
-    if (values?.rx1DRO !== undefined) {
-      logic.setValue("rx1DRO", values.rx1DRO);
-    }
+      setRegionDependentFields(logic, device.locationConfig.region, {
+        rx1DRO: values.rx1DRO as string,
+        rx2DR: values.rx2DR as number,
+        rx2CF: values.rx2CF as string,
+      });
 
-    if (values?.rx2DR !== undefined) {
-      logic.setValue("rx2DR", values.rx2DR);
-    }
-  }, []);
-
-  const hydrateForm = useCallback((logic: FormLogic, device: Device) => {
-    const values: Record<string, FormValue> = {
-      active: device.active,
-      name: device.name,
-      devEUI: device.devEUI,
-      latitude: device.locationConfig.latitude.toString(),
-      longitude: device.locationConfig.longitude.toString(),
-      altitude: device.locationConfig.altitude.toString(),
-      region: device.locationConfig.region,
-      class: device.class,
-      activation: device.activation,
-      joinEUI: device.OOTAConfig?.joinEUI ?? "",
-      appKey: device.OOTAConfig?.appKey ?? "",
-      devAddr: device.ABPConfig?.devAddr ?? "",
-      nwkSKey: device.ABPConfig?.nwkSKey ?? "",
-      appSKey: device.ABPConfig?.appSKey ?? "",
-      rx1Delay: device.RX1Config.delay.toString(),
-      rx1Duration: device.RX1Config.duration.toString(),
-      rx1DRO: device.RX1Config.dataRateOffset.toString(),
-      rx2Delay: device.RX2Config.delay.toString(),
-      rx2Duration: device.RX2Config.duration.toString(),
-      rx2CF: device.RX2Config.channelFrequency.toString(),
-      rx2DR: device.RX2Config.dataRate,
-      rx2ACKT: device.RX2Config.ACKTimeout.toString(),
-      fPort: device.frameConfig.fPort.toString(),
-      retransmission: device.frameConfig.retransmission.toString(),
-      fCntUp: device.frameConfig.FCntUp?.toString() ?? "",
-      fCntDown: device.frameConfig.FCntDown?.toString() ?? "",
-      disableFrameCounterValidation:
-        device.frameConfig.disableFrameCounterValidation,
-      uplinkInterval: device.payloadConfig.uplinkInterval.toString(),
-      oversizedPayloadBehavior: device.payloadConfig.oversizedPayloadBehavior,
-      MType: device.payloadConfig.MType,
-      payload: device.payloadConfig.payload,
-      base64Encoded: device.payloadConfig.base64Encoded,
-      payloadCodecEnabled: device.payloadConfig.payloadCodec?.enabled ?? false,
-      payloadCodec: device.payloadConfig.payloadCodec?.script ?? "",
-      antennaRange: device.advancedConfig.antennaRange.toString(),
-      ADREnabled: device.advancedConfig.ADREnabled,
-    };
-    Object.entries(values).forEach(([name, value]) =>
-      logic.setValue(name, value),
-    );
-
-    setRegionDependentFields(logic, device.locationConfig.region, {
-      rx1DRO: values.rx1DRO as string,
-      rx2DR: values.rx2DR as number,
-      rx2CF: values.rx2CF as string,
-    });
-
-    updatePos(
-      device.locationConfig.latitude,
-      device.locationConfig.longitude,
-    );
-    setAntennaRange(device.advancedConfig.antennaRange);
-  }, [
-    setAntennaRange,
-    updatePos,
-    setRegionDependentFields,
-  ]);
+      updatePos(
+        device.locationConfig.latitude,
+        device.locationConfig.longitude,
+      );
+      setAntennaRange(device.advancedConfig.antennaRange);
+    },
+    [setAntennaRange, updatePos, setRegionDependentFields],
+  );
 
   // Effects
   useEffect(() => {
@@ -198,24 +208,25 @@ export const DeviceForm = (props: DeviceFormProps) => {
 
   return (
     <div className="page-content device-form">
-        <div className="form-wrapper">
-          <Form
-            onSubmit={props.onSubmit}
-            submitButton={{
-              value: props.device ? "Save" : "Create",
-              className: "submit-button",
-            }}
-            onLogicReady={(logic) => {
-              formLogicRef.current = logic;
-              if (
-                props.device &&
-                hydratedDeviceIdRef.current !== props.device.id
-              ) {
-                hydrateForm(logic, props.device);
-                hydratedDeviceIdRef.current = props.device.id;
-              }
-            }}
-            fields={lockFieldsDuringSimulation([
+      <div className="form-wrapper">
+        <Form
+          onSubmit={props.onSubmit}
+          submitButton={{
+            value: props.device ? "Save" : "Create",
+            className: "submit-button",
+          }}
+          onLogicReady={(logic) => {
+            formLogicRef.current = logic;
+            if (
+              props.device &&
+              hydratedDeviceIdRef.current !== props.device.id
+            ) {
+              hydrateForm(logic, props.device);
+              hydratedDeviceIdRef.current = props.device.id;
+            }
+          }}
+          fields={lockFieldsDuringSimulation(
+            [
               booleanCheckboxField({
                 value: props.device?.active ?? false,
                 name: "active",
@@ -979,13 +990,17 @@ export const DeviceForm = (props: DeviceFormProps) => {
                   default:
                     "Uses a JavaScript decoder to convert uplink bytes into readable data",
                 },
+                onChange: (logic: FormLogic) => {
+                  if (!logic.fieldsState.payloadCodec.value) {
+                    logic.setValue("payloadCodec", defaultPayloadCodec);
+                  }
+                },
               }),
               codeEditorField({
                 name: "payloadCodec",
                 label: "JavaScript Payload Codec",
-                value: "",
-                placeholder:
-                  "function decodeUplink(input) {\n  return { data: {} };\n}",
+                value: defaultPayloadCodec,
+                placeholder: defaultPayloadCodec,
                 info: {
                   default:
                     "Provide a decodeUplink(input) function compatible with the payload codec API",
@@ -994,8 +1009,12 @@ export const DeviceForm = (props: DeviceFormProps) => {
                 required: true,
                 validations: [
                   {
-                    rule:
-                      /(?:function\s+decodeUplink\s*\(|(?:const|let|var)\s+decodeUplink\s*=\s*(?:function\s*\(|(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>))/,
+                    rule: (value: FormValue) =>
+                      isValidJavaScript(String(value)),
+                    error: "Enter valid JavaScript syntax",
+                  },
+                  {
+                    rule: /(?:function\s+decodeUplink\s*\(|(?:const|let|var)\s+decodeUplink\s*=\s*(?:function\s*\(|(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>))/,
                     error: "Define a decodeUplink(input) function",
                     realtime: true,
                   },
@@ -1043,10 +1062,12 @@ export const DeviceForm = (props: DeviceFormProps) => {
                     "Allows the network to optimize the device's data rate and transmission power",
                 },
               }),
-            ], !!props.device && props.simulationActive)}
-          />
-        </div>
-        <SensorMap logic={mapLogic} mode={SensorMapMode.Coords} />
+            ],
+            !!props.device && props.simulationActive,
+          )}
+        />
       </div>
+      <SensorMap logic={mapLogic} mode={SensorMapMode.Coords} />
+    </div>
   );
 };

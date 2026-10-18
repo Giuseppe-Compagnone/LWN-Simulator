@@ -65,6 +65,35 @@ describe("form components", () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
+  it("supports predicate validation rules on submission", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(
+      <Form
+        fields={[
+          textField({
+            name: "script",
+            label: "Script",
+            value: "invalid",
+            error: null,
+            validations: [
+              {
+                rule: (value) => value === "valid",
+                error: "Invalid script",
+              },
+            ],
+          }),
+        ]}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(screen.getByText("Invalid script")).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it("accepts zero as a valid required numeric value", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
