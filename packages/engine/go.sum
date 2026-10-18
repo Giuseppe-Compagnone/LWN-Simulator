@@ -1,2 +1,8 @@
+github.com/dop251/goja v0.0.0-20261018113103-d42f16bb6161 h1:D9Bbwh0iJ8T/hHCDebeQzADTqaRRlEjLM/vt0Fjsgvw=
+github.com/dop251/goja v0.0.0-20261018113103-d42f16bb6161/go.mod h1:Cp9NYOLrEKg/ypIRkUWYXWLuKAyyFGkDmGeJ95Sw0zI=
+github.com/go-sourcemap/sourcemap v2.1.3+incompatible h1:W1iEw64niKVGogNgBN3ePyLFfuisuzeidWPMPWmECqU=
+github.com/go-sourcemap/sourcemap v2.1.3+incompatible/go.mod h1:F8jJfvm2KbVjc5NqelyYJmf/v5J0dwNLS2mL4sNA1Jg=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
 github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+golang.org/x/text v0.43.0 h1:1QivrlhwAsnMOcqgOdl9my7s9OyZl8O5/UGUTJVXoWc=
+golang.org/x/text v0.43.0/go.mod h1:hbSIYA/amXcRXTFSZqh8tWHEoqRvvbKPJ2uz/KU+a+s=

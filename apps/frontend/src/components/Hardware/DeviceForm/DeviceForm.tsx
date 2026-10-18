@@ -985,13 +985,21 @@ export const DeviceForm = (props: DeviceFormProps) => {
                 label: "JavaScript Payload Codec",
                 value: "",
                 placeholder:
-                  "function decodeUplink(input) {\\n  return { data: {} };\\n}",
+                  "function decodeUplink(input) {\n  return { data: {} };\n}",
                 info: {
                   default:
                     "Provide a decodeUplink(input) function compatible with the payload codec API",
                 },
                 error: null,
                 required: true,
+                validations: [
+                  {
+                    rule:
+                      /(?:function\s+decodeUplink\s*\(|(?:const|let|var)\s+decodeUplink\s*=\s*(?:function\s*\(|(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>))/,
+                    error: "Define a decodeUplink(input) function",
+                    realtime: true,
+                  },
+                ],
                 resize: true,
                 display: (fieldsState: Record<string, FormField>) =>
                   fieldsState.payloadCodecEnabled.value === true,

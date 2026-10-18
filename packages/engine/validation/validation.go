@@ -264,6 +264,7 @@ func validatePayload(issues *types.ValidationErrors, prefix string, config contr
 			issues.Add(prefix+".payload", "invalid_base64", "payload must be valid standard base64 when base64Encoded is true")
 		}
 	}
+	validatePayloadCodec(issues, prefix+".payloadCodec", config.PayloadCodec)
 }
 
 func validateUUID(issues *types.ValidationErrors, field string, value string) {

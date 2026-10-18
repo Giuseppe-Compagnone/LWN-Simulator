@@ -80,6 +80,63 @@ func TestValidateHardwareAcceptsValidFleet(t *testing.T) {
 	}
 }
 
+func TestValidatePayloadCodec(t *testing.T) {
+	tests := []struct {
+		name      string
+		codec     *contracts.PayloadCodec
+		wantField string
+		wantNoErr bool
+	}{
+		{
+			name:      "disabled codec ignores empty script",
+			codec:     &contracts.PayloadCodec{Enabled: false},
+			wantNoErr: true,
+		},
+		{
+			name:      "valid decoder declaration",
+			codec:     &contracts.PayloadCodec{Enabled: true, Script: "function decodeUplink(input) { return { data: {} }; }"},
+			wantNoErr: true,
+		},
+		{
+			name:      "valid decoder assignment",
+			codec:     &contracts.PayloadCodec{Enabled: true, Script: "const decodeUplink = (input) => ({ data: {} });"},
+			wantNoErr: true,
+		},
+		{
+			name:      "empty script",
+			codec:     &contracts.PayloadCodec{Enabled: true, Script: "  "},
+			wantField: "payloadConfig.payloadCodec.script",
+		},
+		{
+			name:      "invalid syntax",
+			codec:     &contracts.PayloadCodec{Enabled: true, Script: "function decodeUplink(input) { return ;"},
+			wantField: "payloadConfig.payloadCodec.script",
+		},
+		{
+			name:      "missing decoder",
+			codec:     &contracts.PayloadCodec{Enabled: true, Script: "function encodeUplink(input) { return input; }"},
+			wantField: "payloadConfig.payloadCodec.script",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			device := validationDevice()
+			device.PayloadConfig.PayloadCodec = test.codec
+			err := ValidateHardware([]contracts.Device{device}, nil)
+			if test.wantNoErr {
+				if err != nil {
+					t.Fatalf("valid codec was rejected: %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), test.wantField) {
+				t.Fatalf("expected validation issue for %s, got %v", test.wantField, err)
+			}
+		})
+	}
+}
+
 func TestValidateHardwareCoversDeviceAndGatewayRules(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -207,6 +264,9 @@ func TestEveryDeviceParameterHasAValidationContract(t *testing.T) {
 		{"base64 payload", "payloadConfig.payload", func(device *contracts.Device) {
 			device.PayloadConfig.Base64Encoded = true
 			device.PayloadConfig.Payload = "%%%"
+		}},
+		{"payload codec", "payloadConfig.payloadCodec.script", func(device *contracts.Device) {
+			device.PayloadConfig.PayloadCodec = &contracts.PayloadCodec{Enabled: true, Script: "function decodeUplink(input) {"}
 		}},
 		{"antenna range", "advancedConfig.antennaRange", func(device *contracts.Device) { device.AdvancedConfig.AntennaRange = 0 }},
 		{"uplink data rate", "advancedConfig.uplinkDataRate", func(device *contracts.Device) { device.AdvancedConfig.UplinkDataRate = intPointer(99) }},
