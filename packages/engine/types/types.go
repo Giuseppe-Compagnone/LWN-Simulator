@@ -11,7 +11,9 @@ type EventSink func(contracts.SimulationEvent)
 
 type GatewayPacket struct {
 	GatewayID       string
+	DeviceID        string
 	Kind            GatewayPacketKind
+	Protocol        contracts.RadioProtocol
 	Payload         []byte
 	Frequency       int64
 	Bandwidth       int64

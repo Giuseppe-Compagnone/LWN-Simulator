@@ -50,7 +50,7 @@ func (e *Engine) startRadioTransmissionLocked(
 	payload := e.buildUplinkPayloadLocked(device, session, frameCounter, confirmed, scheduled.FragmentIndex, dataRate)
 	transmission := &types.RadioTransmission{
 		RadioFrame: types.RadioFrame{
-			Protocol:          contracts.LoRaWAN,
+			Protocol:          deviceRadioProtocol(device),
 			Payload:           append([]byte(nil), payload...),
 			ChannelFrequency:  channel.Frequency,
 			Bandwidth:         channel.Bandwidth,
@@ -175,7 +175,9 @@ func (e *Engine) processRadioTransmissionCompletedLocked(scheduled types.Schedul
 				if _, connected := e.gatewayAdapters[gatewayID]; connected {
 					e.gatewayPackets = append(e.gatewayPackets, types.GatewayPacket{
 						GatewayID:       gatewayID,
+						DeviceID:        transmission.DeviceID,
 						Kind:            types.GatewayPacketUplink,
+						Protocol:        transmission.Protocol,
 						Payload:         append([]byte(nil), transmission.Payload...),
 						Frequency:       transmission.ChannelFrequency,
 						Bandwidth:       transmission.Bandwidth,
@@ -402,6 +404,9 @@ func sharesGateway(left, right []string) bool {
 }
 
 func gatewayEventType(transmission *types.RadioTransmission) contracts.SimulationEventType {
+	if transmission.Protocol == contracts.RawLoRa {
+		return contracts.GatewayPacketReceived
+	}
 	if transmission.Confirmed || transmission.FrameCounter > 0 {
 		return contracts.GatewayPacketReceived
 	}

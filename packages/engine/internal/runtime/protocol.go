@@ -70,7 +70,7 @@ func (e *Engine) processUplinkLocked(scheduled types.ScheduledEvent) []contracts
 	if !ok || !device.Active {
 		return []contracts.SimulationEvent{e.newEventLocked(contracts.PacketDropped, "uplink dropped because the device is not active", scheduled.DeviceID, "", scheduled.ID)}
 	}
-	if !session.Joined {
+	if deviceRadioProtocol(device) != contracts.RawLoRa && !session.Joined {
 		return []contracts.SimulationEvent{e.newEventLocked(contracts.PacketDropped, "uplink dropped because the device has not joined", scheduled.DeviceID, "", scheduled.ID)}
 	}
 

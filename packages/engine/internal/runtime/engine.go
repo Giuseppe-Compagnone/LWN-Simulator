@@ -517,6 +517,10 @@ func (e *Engine) QueueDownlink(downlink types.Downlink) (string, error) {
 		e.mu.Unlock()
 		return "", fmt.Errorf("device %s has an unsupported class", downlink.DeviceID)
 	}
+	if deviceRadioProtocol(device) == contracts.RawLoRa && len(downlink.MACCommands) > 0 {
+		e.mu.Unlock()
+		return "", fmt.Errorf("raw LoRa downlinks cannot contain LoRaWAN MAC commands")
+	}
 	if !device.Active {
 		e.mu.Unlock()
 		return "", fmt.Errorf("device %s is inactive", downlink.DeviceID)

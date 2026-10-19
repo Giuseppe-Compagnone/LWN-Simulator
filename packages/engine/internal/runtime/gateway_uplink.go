@@ -28,6 +28,22 @@ func (e *Engine) buildUplinkPayloadLocked(
 	if session == nil {
 		return nil
 	}
+	if deviceRadioProtocol(device) == contracts.RawLoRa {
+		payload := payloadBytes(device)
+		maximum := maximumPayloadSize(device.LocationConfig.Region, dataRate)
+		if maximum > 0 && len(payload) > maximum {
+			start := fragmentIndex * maximum
+			if start >= len(payload) {
+				return nil
+			}
+			end := start + maximum
+			if end > len(payload) {
+				end = len(payload)
+			}
+			payload = payload[start:end]
+		}
+		return append([]byte(nil), payload...)
+	}
 	if session.PendingJoinRequest != nil && session.PendingJoinRequest.JoinEUI != "" {
 		if device.OOTAConfig == nil {
 			return nil

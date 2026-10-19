@@ -344,6 +344,9 @@ func runtimeControlStatus(status contracts.SimulationStatus) bool {
 }
 
 func initialDeviceEvent(device contracts.Device, session *types.DeviceSession, at time.Duration) types.ScheduledEvent {
+	if deviceRadioProtocol(device) == contracts.RawLoRa {
+		return types.ScheduledEvent{ID: uuid.NewString(), At: at, Type: contracts.DeviceUplinkTransmitted, Message: "device raw LoRa frame scheduled", DeviceID: device.ID, Kind: types.ScheduledEventDeviceUplink, Attempt: 1}
+	}
 	kind := types.ScheduledEventDeviceUplink
 	eventType := contracts.DeviceUplinkTransmitted
 	message := "device uplink scheduled"

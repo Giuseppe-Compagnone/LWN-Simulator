@@ -102,6 +102,32 @@ func (e *Engine) queueDataDownlinkLocked(
 	if dataRate < 0 {
 		dataRate = currentDeviceDataRate(session, device)
 	}
+	if deviceRadioProtocol(device) == contracts.RawLoRa {
+		if len(downlink.MACCommands) > 0 || len(downlink.Payload) == 0 {
+			return
+		}
+		target := time.Now().Add(classBRealGatewayTimingLead)
+		if at > 0 {
+			target = time.Now().Add(time.Duration(float64(at-e.clock.Now()) / e.state.Speed))
+			if target.Before(time.Now()) {
+				target = time.Now().Add(classBRealGatewayTimingLead)
+			}
+		}
+		e.gatewayPackets = append(e.gatewayPackets, types.GatewayPacket{
+			GatewayID:       gateway.ID,
+			DeviceID:        device.ID,
+			Kind:            types.GatewayPacketDownlink,
+			Protocol:        contracts.RawLoRa,
+			Payload:         append([]byte(nil), downlink.Payload...),
+			Frequency:       frequency,
+			Bandwidth:       radioBandwidthHz,
+			SpreadingFactor: spreadingFactorForDataRate(device.LocationConfig.Region, dataRate),
+			Power:           int(radioTransmitPowerDBm),
+			DataRate:        fmt.Sprintf("DR%d", dataRate),
+			TransmitAt:      target,
+		})
+		return
+	}
 	devAddr, err := hex.DecodeString(session.DeviceAddress)
 	if err != nil || len(devAddr) != 4 || len(session.NwkSKey) != 16 || len(session.AppSKey) != 16 {
 		return
