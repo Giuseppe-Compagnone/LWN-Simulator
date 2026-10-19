@@ -80,20 +80,22 @@ func (s *DeviceService) CreateDevice(
 	}
 
 	device := contracts.Device{
-		ID:             uuid.NewString(),
-		Active:         true,
-		DevEUI:         req.DevEUI,
-		Name:           req.Name,
-		Activation:     req.Activation,
-		Class:          req.Class,
-		LocationConfig: req.LocationConfig,
-		ABPConfig:      req.ABPConfig,
-		OOTAConfig:     req.OOTAConfig,
-		RX1Config:      req.RX1Config,
-		RX2Config:      req.RX2Config,
-		AdvancedConfig: req.AdvancedConfig,
-		FrameConfig:    req.FrameConfig,
-		PayloadConfig:  req.PayloadConfig,
+		ID:               uuid.NewString(),
+		Active:           true,
+		DevEUI:           req.DevEUI,
+		Name:             req.Name,
+		Activation:       req.Activation,
+		RadioProtocol:    req.RadioProtocol,
+		RadioReceiveMode: req.RadioReceiveMode,
+		Class:            req.Class,
+		LocationConfig:   req.LocationConfig,
+		ABPConfig:        req.ABPConfig,
+		OOTAConfig:       req.OOTAConfig,
+		RX1Config:        req.RX1Config,
+		RX2Config:        req.RX2Config,
+		AdvancedConfig:   req.AdvancedConfig,
+		FrameConfig:      req.FrameConfig,
+		PayloadConfig:    req.PayloadConfig,
 	}
 
 	devices = append(devices, device)
