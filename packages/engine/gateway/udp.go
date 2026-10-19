@@ -501,9 +501,9 @@ func (adapter *udpAdapter) Send(ctx context.Context, packet types.GatewayPacket)
 	tokenKey := hex.EncodeToString(token[:])
 	adapter.mu.Lock()
 	adapter.pending[tokenKey] = types.GatewayPacket{
-		GatewayID: packet.GatewayID, Kind: packet.Kind, Payload: append([]byte(nil), packet.Payload...),
-		Frequency: packet.Frequency, Bandwidth: packet.Bandwidth, SpreadingFactor: packet.SpreadingFactor,
-		Power: packet.Power, DataRate: packet.DataRate, TransmitAt: packet.TransmitAt,
+		GatewayID: packet.GatewayID, DeviceID: packet.DeviceID, Kind: packet.Kind, Protocol: packet.Protocol,
+		Payload: append([]byte(nil), packet.Payload...), Frequency: packet.Frequency, Bandwidth: packet.Bandwidth,
+		SpreadingFactor: packet.SpreadingFactor, Power: packet.Power, DataRate: packet.DataRate, TransmitAt: packet.TransmitAt,
 	}
 	adapter.mu.Unlock()
 	if err := adapter.send(frame, destination); err != nil {
