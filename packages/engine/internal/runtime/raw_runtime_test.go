@@ -87,6 +87,56 @@ func TestRawDownlinkIsAcceptedOnlyByRawReceivingDevice(t *testing.T) {
 	}
 }
 
+func TestRawDownlinkTravelsThroughConnectedGateway(t *testing.T) {
+	adapter := newFakeGatewayAdapter()
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000703")
+	raw := contracts.RawLoRa
+	device.RadioProtocol = &raw
+	device.RadioReceiveMode = receiveModePointer(contracts.ReceiveRawLoRa)
+	gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c73")
+	gateway.Type = contracts.Real
+	gateway.KeepAlive = nil
+	gateway.GatewayEUI = "A840410001000173"
+	gateway.MacAddress = "02:00:00:10:00:73"
+	gateway.GatewayIPv4 = engineStringPtr("127.0.0.1")
+	gateway.GatewayPort = engineInt32Ptr(1773)
+
+	engine, err := New(
+		contracts.SimulationConfig{Speed: 1},
+		[]contracts.Device{device},
+		[]contracts.Gateway{gateway},
+		types.Options{EventBuffer: 256, GatewayAdapterFactory: &fakeGatewayFactory{adapter: adapter}},
+	)
+	if err != nil {
+		t.Fatalf("create engine: %v", err)
+	}
+	startEngine(t, engine)
+	defer stopEngine(t, engine)
+
+	waitForEventType(t, engine.Events(), contracts.GatewayConnecting)
+	adapter.emit(types.GatewayAdapterEvent{GatewayID: gateway.ID, State: contracts.Connected})
+	waitForEventType(t, engine.Events(), contracts.GatewayConnected)
+
+	adapter.packets <- types.GatewayPacket{
+		GatewayID: gateway.ID,
+		DeviceID:  device.ID,
+		Protocol:  contracts.RawLoRa,
+		Kind:      types.GatewayPacketDownlink,
+		Payload:   []byte{0xde, 0xad, 0xbe, 0xef},
+	}
+
+	event := waitForEventType(t, engine.Events(), contracts.DeviceDownlinkTransmitted)
+	if event.DeviceID == nil || *event.DeviceID != device.ID {
+		t.Fatalf("downlink was assigned to device %v, want %q", event.DeviceID, device.ID)
+	}
+	if event.RadioFrame == nil || event.RadioFrame.Protocol != contracts.RawLoRa {
+		t.Fatalf("expected raw radio frame metadata, got %+v", event.RadioFrame)
+	}
+	if string(event.RadioFrame.Payload) != string([]byte{0xde, 0xad, 0xbe, 0xef}) {
+		t.Fatalf("unexpected raw downlink payload: %x", event.RadioFrame.Payload)
+	}
+}
+
 func receiveModePointer(mode contracts.RadioReceiveMode) *contracts.RadioReceiveMode {
 	return &mode
 }
