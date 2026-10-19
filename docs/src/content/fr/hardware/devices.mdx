@@ -2,6 +2,8 @@
 title: Appareils
 ---
 
+import { Callout } from "nextra/components";
+
 # Appareils
 
 Un appareil représente un nœud LoRaWAN.
@@ -9,3 +11,44 @@ Un appareil représente un nœud LoRaWAN.
 Configurez son nom, son DevEUI, les identifiants OTAA (AppEUI/JoinEUI et AppKey) ou la session ABP (DevAddr, NwkSKey et AppSKey), l'activation, la classe A/B/C, l'intervalle d'uplink, le payload, le FPort, la position et la portée.
 
 Le data rate, la puissance, la fréquence, le canal, les uplinks confirmés, l'ADR, le compteur de trames et les retransmissions influencent le protocole et le résultat radio. Utilisez un DevEUI unique par appareil et renseignez tous les paramètres de session ABP.
+
+## Codec du payload
+
+Activez **Payload Codec** lorsque vous souhaitez afficher le payload
+applicatif sous forme de données structurées. Collez dans l'éditeur multiligne
+une fonction JavaScript appelée `decodeUplink` :
+
+```js
+function decodeUplink(input) {
+  return {
+    data: {
+      temperature: input.bytes[0],
+      humidity: input.bytes[1],
+    },
+  };
+}
+```
+
+La fonction reçoit :
+
+| Propriété | Signification |
+| --- | --- |
+| `input.bytes` | Payload applicatif déchiffré sous forme de tableau d'octets. |
+| `input.fPort` | Port applicatif configuré pour l'uplink. |
+
+Retournez un objet contenant une propriété `data` avec les valeurs à afficher
+dans le flux d'événements. Lors de l'enregistrement, le simulateur vérifie la
+syntaxe JavaScript et la présence de `decodeUplink`. Pendant la simulation, la
+fonction est exécutée avec une durée maximale ; une erreur du codec est
+signalée sur l'événement sans interrompre la simulation.
+
+Lorsque le décodage réussit, le flux d'événements et le journal de simulation
+affichent le résultat à côté de l'événement original sous forme de données
+**Decoded**. Le codec s'applique uniquement aux uplinks applicatifs, après le
+déchiffrement du payload LoRaWAN.
+
+<Callout type="warning" emoji="⚠️">
+  Traitez les scripts du codec comme du code de configuration. Gardez-les
+  courts, déterministes et sans dépendances externes. Le simulateur ne donne
+  pas accès à l'application, au système de fichiers ni aux services réseau.
+</Callout>

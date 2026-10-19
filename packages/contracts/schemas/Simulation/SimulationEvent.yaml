@@ -124,6 +124,9 @@ properties:
     type: object
     additionalProperties: true
     x-go-name: DecodedPayload
+  radioFrame:
+    $ref: "./RadioFrame.yaml"
+    description: Radio-level frame associated with this event, when available.
 
 required:
   - id

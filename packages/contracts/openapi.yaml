@@ -43,6 +43,10 @@ components:
       $ref: "./schemas/Device/DeviceProps/DeviceClass.yaml"
     DeviceActivation:
       $ref: "./schemas/Device/DeviceProps/DeviceActivation.yaml"
+    RadioProtocol:
+      $ref: "./schemas/Device/DeviceProps/RadioProtocol.yaml"
+    RadioReceiveMode:
+      $ref: "./schemas/Device/DeviceProps/RadioReceiveMode.yaml"
     OOTAConfig:
       $ref: "./schemas/Device/DeviceProps/OOTAConfig.yaml"
     ABPConfig:
@@ -137,6 +141,8 @@ components:
       $ref: "./schemas/Simulation/SimulationRxWindow.yaml"
     SimulationRadioLossReason:
       $ref: "./schemas/Simulation/SimulationRadioLossReason.yaml"
+    RadioFrame:
+      $ref: "./schemas/Simulation/RadioFrame.yaml"
     GatewayConnectionState:
       $ref: "./schemas/Simulation/GatewayConnectionState.yaml"
     SimulationControlAction:

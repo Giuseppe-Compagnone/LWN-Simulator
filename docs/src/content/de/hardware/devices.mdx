@@ -2,6 +2,8 @@
 title: Geräte
 ---
 
+import { Callout } from "nextra/components";
+
 # Geräte
 
 Ein Gerät ist ein LoRaWAN-Knoten im Netzwerk.
@@ -9,3 +11,44 @@ Ein Gerät ist ein LoRaWAN-Knoten im Netzwerk.
 Konfigurieren Sie Name, DevEUI, OTAA-Zugangsdaten (AppEUI/JoinEUI und AppKey) oder ABP-Sitzung (DevAddr, NwkSKey und AppSKey), Aktivierung, Klasse A/B/C, Uplink-Intervall, Payload, FPort, Position und Reichweite.
 
 Data Rate, Sendeleistung, Frequenz, Kanal, bestätigte Uplinks, ADR, Frame Counter und Retransmissions beeinflussen Protokoll und Funkergebnis. Verwenden Sie pro Gerät eine eindeutige DevEUI und füllen Sie ABP-Sitzungswerte vollständig aus.
+
+## Payload-Codec
+
+Aktivieren Sie **Payload Codec**, wenn der Anwendungspayload zusätzlich als
+strukturierte Daten angezeigt werden soll. Fügen Sie im mehrzeiligen Editor
+eine JavaScript-Funktion namens `decodeUplink` ein:
+
+```js
+function decodeUplink(input) {
+  return {
+    data: {
+      temperature: input.bytes[0],
+      humidity: input.bytes[1],
+    },
+  };
+}
+```
+
+Die Funktion erhält:
+
+| Eigenschaft | Bedeutung |
+| --- | --- |
+| `input.bytes` | Entschlüsselter Anwendungspayload als Array von Bytewerten. |
+| `input.fPort` | Für den Uplink konfigurierter Anwendungsport. |
+
+Geben Sie ein Objekt mit einer Eigenschaft `data` zurück, die die im
+Ereignisstrom anzuzeigenden Werte enthält. Beim Speichern prüft der Simulator
+die JavaScript-Syntax und das Vorhandensein von `decodeUplink`. Während eines
+Laufs wird die Funktion mit einem kurzen Zeitlimit ausgeführt; ein Codec-Fehler
+wird am Ereignis gemeldet, ohne die Simulation zu unterbrechen.
+
+Bei erfolgreicher Decodierung zeigen der Ereignisstrom und das
+Simulationsprotokoll das Ergebnis neben dem ursprünglichen Ereignis als
+**Decoded**-Daten an. Der Codec wird nur auf Anwendungs-Uplinks und nach der
+Entschlüsselung des LoRaWAN-Payloads angewendet.
+
+<Callout type="warning" emoji="⚠️">
+  Behandeln Sie Codec-Skripte als Konfigurationscode. Halten Sie sie kurz,
+  deterministisch und frei von externen Abhängigkeiten. Der Simulator gewährt
+  einem Codec keinen Zugriff auf Anwendung, Dateisystem oder Netzwerkdienste.
+</Callout>

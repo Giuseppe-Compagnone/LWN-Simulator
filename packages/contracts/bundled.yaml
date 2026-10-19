@@ -277,6 +277,28 @@ components:
       x-enum-varnames:
         - OOTA
         - ABP
+    RadioProtocol:
+      title: RadioProtocol
+      type: string
+      description: Protocol carried by a device radio transmission.
+      enum:
+        - lorawan
+        - raw-lora
+      x-enum-varnames:
+        - LoRaWAN
+        - RawLoRa
+    RadioReceiveMode:
+      title: RadioReceiveMode
+      type: string
+      description: Protocols accepted by a device when it listens for radio frames.
+      enum:
+        - lorawan
+        - raw-lora
+        - auto
+      x-enum-varnames:
+        - ReceiveLoRaWAN
+        - ReceiveRawLoRa
+        - ReceiveAuto
     OOTAConfig:
       title: OOTAConfig
       type: object
@@ -479,6 +501,12 @@ components:
           $ref: '#/components/schemas/RX2Config'
         activation:
           $ref: '#/components/schemas/DeviceActivation'
+        radioProtocol:
+          $ref: '#/components/schemas/RadioProtocol'
+          description: Protocol used when the device transmits a radio frame. Omitted values default to lorawan.
+        radioReceiveMode:
+          $ref: '#/components/schemas/RadioReceiveMode'
+          description: Protocol accepted while the device listens. Omitted values default to lorawan.
         OOTAConfig:
           $ref: '#/components/schemas/OOTAConfig'
         ABPConfig:
@@ -516,6 +544,12 @@ components:
           type: string
         activation:
           $ref: '#/components/schemas/DeviceActivation'
+        radioProtocol:
+          $ref: '#/components/schemas/RadioProtocol'
+          description: Protocol used when the device transmits. Defaults to lorawan.
+        radioReceiveMode:
+          $ref: '#/components/schemas/RadioReceiveMode'
+          description: Protocol accepted while the device listens. Defaults to lorawan.
         class:
           $ref: '#/components/schemas/DeviceClass'
         locationConfig:
@@ -1405,6 +1439,9 @@ components:
           type: object
           additionalProperties: true
           x-go-name: DecodedPayload
+        radioFrame:
+          $ref: '#/components/schemas/RadioFrame'
+          description: Radio-level frame associated with this event, when available.
       required:
         - id
         - sequence
@@ -1674,6 +1711,85 @@ components:
         - Collision
         - LowSNR
         - RandomLoss
+    RadioFrame:
+      title: RadioFrame
+      type: object
+      description: Common radio-level representation shared by LoRaWAN and raw LoRa frames.
+      properties:
+        protocol:
+          $ref: '#/components/schemas/RadioProtocol'
+        payload:
+          type: string
+          format: byte
+          description: Radio payload encoded as Base64 for transport in JSON.
+        frequency:
+          type: integer
+          format: int64
+          description: Radio frequency in hertz.
+          x-go-name: Frequency
+          x-oapi-codegen-extra-tags:
+            validate: required,min=1
+        bandwidth:
+          type: integer
+          format: int64
+          description: LoRa bandwidth in hertz.
+          x-go-name: Bandwidth
+          x-oapi-codegen-extra-tags:
+            validate: required,min=1
+        spreadingFactor:
+          type: integer
+          format: int32
+          description: LoRa spreading factor.
+          x-go-name: SpreadingFactor
+          x-oapi-codegen-extra-tags:
+            validate: required,min=5,max=12
+        codingRate:
+          type: string
+          description: LoRa coding rate, for example 4/5.
+          x-go-name: CodingRate
+          x-oapi-codegen-extra-tags:
+            validate: required
+        transmissionPower:
+          type: integer
+          format: int32
+          description: Transmission power in dBm.
+          x-go-name: TransmissionPower
+        senderID:
+          type: string
+          description: Internal identifier of the transmitting device or gateway.
+          x-go-name: SenderID
+          x-oapi-codegen-extra-tags:
+            validate: required
+        gatewayID:
+          type: string
+          description: Gateway that received or transmitted the frame, when known.
+          x-go-name: GatewayID
+          x-oapi-codegen-extra-tags:
+            validate: omitempty
+        timestampMilliseconds:
+          type: integer
+          format: int64
+          description: Simulation timestamp associated with the frame.
+          x-go-name: TimestampMilliseconds
+          x-oapi-codegen-extra-tags:
+            validate: min=0
+        airtimeMilliseconds:
+          type: integer
+          format: int64
+          description: Calculated airtime of the frame.
+          x-go-name: AirtimeMilliseconds
+          x-oapi-codegen-extra-tags:
+            validate: omitempty,min=0
+      required:
+        - protocol
+        - payload
+        - frequency
+        - bandwidth
+        - spreadingFactor
+        - codingRate
+        - transmissionPower
+        - senderID
+        - timestampMilliseconds
     GatewayConnectionState:
       title: GatewayConnectionState
       type: string

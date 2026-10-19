@@ -2,6 +2,8 @@
 title: Device
 ---
 
+import { Callout } from "nextra/components";
+
 # Device
 
 Ogni device rappresenta un nodo LoRaWAN della rete.
@@ -19,6 +21,47 @@ Ogni device rappresenta un nodo LoRaWAN della rete.
 - **Data rate**, **TX power**, **frequency** e **channel**: parametri radio del nodo.
 - **Latitude**, **longitude** e **antenna range**: posizione e copertura geometrica.
 - **Confirmed uplink**, **ADR**, **frame counter** e **retransmissions**: comportamento affidabile e MAC.
+
+## Codec del payload
+
+Attiva **Payload Codec** quando vuoi visualizzare il payload applicativo anche
+come dati strutturati. Incolla nell'editor multilinea una funzione JavaScript
+chiamata `decodeUplink`:
+
+```js
+function decodeUplink(input) {
+  return {
+    data: {
+      temperature: input.bytes[0],
+      humidity: input.bytes[1],
+    },
+  };
+}
+```
+
+La funzione riceve:
+
+| Proprietà | Significato |
+| --- | --- |
+| `input.bytes` | Payload applicativo decifrato, rappresentato come array di byte. |
+| `input.fPort` | Porta applicativa configurata per l'uplink. |
+
+Restituisci un oggetto con una proprietà `data` contenente i valori da
+mostrare nel flusso degli eventi. Al salvataggio il simulatore verifica la
+sintassi JavaScript e la presenza di `decodeUplink`. Durante la simulazione la
+funzione viene eseguita con un limite di tempo; un errore del codec viene
+riportato sull'evento senza interrompere la simulazione.
+
+Quando la decodifica riesce, il flusso degli eventi e il log della simulazione
+mostrano il risultato accanto all'evento originale come dati **Decoded**. Il
+codec viene applicato solo agli uplink applicativi, dopo la decifratura del
+payload LoRaWAN.
+
+<Callout type="warning" emoji="⚠️">
+  Tratta gli script del codec come codice di configurazione. Mantienili brevi,
+  deterministici e privi di dipendenze esterne. Il simulatore non fornisce
+  accesso all'applicazione, al filesystem o ai servizi di rete.
+</Callout>
 
 ## Consigli
 
