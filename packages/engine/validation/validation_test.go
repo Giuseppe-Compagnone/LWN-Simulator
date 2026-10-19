@@ -80,6 +80,21 @@ func TestValidateHardwareAcceptsValidFleet(t *testing.T) {
 	}
 }
 
+func TestValidateHardwareRejectsUnknownRadioSettings(t *testing.T) {
+	device := validationDevice()
+	protocol := contracts.RadioProtocol("unsupported")
+	device.RadioProtocol = &protocol
+	if err := ValidateHardware([]contracts.Device{device}, nil); err == nil || !strings.Contains(err.Error(), "radioProtocol") {
+		t.Fatalf("invalid radio protocol was accepted: %v", err)
+	}
+	device.RadioProtocol = nil
+	mode := contracts.RadioReceiveMode("unsupported")
+	device.RadioReceiveMode = &mode
+	if err := ValidateHardware([]contracts.Device{device}, nil); err == nil || !strings.Contains(err.Error(), "radioReceiveMode") {
+		t.Fatalf("invalid radio receive mode was accepted: %v", err)
+	}
+}
+
 func TestValidatePayloadCodec(t *testing.T) {
 	tests := []struct {
 		name      string

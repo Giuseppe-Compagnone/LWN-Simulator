@@ -6,11 +6,47 @@ import { Callout } from "nextra/components";
 
 # Geräte
 
-Ein Gerät ist ein LoRaWAN-Knoten im Netzwerk.
+Ein Gerät ist ein LoRa- oder LoRaWAN-Knoten im Netzwerk.
 
 Konfigurieren Sie Name, DevEUI, OTAA-Zugangsdaten (AppEUI/JoinEUI und AppKey) oder ABP-Sitzung (DevAddr, NwkSKey und AppSKey), Aktivierung, Klasse A/B/C, Uplink-Intervall, Payload, FPort, Position und Reichweite.
 
 Data Rate, Sendeleistung, Frequenz, Kanal, bestätigte Uplinks, ADR, Frame Counter und Retransmissions beeinflussen Protokoll und Funkergebnis. Verwenden Sie pro Gerät eine eindeutige DevEUI und füllen Sie ABP-Sitzungswerte vollständig aus.
+
+## LoRaWAN und Raw LoRa
+
+**Radio Protocol** bestimmt, was das Gerät sendet:
+
+| Wert | Verhalten |
+| --- | --- |
+| **LoRaWAN** | Verwendet LoRaWAN-Frames und die konfigurierte OTAA- oder ABP-Sitzung. OTAA-Geräte müssen vor dem Senden von Anwendungsdaten einen Join abschließen. |
+| **Raw LoRa** | Sendet die Payload-Bytes direkt, ohne LoRaWAN-Header, Verschlüsselung, MIC oder OTAA-Join. |
+
+**Radio Receive Mode** bestimmt unabhängig davon, was das Gerät empfangen kann:
+
+| Wert | Verhalten |
+| --- | --- |
+| **LoRaWAN** | Akzeptiert LoRaWAN-Daten mit den üblichen Sitzungsprüfungen. |
+| **Raw LoRa** | Akzeptiert Raw-Daten, ohne deren Bytes als LoRaWAN zu interpretieren. |
+| **Auto** | Erkennt strukturell gültige LoRaWAN-Frames und verarbeitet sie als LoRaWAN; andere Payloads werden als Raw-Frames behandelt. |
+
+Wählen Sie für ein reines Raw-Szenario in beiden Feldern **Raw LoRa**.
+Verwenden Sie **Auto**, um beide Protokolle zu akzeptieren. Eine Änderung des
+Sendeprotokolls ändert den Empfangsmodus nicht automatisch.
+
+Das gemeinsame Formular verlangt weiterhin Identität, Zugangsdaten zur
+Aktivierung, Klasse und die übrigen Konfigurationsgruppen. Diese Zugangsdaten
+fügen Raw-Übertragungen weder LoRaWAN-Sicherheit noch einen Join hinzu.
+Geben Sie den Payload als Text ein oder aktivieren Sie **Base64 Encoded**, um
+exakte Binärbytes anzugeben. Position, Antennenreichweite, regionale
+Funkeinstellungen, Kollisionen und Verluste wirken sich auch auf Raw-Daten
+aus. Ein inaktives Gerät sendet und empfängt keine Raw-Daten.
+
+<Callout type="info" emoji="📻">
+  Raw LoRa bietet keine LoRaWAN-Anwendungsports, MAC-Befehle oder
+  LoRaWAN-Nachrichtenbestätigungen. Der unten beschriebene Codec decodiert
+  LoRaWAN-Anwendungs-Uplinks; Raw-Bytes erscheinen in Ereignissen und
+  Protokollen als Hexadezimaldaten.
+</Callout>
 
 ## Payload-Codec
 

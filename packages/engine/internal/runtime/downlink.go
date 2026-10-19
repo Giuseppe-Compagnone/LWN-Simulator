@@ -29,12 +29,14 @@ func (e *Engine) newDownlinkEventLocked(
 	}
 	frequency := session.RX2Frequency
 	event.PayloadSize = &payloadSize
-	event.FPort = &fPort
 	event.DataRate = &dataRate
 	event.ChannelFrequency = &frequency
-	event.Confirmed = pointerTo(downlink.Confirmed)
-	frameCounter := session.FrameCounterDown
-	event.FrameCounter = &frameCounter
+	if deviceRadioProtocol(device) == contracts.LoRaWAN {
+		event.FPort = &fPort
+		event.Confirmed = pointerTo(downlink.Confirmed)
+		frameCounter := session.FrameCounterDown
+		event.FrameCounter = &frameCounter
+	}
 	e.eventLog[len(e.eventLog)-1] = event
 	return event
 }

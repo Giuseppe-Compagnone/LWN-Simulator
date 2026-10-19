@@ -240,6 +240,105 @@ func TestEngineRealGatewayOTAAOverSemtechUDP(t *testing.T) {
 	waitForEventType(t, engine.Events(), contracts.JoinAcceptReceived)
 }
 
+func TestEngineObservesRawLoRaUplinkOverSemtechUDP(t *testing.T) {
+	gatewaySocket := listenIntegrationUDP(t)
+	gatewayAddress := gatewaySocket.LocalAddr().(*net.UDPAddr)
+	enginePort := reserveIntegrationUDPPort(t)
+	factory := gateway.NewUDPFactory(gateway.UDPOptions{
+		LocalAddress: net.JoinHostPort("127.0.0.1", strconv.Itoa(enginePort)),
+		Timeout:      3 * time.Second,
+	})
+
+	gatewayConfig := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c96")
+	gatewayConfig.Type = contracts.Real
+	gatewayConfig.KeepAlive = nil
+	gatewayConfig.GatewayIPv4 = stringPointer("127.0.0.1")
+	gatewayConfig.GatewayPort = int32Pointer(gatewayAddress.Port)
+	engine, err := New(
+		contracts.SimulationConfig{Speed: 1},
+		nil,
+		[]contracts.Gateway{gatewayConfig},
+		types.Options{EventBuffer: 256, GatewayAdapterFactory: factory},
+	)
+	if err != nil {
+		t.Fatalf("create raw LoRa gateway engine: %v", err)
+	}
+	startEngine(t, engine)
+	defer stopEngine(t, engine)
+
+	engineAddress := &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: enginePort}
+	eui, err := hex.DecodeString(gatewayConfig.GatewayEUI)
+	if err != nil {
+		t.Fatalf("decode gateway EUI: %v", err)
+	}
+	writeIntegrationPacket(t, gatewaySocket, engineAddress, semtechPullData, [2]byte{0x51, 0x52}, eui)
+	readIntegrationPacket(t, gatewaySocket, semtechPullAck)
+	waitForEventType(t, engine.Events(), contracts.GatewayConnected)
+
+	payload := []byte{0xde, 0xad, 0xbe, 0xef}
+	writeIntegrationPushData(t, gatewaySocket, engineAddress, [2]byte{0x53, 0x54}, eui, payload)
+	readIntegrationPacket(t, gatewaySocket, semtechPushAck)
+	event := waitForEventType(t, engine.Events(), contracts.GatewayPacketIngress)
+	if event.RadioFrame == nil {
+		t.Fatal("raw LoRa UDP frame was not exposed on the ingress event")
+	}
+	if event.RadioFrame.Protocol != contracts.RawLoRa || string(event.RadioFrame.Payload) != string(payload) {
+		t.Fatalf("unexpected raw LoRa frame: %+v", event.RadioFrame)
+	}
+	if event.RadioFrame.SenderID != gatewayConfig.ID {
+		t.Fatalf("unaddressed raw frame was attributed to %q, want gateway %q", event.RadioFrame.SenderID, gatewayConfig.ID)
+	}
+	if event.DeviceID != nil {
+		t.Fatalf("unaddressed Semtech frame was assigned to a device: %q", *event.DeviceID)
+	}
+}
+
+func TestEngineRawLoRaBridgePreservesPayloadAndObservesUnaddressedDownlink(t *testing.T) {
+	bridgeSocket := listenIntegrationUDP(t)
+	address := bridgeSocket.LocalAddr().(*net.UDPAddr)
+	factory := gateway.NewUDPFactory(gateway.UDPOptions{LocalAddress: "127.0.0.1:0", Timeout: 3 * time.Second})
+	if err := factory.ConfigureGatewayBridge(contracts.GatewayBridgeConfig{Enabled: true, Address: "127.0.0.1", Port: int32(address.Port)}); err != nil {
+		t.Fatal(err)
+	}
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000707")
+	protocol := contracts.RawLoRa
+	device.RadioProtocol = &protocol
+	device.RadioReceiveMode = receiveModePointer(contracts.ReceiveAuto)
+	device.PayloadConfig.Payload = "3q2+7w=="
+	device.PayloadConfig.Base64Encoded = true
+	gatewayConfig := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c97")
+	clock := types.NewManualClock(0)
+	engine, err := New(contracts.SimulationConfig{Speed: 1}, []contracts.Device{device}, []contracts.Gateway{gatewayConfig}, types.Options{Clock: clock, EventBuffer: 256, GatewayAdapterFactory: factory})
+	if err != nil {
+		t.Fatal(err)
+	}
+	startEngine(t, engine)
+	defer stopEngine(t, engine)
+	keepalive := readIntegrationPacket(t, bridgeSocket, semtechPullData)
+	writeIntegrationPacket(t, bridgeSocket, keepalive.remote, semtechPullAck, keepalive.token, nil)
+	waitForEventType(t, engine.Events(), contracts.GatewayConnected)
+	if err := clock.Advance(time.Second); err != nil {
+		t.Fatal(err)
+	}
+	uplink := readIntegrationPacket(t, bridgeSocket, semtechPushData)
+	payload := decodeIntegrationUplink(t, uplink.body, gatewayConfig.GatewayEUI)
+	if string(payload) != string([]byte{0xde, 0xad, 0xbe, 0xef}) {
+		t.Fatalf("bridge altered raw payload: %x", payload)
+	}
+	writeIntegrationPullResponse(t, bridgeSocket, keepalive.remote, [2]byte{0x61, 0x62}, payload)
+	readIntegrationPacket(t, bridgeSocket, semtechTxAck)
+	observed := waitForEventType(t, engine.Events(), contracts.GatewayPacketIngress)
+	if observed.RadioFrame == nil || observed.RadioFrame.Protocol != contracts.RawLoRa || string(observed.RadioFrame.Payload) != string(payload) {
+		t.Fatalf("raw bridge response was not recorded: %+v", observed)
+	}
+	if observed.DeviceID != nil {
+		t.Fatal("unaddressed UDP downlink must not be assigned to an arbitrary device")
+	}
+	if observed.RadioFrame.TimestampMilliseconds != observed.TimestampMilliseconds {
+		t.Fatal("raw bridge response timestamp must use simulation time")
+	}
+}
+
 func TestEngineABPDownlinkOverSemtechUDP(t *testing.T) {
 	t.Run("bridge", func(t *testing.T) {
 		bridgeSocket := listenIntegrationUDP(t)

@@ -4,6 +4,7 @@ import { Card, CardLayout } from "@lwn-simulator/ui-components";
 import { SimulationEvent } from "@lwn-simulator/contracts";
 import { SensorMap } from "@/components/SensorMap";
 import { SimulationDashboardTopologyProps } from "./SimulationDashboardTopology.types";
+import { formatRawRadioPayload } from "@/utils/radioFrame";
 
 const formatEventType = (value: string): string =>
   value.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
@@ -75,13 +76,15 @@ export const SimulationDashboardTopology = (
           )}
           {visibleEvents.map((event) => {
             const decodedPayload = formatDecodedPayload(event.decodedPayload);
+            const rawPayload = formatRawRadioPayload(event.radioFrame);
             return (
               <div className="simulation-dashboard__event" key={event.id}>
                 <time>{formatDuration(event.timestampMilliseconds)}</time>
                 <strong>{formatEventType(event.type)}</strong>
-                <span title={decodedPayload ?? undefined}>
+                <span title={rawPayload ?? decodedPayload ?? undefined}>
                   {event.message}
                   {decodedPayload ? ` · Decoded ${decodedPayload}` : ""}
+                  {rawPayload ? ` · ${rawPayload}` : ""}
                 </span>
               </div>
             );

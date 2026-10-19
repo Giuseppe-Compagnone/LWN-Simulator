@@ -221,23 +221,42 @@ func (e *Engine) handleGatewayPacket(packet types.GatewayPacket) {
 		snr := packet.SNR
 		event.SNR = &snr
 	}
+	classified, classificationErr := classifyGatewayPacket(packet)
+	if classificationErr == nil {
+		packet.Protocol = classified.Protocol
+		if classified.Protocol == contracts.RawLoRa {
+			senderID := packet.DeviceID
+			if senderID == "" {
+				senderID = packet.GatewayID
+			}
+			event.Message = "raw LoRa frame received from gateway transport"
+			event.RadioFrame = radioFrameFromGatewayPacket(packet, senderID, event.TimestampMilliseconds)
+			e.eventLog[len(e.eventLog)-1] = event
+		}
+	}
 	events := []contracts.SimulationEvent{event}
 	if packet.Kind == types.GatewayPacketDownlink || packet.Kind == types.GatewayPacketClassBDownlink {
-		if packet.Protocol == contracts.RawLoRa {
-			events = append(events, e.processRawDownlinkLocked(packet)...)
-		} else if decoded, err := lorawanHandler.Decode(packet.Payload); err == nil {
-			events = append(events, e.processExternalDownlinkLocked(packet, decoded)...)
-		} else {
+		if classificationErr != nil {
 			events = append(events, e.newPacketEventLocked(
 				contracts.DeviceDownlinkDropped,
-				"downlink received from gateway transport is not a valid LoRaWAN frame",
-				"", packet.GatewayID, "", uuid.NewString(),
+				fmt.Sprintf("downlink received from gateway transport could not be classified: %v", classificationErr),
+				packet.DeviceID, packet.GatewayID, "", uuid.NewString(),
 			))
+		} else if classified.Protocol == contracts.RawLoRa && packet.DeviceID != "" {
+			events = append(events, e.processRawDownlinkLocked(packet)...)
+		} else if classified.Protocol == contracts.LoRaWAN {
+			events = append(events, e.processExternalDownlinkLocked(packet, classified.Packet)...)
 		}
-	} else if packet.Protocol == contracts.RawLoRa {
+	} else if classificationErr != nil {
+		events = append(events, e.newPacketEventLocked(
+			contracts.PacketDropped,
+			fmt.Sprintf("uplink received from gateway transport could not be classified: %v", classificationErr),
+			packet.DeviceID, packet.GatewayID, "", uuid.NewString(),
+		))
+	} else if classified.Protocol == contracts.RawLoRa && packet.DeviceID != "" {
 		events = append(events, e.processRawUplinkLocked(packet)...)
-	} else if decoded, err := lorawanHandler.Decode(packet.Payload); err == nil {
-		events = append(events, e.processRealUplinkLocked(packet, decoded)...)
+	} else if classified.Protocol == contracts.LoRaWAN {
+		events = append(events, e.processRealUplinkLocked(packet, classified.Packet)...)
 	}
 	pendingPackets := e.takeGatewayPacketsLocked(packet.GatewayID)
 	e.mu.Unlock()
@@ -249,9 +268,22 @@ func (e *Engine) handleGatewayPacket(packet types.GatewayPacket) {
 	}
 }
 
+func classifyGatewayPacket(packet types.GatewayPacket) (protocol.ClassifiedFrame, error) {
+	switch packet.Protocol {
+	case contracts.LoRaWAN:
+		return protocol.Classify(packet.Payload, contracts.ReceiveLoRaWAN)
+	case contracts.RawLoRa:
+		return protocol.Classify(packet.Payload, contracts.ReceiveRawLoRa)
+	case "":
+		return protocol.Classify(packet.Payload, contracts.ReceiveAuto)
+	default:
+		return protocol.ClassifiedFrame{}, fmt.Errorf("unsupported radio protocol %q", packet.Protocol)
+	}
+}
+
 func (e *Engine) processRawUplinkLocked(packet types.GatewayPacket) []contracts.SimulationEvent {
 	device, session, ok := e.deviceSessionLocked(packet.DeviceID)
-	if !ok || session == nil || !acceptsRadioProtocol(device, contracts.RawLoRa) {
+	if !ok || session == nil || !device.Active || !acceptsRadioProtocol(device, contracts.RawLoRa) {
 		return []contracts.SimulationEvent{e.newPacketEventLocked(
 			contracts.PacketDropped,
 			"raw LoRa uplink was rejected because the device does not accept raw LoRa",
@@ -280,7 +312,7 @@ func (e *Engine) processRawUplinkLocked(packet types.GatewayPacket) []contracts.
 		device.ID, packet.GatewayID, "", packetID, -1, 1, false, nil,
 	)
 	event.PayloadSize = &payloadSize
-	event.RadioFrame = radioFrameFromGatewayPacket(packet, device.ID)
+	event.RadioFrame = radioFrameFromGatewayPacket(packet, device.ID, event.TimestampMilliseconds)
 	e.eventLog[len(e.eventLog)-1] = event
 	return []contracts.SimulationEvent{event}
 }
@@ -294,7 +326,7 @@ func (e *Engine) processRawDownlinkLocked(packet types.GatewayPacket) []contract
 			packet.DeviceID, packet.GatewayID, "", uuid.NewString(),
 		)}
 	}
-	if !acceptsRadioProtocol(device, contracts.RawLoRa) {
+	if !device.Active || !acceptsRadioProtocol(device, contracts.RawLoRa) {
 		return []contracts.SimulationEvent{e.newPacketEventLocked(
 			contracts.DeviceDownlinkDropped,
 			"raw LoRa downlink was rejected because the device does not accept raw LoRa",
@@ -308,12 +340,12 @@ func (e *Engine) processRawDownlinkLocked(packet types.GatewayPacket) []contract
 		device, session, downlink, "",
 	)
 	event.GatewayID = &packet.GatewayID
-	event.RadioFrame = radioFrameFromGatewayPacket(packet, device.ID)
+	event.RadioFrame = radioFrameFromGatewayPacket(packet, packet.GatewayID, event.TimestampMilliseconds)
 	e.eventLog[len(e.eventLog)-1] = event
 	return []contracts.SimulationEvent{event}
 }
 
-func radioFrameFromGatewayPacket(packet types.GatewayPacket, senderID string) *contracts.RadioFrame {
+func radioFrameFromGatewayPacket(packet types.GatewayPacket, senderID string, timestamp int64) *contracts.RadioFrame {
 	frequency := packet.Frequency
 	if frequency <= 0 {
 		frequency = 1
@@ -325,10 +357,6 @@ func radioFrameFromGatewayPacket(packet types.GatewayPacket, senderID string) *c
 	spreadingFactor := packet.SpreadingFactor
 	if spreadingFactor < 5 {
 		spreadingFactor = 7
-	}
-	timestamp := int64(0)
-	if !packet.ReceivedAt.IsZero() {
-		timestamp = packet.ReceivedAt.UnixMilli()
 	}
 	frame := &contracts.RadioFrame{
 		Protocol:              packet.Protocol,

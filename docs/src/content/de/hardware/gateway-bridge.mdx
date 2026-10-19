@@ -9,3 +9,29 @@ Gateway Bridge verbindet den Simulator mit einem externen UDP-Packet-Forwarder, 
 Aktivieren Sie **Enable the Semtech UDP Bridge** und tragen Sie **Gateway Bridge's address** (IPv4 oder URL) sowie **Gateway Bridge's Port** ein. Speichern Sie vor dem Simulationsstart.
 
 Der Bridge transportiert Daten virtueller Gateways. Reale Gateways verwenden weiterhin ihre eigene UDP-Adresse und ihren eigenen Port. Die Anwendungskonfiguration von ChirpStack erfolgt außerhalb des Simulators.
+
+## Raw-LoRa-Daten
+
+Der UDP-Transport unterstützt auch **Raw LoRa**-Bytes. Stellen Sie **Radio
+Protocol** auf **Raw LoRa** und zum Empfang von Raw-Daten **Radio Receive
+Mode** auf **Raw LoRa** oder **Auto**. Konfigurieren Sie die Bridge oder den
+Endpunkt des **Real**-Gateways wie gewohnt. Die Weiterleitung durch ein Gateway
+fügt Raw-Daten weder LoRaWAN-Header noch Verschlüsselung oder einen Join hinzu.
+
+Unter **Engine activity** und **Logs** sehen Sie den Payload **Raw LoRa ·
+HEX** und das zugehörige Gateway. Mehrere Gateways können gleichzeitig
+verbunden sein: Jedes benötigt eine eigene Gateway EUI, die mit der des Packet
+Forwarders übereinstimmt.
+
+Ein über UDP empfangener Raw-Payload kann ohne Geräteadresse ankommen. Der
+Frame wird dann dem empfangenden Gateway zugeordnet: Aus beliebigen Bytes
+lässt sich weder ein bestimmtes Gerät noch eine Verbindung auf der Karte
+ableiten. Ein externer Raw-Downlink ohne Zieladresse wird als Frame angezeigt,
+aber nicht automatisch an das ausgewählte Gerät oder an alle registrierten
+Geräte zugestellt.
+
+**Auto** erkennt Frames anhand ihrer Struktur. Als LoRaWAN erkannte Frames
+durchlaufen weiterhin die üblichen Sitzungs- und MIC-Prüfungen; Auto schaltet
+diese nicht ab. Die Bridge transportiert Raw-Bytes, doch das bedeutet nicht,
+dass ChirpStack sie als LoRaWAN-Anwendungsdaten interpretiert. Prüfen Sie die
+Raw-Frame-Unterstützung des externen Dienstes gesondert.

@@ -9,3 +9,29 @@ Gateway Bridge relie le simulateur à un packet forwarder UDP externe, par exemp
 Dans sa page, activez **Enable the Semtech UDP Bridge**, puis renseignez **Gateway Bridge's address** (IPv4 ou URL) et **Gateway Bridge's Port**. Enregistrez avant de démarrer la simulation.
 
 Le bridge transporte le trafic des passerelles virtuelles. Les passerelles réelles utilisent leur propre adresse et port UDP. La configuration applicative de ChirpStack se fait à l'extérieur du simulateur.
+
+## Trafic Raw LoRa
+
+Le transport UDP prend aussi en charge les octets **Raw LoRa**. Réglez **Radio
+Protocol** sur **Raw LoRa** et, pour recevoir du trafic raw, **Radio Receive
+Mode** sur **Raw LoRa** ou **Auto**. Configurez le bridge ou le point de
+connexion de la passerelle **Real** comme d'habitude. Le passage par une
+passerelle n'ajoute ni en-tête LoRaWAN, ni chiffrement, ni join au trafic raw.
+
+Dans **Engine activity** et **Logs**, consultez le payload **Raw LoRa · HEX**
+et la passerelle associée. Plusieurs passerelles peuvent être connectées à la
+fois : chacune doit avoir son propre Gateway EUI, correspondant à celui du
+packet forwarder.
+
+Un payload raw reçu par UDP peut ne contenir aucune adresse d'appareil. Il est
+alors enregistré sur la passerelle réceptrice : des octets arbitraires ne
+permettent ni d'identifier un appareil précis ni de dessiner sa liaison sur la
+carte. Un downlink raw externe sans adresse de destination est visible comme
+trame, mais n'est pas livré automatiquement à l'appareil sélectionné ni
+distribué à tous les appareils enregistrés.
+
+**Auto** reconnaît les trames d'après leur structure. Une trame reconnue comme
+LoRaWAN reste soumise aux vérifications habituelles de session et de MIC : Auto
+ne les désactive pas. Le bridge transporte des octets raw, mais cela ne
+signifie pas que ChirpStack les interprète comme du trafic applicatif LoRaWAN.
+Vérifiez séparément la prise en charge des trames raw par le service externe.

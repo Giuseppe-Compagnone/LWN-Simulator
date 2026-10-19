@@ -6,7 +6,7 @@ import { Callout } from "nextra/components";
 
 # Device
 
-Ogni device rappresenta un nodo LoRaWAN della rete.
+Ogni device rappresenta un nodo LoRa o LoRaWAN della rete.
 
 ## Proprietà principali
 
@@ -21,6 +21,41 @@ Ogni device rappresenta un nodo LoRaWAN della rete.
 - **Data rate**, **TX power**, **frequency** e **channel**: parametri radio del nodo.
 - **Latitude**, **longitude** e **antenna range**: posizione e copertura geometrica.
 - **Confirmed uplink**, **ADR**, **frame counter** e **retransmissions**: comportamento affidabile e MAC.
+
+## LoRaWAN e Raw LoRa
+
+**Radio Protocol** determina cosa trasmette il device:
+
+| Valore | Comportamento |
+| --- | --- |
+| **LoRaWAN** | Usa frame LoRaWAN e la sessione OTAA o ABP configurata. Un device OTAA deve completare la join prima di inviare dati applicativi. |
+| **Raw LoRa** | Invia direttamente i byte del payload, senza intestazione LoRaWAN, cifratura, MIC o join OTAA. |
+
+**Radio Receive Mode** determina separatamente cosa può ricevere:
+
+| Valore | Comportamento |
+| --- | --- |
+| **LoRaWAN** | Accetta traffico LoRaWAN attraverso i normali controlli di sessione. |
+| **Raw LoRa** | Accetta traffico raw senza interpretarne i byte come LoRaWAN. |
+| **Auto** | Riconosce i frame strutturalmente validi come LoRaWAN e li gestisce come tali; tratta gli altri payload come frame raw. |
+
+Per uno scenario esclusivamente raw, scegli **Raw LoRa** in entrambi i campi.
+Usa **Auto** per accettare entrambi i protocolli. Protocollo di trasmissione e
+modalità di ricezione sono indipendenti: modificare uno non cambia l'altra.
+
+Il form condiviso richiede ancora identità, credenziali di attivazione, classe
+e gli altri gruppi di configurazione. Queste credenziali non aggiungono
+sicurezza LoRaWAN o una join alle trasmissioni raw. Imposta il payload come
+testo oppure attiva **Base64 Encoded** per specificare byte binari esatti.
+Posizione, antenna range, impostazioni radio regionali, collisioni e perdite
+influiscono anche sul traffico raw. Un device inattivo non trasmette né accetta
+traffico raw.
+
+<Callout type="info" emoji="📻">
+  Raw LoRa non prevede porte applicative LoRaWAN, comandi MAC o conferme dei
+  messaggi LoRaWAN. Il codec descritto sotto decodifica gli uplink applicativi
+  LoRaWAN; i byte raw vengono mostrati in esadecimale negli eventi e nei log.
+</Callout>
 
 ## Codec del payload
 

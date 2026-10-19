@@ -6,11 +6,47 @@ import { Callout } from "nextra/components";
 
 # Dispositivos
 
-Un dispositivo es un nodo LoRaWAN de la red.
+Un dispositivo es un nodo LoRa o LoRaWAN de la red.
 
 Configura su nombre, DevEUI, credenciales OTAA (AppEUI/JoinEUI y AppKey) o sesión ABP (DevAddr, NwkSKey y AppSKey), activación, clase A/B/C, intervalo de uplink, payload, FPort, posición y alcance.
 
 También puedes definir data rate, potencia, frecuencia, canal, uplinks confirmados, ADR, contador de tramas y retransmisiones. Estos valores controlan la planificación, el comportamiento del protocolo y el resultado radio.
+
+## LoRaWAN y Raw LoRa
+
+**Radio Protocol** determina qué transmite el dispositivo:
+
+| Valor | Comportamiento |
+| --- | --- |
+| **LoRaWAN** | Utiliza tramas LoRaWAN y la sesión OTAA o ABP configurada. Los dispositivos OTAA deben completar el join antes de enviar datos de aplicación. |
+| **Raw LoRa** | Envía directamente los bytes del payload, sin cabecera LoRaWAN, cifrado, MIC ni join OTAA. |
+
+**Radio Receive Mode** determina de forma independiente qué puede recibir:
+
+| Valor | Comportamiento |
+| --- | --- |
+| **LoRaWAN** | Acepta tráfico LoRaWAN mediante las comprobaciones habituales de sesión. |
+| **Raw LoRa** | Acepta tráfico raw sin interpretar sus bytes como LoRaWAN. |
+| **Auto** | Reconoce las tramas estructuralmente válidas como LoRaWAN y las procesa como tales; trata los demás payloads como tramas raw. |
+
+Para un escenario exclusivamente raw, elige **Raw LoRa** en ambos campos.
+Utiliza **Auto** para aceptar ambos protocolos. Cambiar el protocolo de
+transmisión no modifica automáticamente el modo de recepción.
+
+El formulario compartido sigue requiriendo identidad, credenciales de
+activación, clase y los demás grupos de configuración. Estas credenciales no
+añaden seguridad LoRaWAN ni un join a las transmisiones raw. Introduce el
+payload como texto o activa **Base64 Encoded** para especificar bytes binarios
+exactos. La posición, el alcance de antena, los ajustes radio regionales, las
+colisiones y las pérdidas también afectan al tráfico raw. Un dispositivo
+inactivo no transmite ni acepta tráfico raw.
+
+<Callout type="info" emoji="📻">
+  Raw LoRa no proporciona puertos de aplicación LoRaWAN, comandos MAC ni
+  confirmaciones de mensajes LoRaWAN. El codec descrito abajo decodifica
+  uplinks de aplicación LoRaWAN; los bytes raw se muestran en hexadecimal en
+  los eventos y registros.
+</Callout>
 
 ## Codec del payload
 

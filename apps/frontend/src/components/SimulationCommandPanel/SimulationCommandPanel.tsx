@@ -140,12 +140,10 @@ const encodeUTF8 = (value: string): string => {
 };
 
 const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
-  const availableDevices = useMemo(
-    () => props.devices.filter((device) => device.active),
-    [props.devices],
-  );
   const [mode, setMode] = useState(SimulationCommandMode.Uplink);
-  const [selectedDeviceID, setSelectedDeviceID] = useState(availableDevices[0]?.id ?? "");
+  const [selectedDeviceID, setSelectedDeviceID] = useState(
+    props.devices.find((device) => device.active)?.id ?? "",
+  );
   const [selectedDataRate, setSelectedDataRate] = useState("auto");
   const [macCommandType, setMACCommandType] = useState(
     SimulationMACCommandType.DevStatusReq,
@@ -154,6 +152,19 @@ const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [lastActionID, setLastActionID] = useState<string | null>(null);
 
+  const activeDevices = useMemo(
+    () => props.devices.filter((device) => device.active),
+    [props.devices],
+  );
+  const availableDevices = useMemo(
+    () =>
+      mode === SimulationCommandMode.MACCommand
+        ? activeDevices.filter(
+            (device) => device.radioProtocol !== RadioProtocol.RawLora,
+          )
+        : activeDevices,
+    [activeDevices, mode],
+  );
   const macFields = MAC_COMMAND_FIELDS[macCommandType];
   const deviceOptions = useMemo(
     () =>
@@ -163,7 +174,9 @@ const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
       })),
     [availableDevices],
   );
-  const selectedDevice = availableDevices.find((device) => device.id === selectedDeviceID) ?? availableDevices[0];
+  const selectedDevice =
+    availableDevices.find((device) => device.id === selectedDeviceID) ??
+    availableDevices[0];
   const isRawLoRaDevice = selectedDevice?.radioProtocol === RadioProtocol.RawLora;
   const selectedRegion = selectedDevice?.locationConfig.region ?? DeviceRegion.EU868;
   const regionalDataRates = REGION_DATA_RATES[selectedRegion];
@@ -187,8 +200,8 @@ const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
     : selectedPayloadMaximum;
 
   useEffect(() => {
-    if (!selectedDeviceID && availableDevices[0]) {
-      setSelectedDeviceID(availableDevices[0].id);
+    if (!availableDevices.some((device) => device.id === selectedDeviceID)) {
+      setSelectedDeviceID(availableDevices[0]?.id ?? "");
     }
   }, [availableDevices, selectedDeviceID]);
 
@@ -291,8 +304,12 @@ const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
           payload: isPayloadBase64 ? payload : encodeUTF8(payload),
           ...(isRawLoRaDevice ? {} : { fPort }),
           ...(dataRate === undefined ? {} : { dataRate }),
-          confirmed: Boolean(values.confirmed),
-          ack: Boolean(values.ack),
+          ...(isRawLoRaDevice
+            ? {}
+            : {
+                confirmed: Boolean(values.confirmed),
+                ack: Boolean(values.ack),
+              }),
         });
       } else {
         const command = createMACCommand(values);
@@ -412,28 +429,32 @@ const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
             if (typeof value === "string") setSelectedDataRate(value);
           },
         }),
-        booleanCheckboxField({
-          name: "confirmed",
-          label: "Confirmed",
-          text: "Confirmed downlink",
-          value: false,
-          error: null,
-          info: {
-            default:
-              "Request an acknowledgement from the device for this downlink.",
-          },
-        }),
-        booleanCheckboxField({
-          name: "ack",
-          label: "ACK",
-          text: "Acknowledge confirmed uplink",
-          value: false,
-          error: null,
-          info: {
-            default:
-              "Set the LoRaWAN ACK bit to acknowledge a confirmed uplink.",
-          },
-        }),
+        ...(!isRawLoRaDevice
+          ? [
+              booleanCheckboxField({
+                name: "confirmed",
+                label: "Confirmed",
+                text: "Confirmed downlink",
+                value: false,
+                error: null,
+                info: {
+                  default:
+                    "Request an acknowledgement from the device for this downlink.",
+                },
+              }),
+              booleanCheckboxField({
+                name: "ack",
+                label: "ACK",
+                text: "Acknowledge confirmed uplink",
+                value: false,
+                error: null,
+                info: {
+                  default:
+                    "Set the LoRaWAN ACK bit to acknowledge a confirmed uplink.",
+                },
+              }),
+            ]
+          : []),
       ];
     }
 
@@ -541,20 +562,36 @@ const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
             <span className="material-symbols-outlined">north_east</span>
             <div>
               <strong>Schedule one uplink now</strong>
-              <p>OTAA devices that are not joined will send a join request first.</p>
+              <p>
+                {isRawLoRaDevice
+                  ? "Raw LoRa devices transmit directly without a LoRaWAN join."
+                  : "OTAA devices that are not joined will send a join request first."}
+              </p>
             </div>
           </div>
         )}
 
-        {mode === SimulationCommandMode.MACCommand && macFields.length === 0 && (
+        {mode === SimulationCommandMode.MACCommand && availableDevices.length === 0 && (
           <div className="simulation-command-panel__explanation">
-            <span className="material-symbols-outlined">settings_input_antenna</span>
+            <span className="material-symbols-outlined">info</span>
             <div>
-              <strong>No additional parameters</strong>
-              <p>This command can be queued immediately.</p>
+              <strong>LoRaWAN device required</strong>
+              <p>Raw LoRa frames do not contain LoRaWAN MAC commands.</p>
             </div>
           </div>
         )}
+
+        {mode === SimulationCommandMode.MACCommand &&
+          availableDevices.length > 0 &&
+          macFields.length === 0 && (
+            <div className="simulation-command-panel__explanation">
+              <span className="material-symbols-outlined">settings_input_antenna</span>
+              <div>
+                <strong>No additional parameters</strong>
+                <p>This command can be queued immediately.</p>
+              </div>
+            </div>
+          )}
       </div>
 
       <div className="simulation-command-panel__footer">

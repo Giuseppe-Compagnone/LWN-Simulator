@@ -2,7 +2,7 @@ import type { Page } from "@playwright/test";
 
 export type MockBackendOptions = {
   logs?: "success" | "empty" | "error";
-  devices?: "empty" | "active";
+  devices?: "empty" | "active" | "raw";
   deviceCodec?: "configured" | "empty" | "absent";
 };
 
@@ -121,6 +121,7 @@ export const mockBackend = async (
   page: Page,
   options: MockBackendOptions = {},
 ): Promise<void> => {
+  const hasDevices = options.devices === "active" || options.devices === "raw";
   let gatewayBridge = {
     enabled: false,
     address: "0.0.0.0",
@@ -143,6 +144,9 @@ export const mockBackend = async (
 
   let runtimeDevice = {
     ...activeDevice,
+    ...(options.devices === "raw"
+      ? { radioProtocol: "raw-lora", radioReceiveMode: "raw-lora" }
+      : { radioProtocol: "lorawan", radioReceiveMode: "lorawan" }),
     payloadConfig: runtimeDevicePayloadConfig,
   };
   let runtimeGateway = { ...editableGateway };
@@ -153,8 +157,8 @@ export const mockBackend = async (
       speed: 1,
       elapsedMilliseconds: simulationStatus === "idle" ? 0 : 1000,
       eventSequence: simulationStatus === "idle" ? 0 : 1,
-      deviceCount: options.devices === "active" ? 1 : 0,
-      gatewayCount: options.devices === "active" ? 1 : 0,
+      deviceCount: hasDevices ? 1 : 0,
+      gatewayCount: hasDevices ? 1 : 0,
     },
     devices: [],
     gateways: [],
@@ -164,8 +168,8 @@ export const mockBackend = async (
       droppedUplinks: 0,
       totalPacketsReceived: 0,
       packetSuccessRate: 0,
-      activeDevices: options.devices === "active" ? 1 : 0,
-      activeGateways: options.devices === "active" ? 1 : 0,
+      activeDevices: hasDevices ? 1 : 0,
+      activeGateways: hasDevices ? 1 : 0,
     },
   });
 
@@ -263,7 +267,7 @@ export const mockBackend = async (
 
     if (path.endsWith("/device/get-devices")) {
       await route.fulfill(
-        json({ devices: options.devices === "active" ? [runtimeDevice] : [] }),
+        json({ devices: hasDevices ? [runtimeDevice] : [] }),
       );
       return;
     }
@@ -288,7 +292,7 @@ export const mockBackend = async (
 
     if (path.endsWith("/gateway/get-gateways")) {
       await route.fulfill(
-        json({ gateways: options.devices === "active" ? [runtimeGateway] : [] }),
+        json({ gateways: hasDevices ? [runtimeGateway] : [] }),
       );
       return;
     }

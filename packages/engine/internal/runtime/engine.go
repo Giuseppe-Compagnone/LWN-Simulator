@@ -289,24 +289,10 @@ func (e *Engine) Start(ctx context.Context) error {
 		}
 		for _, device := range activeDevices {
 			session := e.sessions[device.ID]
-			kind := types.ScheduledEventDeviceUplink
-			scheduledType := contracts.DeviceUplinkTransmitted
-			scheduledMessage := "device uplink scheduled"
+			scheduled := initialDeviceEvent(device, session, e.initialTransmissionDelay(device, len(activeDevices)))
 			scheduledLogType := contracts.DeviceUplinkScheduled
-			if !session.Joined {
-				kind = types.ScheduledEventJoinRequest
-				scheduledType = contracts.DeviceJoinRequestTransmitted
-				scheduledMessage = "device join request scheduled"
+			if scheduled.Kind == types.ScheduledEventJoinRequest {
 				scheduledLogType = contracts.DeviceJoinRequestScheduled
-			}
-			scheduled := types.ScheduledEvent{
-				ID:       uuid.NewString(),
-				At:       e.initialTransmissionDelay(device, len(activeDevices)),
-				Type:     scheduledType,
-				Message:  scheduledMessage,
-				DeviceID: device.ID,
-				Kind:     kind,
-				Attempt:  1,
 			}
 			if err := e.scheduler.Schedule(scheduled); err != nil {
 				e.state.Status = contracts.SimulationStatusFailed
@@ -316,7 +302,7 @@ func (e *Engine) Start(ctx context.Context) error {
 			}
 			events = append(events, e.newEventLocked(
 				scheduledLogType,
-				scheduledMessage,
+				scheduled.Message,
 				device.ID,
 				"",
 				scheduled.ID,
@@ -529,12 +515,19 @@ func (e *Engine) QueueDownlink(downlink types.Downlink) (string, error) {
 		e.mu.Unlock()
 		return "", fmt.Errorf("%w: cannot queue Class B downlink from %q", ErrInvalidTransition, e.state.Status)
 	}
-	if downlink.FPort == 0 && len(downlink.Payload) > 0 {
-		downlink.FPort = device.FrameConfig.FPort
-	}
-	if len(downlink.Payload) > 0 && (downlink.FPort < 1 || downlink.FPort > 223) {
-		e.mu.Unlock()
-		return "", fmt.Errorf("downlink FPort must be between 1 and 223")
+	if deviceRadioProtocol(device) == contracts.RawLoRa {
+		downlink.FPort = 0
+		downlink.Confirmed = false
+		downlink.ACK = false
+		downlink.FPending = false
+	} else {
+		if downlink.FPort == 0 && len(downlink.Payload) > 0 {
+			downlink.FPort = device.FrameConfig.FPort
+		}
+		if len(downlink.Payload) > 0 && (downlink.FPort < 1 || downlink.FPort > 223) {
+			e.mu.Unlock()
+			return "", fmt.Errorf("downlink FPort must be between 1 and 223")
+		}
 	}
 	for index, command := range downlink.MACCommands {
 		if err := validateMACCommand(device.LocationConfig.Region, command); err != nil {

@@ -101,3 +101,32 @@ func TestClassifyEnforcesStrictReceiveModes(t *testing.T) {
 func bytePointer(value byte) *byte {
 	return &value
 }
+
+func TestClassifyRejectsEmptyPayloadInEveryMode(t *testing.T) {
+	for _, mode := range []contracts.RadioReceiveMode{"", contracts.ReceiveLoRaWAN, contracts.ReceiveRawLoRa, contracts.ReceiveAuto} {
+		if _, err := Classify(nil, mode); err == nil {
+			t.Fatalf("empty payload accepted by mode %q", mode)
+		}
+	}
+	if _, err := Classify([]byte{1}, contracts.RadioReceiveMode("unsupported")); err == nil {
+		t.Fatal("unknown receive mode was accepted")
+	}
+}
+
+func TestClassifyExplicitRawModePreservesLoRaWANShapedBytes(t *testing.T) {
+	frame, err := (LoRaWANHandler{}).EncodeDataFrame(DataFrame{
+		DevAddr: 0x26011bda, FPort: bytePointer(1), Payload: []byte("raw"),
+		NwkSKey: make([]byte, 16), AppSKey: make([]byte, 16),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	classified, err := Classify(frame, contracts.ReceiveRawLoRa)
+	if err != nil || classified.Protocol != contracts.RawLoRa || !bytes.Equal(frame, classified.Raw) {
+		t.Fatalf("explicit raw mode reinterpreted bytes: %+v, %v", classified, err)
+	}
+	classified, err = Classify(frame, "")
+	if err != nil || classified.Protocol != contracts.LoRaWAN {
+		t.Fatalf("default mode must retain LoRaWAN compatibility: %+v, %v", classified, err)
+	}
+}

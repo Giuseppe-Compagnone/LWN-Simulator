@@ -114,6 +114,12 @@ func validateDevice(issues *types.ValidationErrors, prefix string, device contra
 	validateUUID(issues, prefix+".id", device.ID)
 	validateRequired(issues, prefix+".name", device.Name)
 	validateHex(issues, prefix+".devEUI", device.DevEUI, 16)
+	if device.RadioProtocol != nil && !device.RadioProtocol.Valid() {
+		issues.Add(prefix+".radioProtocol", "invalid_enum", "radio protocol is not supported")
+	}
+	if device.RadioReceiveMode != nil && !device.RadioReceiveMode.Valid() {
+		issues.Add(prefix+".radioReceiveMode", "invalid_enum", "radio receive mode is not supported")
+	}
 
 	if !device.Class.Valid() {
 		issues.Add(prefix+".class", "invalid_enum", "class is not supported")

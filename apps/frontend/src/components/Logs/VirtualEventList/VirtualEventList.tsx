@@ -3,6 +3,7 @@
 import { SimulationEvent } from "@lwn-simulator/contracts";
 import { CSSProperties, UIEvent, useEffect, useRef, useState } from "react";
 import { VirtualEventListProps } from "./VirtualEventList.types";
+import { formatRawRadioPayload } from "@/utils/radioFrame";
 
 const eventRowHeight = 76;
 const virtualOverscan = 5;
@@ -83,6 +84,7 @@ export const VirtualEventList = (props: VirtualEventListProps) => {
         {props.events.slice(start, end).map((event, offset) => {
           const index = start + offset;
           const decodedPayload = formatDecodedPayload(event.decodedPayload);
+          const rawPayload = formatRawRadioPayload(event.radioFrame);
           const style: CSSProperties = {
             height: eventRowHeight,
             transform: `translateY(${index * eventRowHeight}px)`,
@@ -95,11 +97,12 @@ export const VirtualEventList = (props: VirtualEventListProps) => {
                 <small>{formatSimulationTime(event.timestampMilliseconds)}</small>
               </time>
               <span>{formatEventType(event.type)}</span>
-              <small>
+              <small title={rawPayload ?? undefined}>
                 {event.message}
                 {event.gatewayID ? ` · Gateway ${event.gatewayID}` : ""}
                 {event.deviceID ? ` · Device ${event.deviceID}` : ""}
                 {decodedPayload ? ` · Decoded ${decodedPayload}` : ""}
+                {rawPayload ? ` · ${rawPayload}` : ""}
               </small>
             </div>
           );

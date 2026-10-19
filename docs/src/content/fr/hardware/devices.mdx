@@ -6,11 +6,47 @@ import { Callout } from "nextra/components";
 
 # Appareils
 
-Un appareil représente un nœud LoRaWAN.
+Un appareil représente un nœud LoRa ou LoRaWAN.
 
 Configurez son nom, son DevEUI, les identifiants OTAA (AppEUI/JoinEUI et AppKey) ou la session ABP (DevAddr, NwkSKey et AppSKey), l'activation, la classe A/B/C, l'intervalle d'uplink, le payload, le FPort, la position et la portée.
 
 Le data rate, la puissance, la fréquence, le canal, les uplinks confirmés, l'ADR, le compteur de trames et les retransmissions influencent le protocole et le résultat radio. Utilisez un DevEUI unique par appareil et renseignez tous les paramètres de session ABP.
+
+## LoRaWAN et Raw LoRa
+
+**Radio Protocol** détermine ce que l'appareil transmet :
+
+| Valeur | Comportement |
+| --- | --- |
+| **LoRaWAN** | Utilise des trames LoRaWAN et la session OTAA ou ABP configurée. Les appareils OTAA doivent terminer le join avant d'envoyer des données applicatives. |
+| **Raw LoRa** | Envoie directement les octets du payload, sans en-tête LoRaWAN, chiffrement, MIC ni join OTAA. |
+
+**Radio Receive Mode** détermine indépendamment ce que l'appareil peut recevoir :
+
+| Valeur | Comportement |
+| --- | --- |
+| **LoRaWAN** | Accepte le trafic LoRaWAN avec les vérifications habituelles de session. |
+| **Raw LoRa** | Accepte le trafic raw sans interpréter ses octets comme du LoRaWAN. |
+| **Auto** | Reconnaît les trames structurellement valides comme du LoRaWAN et les traite ainsi ; les autres payloads sont considérés comme des trames raw. |
+
+Pour un scénario exclusivement raw, choisissez **Raw LoRa** dans les deux
+champs. Utilisez **Auto** pour accepter les deux protocoles. Modifier le
+protocole d'émission ne change pas automatiquement le mode de réception.
+
+Le formulaire partagé exige toujours l'identité, les identifiants
+d'activation, la classe et les autres groupes de configuration. Ces
+identifiants n'ajoutent ni sécurité LoRaWAN ni join aux transmissions raw.
+Saisissez le payload comme texte ou activez **Base64 Encoded** pour fournir
+des octets binaires précis. Position, portée d'antenne, réglages radio
+régionaux, collisions et pertes affectent aussi le trafic raw. Un appareil
+inactif ne transmet ni n'accepte de trafic raw.
+
+<Callout type="info" emoji="📻">
+  Raw LoRa ne fournit ni ports applicatifs LoRaWAN, ni commandes MAC, ni
+  confirmations de messages LoRaWAN. Le codec décrit ci-dessous décode les
+  uplinks applicatifs LoRaWAN ; les octets raw apparaissent en hexadécimal
+  dans les événements et journaux.
+</Callout>
 
 ## Codec du payload
 

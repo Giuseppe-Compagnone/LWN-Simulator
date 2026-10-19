@@ -332,7 +332,7 @@ func (factory *UDPFactory) routeDatagram(ctx context.Context, runtime *udpRuntim
 		return
 	}
 	var adapter *udpAdapter
-	if len(data) >= 12 && (data[3] == pushDataType || data[3] == pullDataType) {
+	if len(data) >= 12 && (data[3] == pushDataType || data[3] == pullDataType || data[3] == txAckType) {
 		gatewayEUI := strings.ToUpper(hex.EncodeToString(data[4:12]))
 		adapter = runtime.adapters[gatewayEUI]
 	} else {

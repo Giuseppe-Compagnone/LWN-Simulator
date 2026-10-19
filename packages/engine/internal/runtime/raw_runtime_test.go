@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -37,6 +38,64 @@ func TestRawDeviceTransmitsWithoutLoRaWANJoin(t *testing.T) {
 	}
 	if engine.Snapshot().Devices[0].Joined {
 		t.Fatal("raw device must not require a LoRaWAN join")
+	}
+}
+
+func TestRawUplinkDoesNotUseLoRaWANConfirmationSemantics(t *testing.T) {
+	clock := types.NewManualClock(0)
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000704")
+	raw := contracts.RawLoRa
+	device.RadioProtocol = &raw
+	device.RadioReceiveMode = receiveModePointer(contracts.ReceiveRawLoRa)
+	device.PayloadConfig.MType = contracts.ConfirmedDataUp
+	gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c74")
+
+	engine := newTestEngine(t, clock, device, gateway)
+	defer stopEngine(t, engine)
+
+	uplink := waitForEventType(t, engine.Events(), contracts.DeviceUplinkTransmitted)
+	if uplink.Confirmed == nil || *uplink.Confirmed {
+		t.Fatalf("raw uplink inherited LoRaWAN confirmation semantics: %+v", uplink.Confirmed)
+	}
+	engine.mu.RLock()
+	pending := engine.sessions[device.ID].PendingUplink
+	engine.mu.RUnlock()
+	if pending != nil {
+		t.Fatalf("raw uplink created a LoRaWAN retry state: %+v", pending)
+	}
+}
+
+func TestRawDownlinkOmitsLoRaWANOnlyMetadata(t *testing.T) {
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000705")
+	raw := contracts.RawLoRa
+	device.RadioProtocol = &raw
+	device.RadioReceiveMode = receiveModePointer(contracts.ReceiveRawLoRa)
+	engine, err := New(
+		contracts.SimulationConfig{Speed: 1},
+		[]contracts.Device{device},
+		nil,
+		types.Options{EventBuffer: 256},
+	)
+	if err != nil {
+		t.Fatalf("create engine: %v", err)
+	}
+	startEngine(t, engine)
+	defer stopEngine(t, engine)
+
+	if _, err := engine.QueueDownlink(types.Downlink{
+		DeviceID:  device.ID,
+		Payload:   []byte("raw downlink"),
+		FPort:     223,
+		Confirmed: true,
+		ACK:       true,
+		FPending:  true,
+		DataRate:  -1,
+	}); err != nil {
+		t.Fatalf("queue raw downlink: %v", err)
+	}
+	event := waitForEventType(t, engine.Events(), contracts.DeviceDownlinkScheduled)
+	if event.FPort != nil || event.Confirmed != nil || event.FrameCounter != nil {
+		t.Fatalf("raw downlink exposed LoRaWAN-only metadata: %+v", event)
 	}
 }
 
@@ -139,4 +198,43 @@ func TestRawDownlinkTravelsThroughConnectedGateway(t *testing.T) {
 
 func receiveModePointer(mode contracts.RadioReceiveMode) *contracts.RadioReceiveMode {
 	return &mode
+}
+
+func TestRawGatewayReceptionModesAndDeviceFailures(t *testing.T) {
+	for _, mode := range []contracts.RadioReceiveMode{contracts.ReceiveAuto, contracts.ReceiveRawLoRa, contracts.ReceiveLoRaWAN} {
+		for _, active := range []bool{true, false} {
+			t.Run(string(mode)+"/active="+fmt.Sprint(active), func(t *testing.T) {
+				device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000706")
+				device.Active = active
+				device.RadioReceiveMode = &mode
+				engine, err := New(contracts.SimulationConfig{Speed: 1}, []contracts.Device{device}, nil, types.Options{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				packet := types.GatewayPacket{DeviceID: device.ID, GatewayID: "gateway", Protocol: contracts.RawLoRa, Payload: []byte{0xde, 0xad}}
+				for _, downlink := range []bool{false, true} {
+					var events []contracts.SimulationEvent
+					expected := contracts.PacketDropped
+					if downlink {
+						events = engine.processRawDownlinkLocked(packet)
+						expected = contracts.DeviceDownlinkDropped
+					} else {
+						events = engine.processRawUplinkLocked(packet)
+					}
+					if active && mode != contracts.ReceiveLoRaWAN {
+						expected = contracts.DeviceUplinkTransmitted
+						if downlink {
+							expected = contracts.DeviceDownlinkTransmitted
+						}
+					}
+					if len(events) != 1 || events[0].Type != expected {
+						t.Fatalf("downlink=%v: expected %s, got %+v", downlink, expected, events)
+					}
+					if events[0].RadioFrame != nil && events[0].RadioFrame.TimestampMilliseconds != events[0].TimestampMilliseconds {
+						t.Fatal("raw frame timestamp must use simulation time")
+					}
+				}
+			})
+		}
+	}
 }

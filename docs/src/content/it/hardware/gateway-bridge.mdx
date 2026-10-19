@@ -19,3 +19,28 @@ Salva le impostazioni prima di avviare una simulazione. Il bridge viene applicat
 ## Uso
 
 Il bridge inoltra il traffico dei gateway virtuali verso il servizio esterno. I gateway reali continuano a usare il proprio indirizzo e la propria porta UDP. Per usare ChirpStack come network server applicativo sono necessarie anche le sue configurazioni esterne.
+
+## Traffico Raw LoRa
+
+Il trasporto UDP gestisce anche i byte **Raw LoRa**. Imposta **Radio Protocol**
+su **Raw LoRa** e, per ricevere traffico raw, **Radio Receive Mode** su **Raw
+LoRa** oppure **Auto**. Configura il bridge o l'endpoint del gateway **Real**
+come di consueto. Il passaggio dal gateway non aggiunge intestazioni LoRaWAN,
+cifratura o una join al traffico raw.
+
+In **Engine activity** e **Logs** puoi leggere il payload **Raw LoRa · HEX** e
+il gateway associato. Puoi collegare più gateway contemporaneamente: ciascuno
+deve avere il proprio Gateway EUI, corrispondente a quello del packet forwarder.
+
+Un payload raw ricevuto via UDP può non contenere alcun indirizzo del device.
+In questo caso il frame viene registrato sul gateway ricevente: da byte
+arbitrari non è possibile ricavare un device specifico o un collegamento sulla
+mappa. Un downlink raw esterno senza indirizzo di destinazione è visibile come
+frame, ma non viene consegnato automaticamente al device selezionato né
+distribuito a tutti i device registrati.
+
+**Auto** riconosce i frame in base alla struttura. Un frame riconosciuto come
+LoRaWAN deve comunque superare i normali controlli di sessione e MIC: Auto non
+li disattiva. Il bridge trasporta byte raw, ma questo non implica che
+ChirpStack li interpreti come traffico applicativo LoRaWAN. Verifica
+separatamente il supporto ai frame raw del servizio esterno.

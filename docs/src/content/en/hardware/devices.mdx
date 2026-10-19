@@ -6,7 +6,7 @@ import { Callout, Tabs } from "nextra/components";
 
 # Devices
 
-A device represents a LoRaWAN end device participating in the simulation. Its
+A device represents a LoRa or LoRaWAN end device participating in the simulation. Its
 configuration is divided into identity, activation, radio receive windows,
 location, frame handling, payload generation, and advanced radio behavior.
 
@@ -76,6 +76,41 @@ changes the meaning of the session credentials.
     traffic.
   </Tabs.Tab>
 </Tabs>
+
+## LoRaWAN and Raw LoRa
+
+Choose **Radio Protocol** to control what the device transmits:
+
+| Value | Behavior |
+| --- | --- |
+| **LoRaWAN** | Uses LoRaWAN frames and the configured OTAA or ABP session. OTAA devices must join before sending application data. |
+| **Raw LoRa** | Sends the payload bytes directly, without a LoRaWAN header, encryption, MIC, or OTAA join. |
+
+Choose **Radio Receive Mode** separately:
+
+| Value | Behavior |
+| --- | --- |
+| **LoRaWAN** | Accepts LoRaWAN traffic through the normal session checks. |
+| **Raw LoRa** | Accepts raw traffic without interpreting its bytes as LoRaWAN. |
+| **Auto** | Recognizes structurally valid LoRaWAN frames and processes them as LoRaWAN; other payloads are treated as raw frames. |
+
+For a raw-only scenario, select **Raw LoRa** in both fields. Use **Auto** when
+the device should accept both protocols. The transmit protocol and receive
+mode are independent; selecting one does not change the other.
+
+The shared device form still requires its identity, activation credentials,
+class, and other configuration groups. These credentials do not add LoRaWAN
+security or a join exchange to raw transmissions. Configure the payload as text
+or enable **Base64 Encoded** to supply exact binary bytes. Location, antenna
+range, regional radio settings, collisions, and packet loss still affect raw
+transmissions. An inactive device does not transmit or accept raw traffic.
+
+<Callout type="info" emoji="📻">
+  Raw LoRa does not provide LoRaWAN application ports, MAC commands, or
+  confirmed-message acknowledgements. The payload codec described below
+  decodes LoRaWAN application uplinks; raw bytes are shown as hexadecimal data
+  in the event stream and logs.
+</Callout>
 
 ## Receive windows
 

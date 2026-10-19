@@ -78,7 +78,7 @@ func (e *Engine) processUplinkLocked(scheduled types.ScheduledEvent) []contracts
 	if attempt < 1 {
 		attempt = 1
 	}
-	confirmed := device.PayloadConfig.MType == contracts.ConfirmedDataUp
+	confirmed := deviceRadioProtocol(device) == contracts.LoRaWAN && device.PayloadConfig.MType == contracts.ConfirmedDataUp
 	packetID := scheduled.PacketID
 	frameCounter := scheduled.FrameCounter
 	dataRate := session.CurrentDataRate

@@ -131,6 +131,33 @@ transport boundary. ChirpStack application/device provisioning and network
 server administration remain outside this page; configure those in your
 ChirpStack installation when your test requires them.
 
+## Raw LoRa traffic
+
+The UDP transport also carries **Raw LoRa** bytes. Set the device's **Radio
+Protocol** to **Raw LoRa**, configure **Radio Receive Mode** as **Raw LoRa** or
+**Auto** when receiving raw traffic, and configure the bridge or the **Real**
+gateway endpoint as usual. Raw traffic does not acquire LoRaWAN headers,
+encryption, or a join exchange by passing through a gateway.
+
+Use **Engine activity** and **Logs** to inspect the **Raw LoRa · HEX** payload
+and the associated gateway. Multiple gateways can be connected at the same
+time; each must have its own Gateway EUI matching the packet forwarder.
+
+<Callout type="info" emoji="📻">
+  Raw payloads received over UDP may contain no device address. These frames
+  are recorded against the receiving gateway; the simulator cannot infer a
+  particular device or a device-to-gateway map link from arbitrary bytes.
+  An external raw downlink without a target address is observable as a frame,
+  but is not automatically delivered to a selected device. Raw frames are not
+  broadcast to every registered device.
+</Callout>
+
+**Auto** recognition uses the frame structure. A recognized LoRaWAN frame
+still undergoes the normal session and MIC checks; choosing Auto does not
+bypass them. A bridge transports raw bytes, but this alone does not make
+ChirpStack interpret them as LoRaWAN application traffic. Check the external
+service's raw-frame support separately.
+
 ## Troubleshooting
 
 ### The gateway remains disconnected

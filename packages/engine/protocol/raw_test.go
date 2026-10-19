@@ -51,3 +51,35 @@ func TestRawLoRaHandlerRejectsLoRaWANOnlyOperations(t *testing.T) {
 		t.Fatal("raw LoRa must not report a LoRaWAN MIC as valid")
 	}
 }
+
+func TestRawLoRaHandlerRejectsEmptyPayloadAndOwnsItsBuffers(t *testing.T) {
+	handler := RawLoRaHandler{}
+	if _, err := handler.EncodeDataFrame(DataFrame{}); err == nil {
+		t.Fatal("empty raw transmission was accepted")
+	}
+	if _, err := handler.Decode(nil); err == nil {
+		t.Fatal("empty raw reception was accepted")
+	}
+	if _, err := handler.DecryptPayload(lorawan.Packet{}, nil, 0); err == nil {
+		t.Fatal("empty raw payload was accepted")
+	}
+	payload := []byte{0, 1, 255}
+	encoded, err := handler.EncodeDataFrame(DataFrame{Payload: payload})
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload[0] = 99
+	if encoded[0] != 0 {
+		t.Fatal("encoded raw payload shares caller buffer")
+	}
+	for _, packet := range []lorawan.Packet{{Raw: encoded}, {FRMPayload: encoded}} {
+		decoded, err := handler.DecryptPayload(packet, nil, 0)
+		if err != nil || string(decoded) != string(encoded) {
+			t.Fatalf("raw bytes changed: %x, %v", decoded, err)
+		}
+		decoded[0] = 42
+		if encoded[0] != 0 {
+			t.Fatal("returned raw payload shares packet buffer")
+		}
+	}
+}
