@@ -1,6 +1,8 @@
 package protocol
 
 import (
+	"fmt"
+
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/Giuseppe-Compagnone/lwn-engine/lorawan"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
@@ -57,7 +59,21 @@ func (LoRaWANHandler) EncodeMACCommands(commands []types.MACCommand) ([]byte, er
 }
 
 func (LoRaWANHandler) Decode(payload []byte) (lorawan.Packet, error) {
-	return lorawan.Parse(payload)
+	packet, err := lorawan.Parse(payload)
+	if err != nil {
+		return lorawan.Packet{}, err
+	}
+	switch packet.MType {
+	case lorawan.MTypeJoinRequest,
+		lorawan.MTypeJoinAccept,
+		lorawan.MTypeUnconfirmedDataUp,
+		lorawan.MTypeUnconfirmedDataDown,
+		lorawan.MTypeConfirmedDataUp,
+		lorawan.MTypeConfirmedDataDown:
+		return packet, nil
+	default:
+		return lorawan.Packet{}, fmt.Errorf("unsupported LoRaWAN MType %d", packet.MType)
+	}
 }
 
 func (LoRaWANHandler) DecryptPayload(packet lorawan.Packet, key []byte, direction byte) ([]byte, error) {
