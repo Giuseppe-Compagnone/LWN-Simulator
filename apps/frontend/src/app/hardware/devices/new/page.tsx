@@ -9,6 +9,8 @@ import {
   DeviceMType,
   DeviceRegion,
   OversizedPayloadBehavior,
+  RadioProtocol,
+  RadioReceiveMode,
 } from "@lwn-simulator/contracts";
 import { useDeviceService, useProfileService } from "@lwn-simulator/sdk";
 import {
@@ -82,6 +84,8 @@ const NewDevicePage = () => {
       devEUI: values.devEUI as string,
       name: values.name as string,
       activation: values.activation as DeviceActivation,
+      radioProtocol: values.radioProtocol as RadioProtocol,
+      radioReceiveMode: values.radioReceiveMode as RadioReceiveMode,
       class: values.class as DeviceClass,
       locationConfig: {
         latitude: Number(values.latitude),

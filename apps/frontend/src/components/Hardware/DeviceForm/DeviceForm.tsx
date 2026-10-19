@@ -19,6 +19,8 @@ import {
   DeviceMType,
   DeviceRegion,
   OversizedPayloadBehavior,
+  RadioProtocol,
+  RadioReceiveMode,
 } from "@lwn-simulator/contracts";
 import {
   booleanCheckboxField,
@@ -112,6 +114,8 @@ export const DeviceForm = (props: DeviceFormProps) => {
         region: device.locationConfig.region,
         class: device.class,
         activation: device.activation,
+        radioProtocol: device.radioProtocol ?? RadioProtocol.Lorawan,
+        radioReceiveMode: device.radioReceiveMode ?? RadioReceiveMode.Lorawan,
         joinEUI: device.OOTAConfig?.joinEUI ?? "",
         appKey: device.OOTAConfig?.appKey ?? "",
         devAddr: device.ABPConfig?.devAddr ?? "",
@@ -532,6 +536,53 @@ export const DeviceForm = (props: DeviceFormProps) => {
                 },
                 required: true,
                 disabled: !!props.device,
+              }),
+              selectField({
+                value: RadioProtocol.Lorawan,
+                name: "radioProtocol",
+                label: "Radio Protocol",
+                error: null,
+                options: [
+                  { value: RadioProtocol.Lorawan, displayed: <>LoRaWAN</> },
+                  { value: RadioProtocol.RawLora, displayed: <>Raw LoRa</> },
+                ],
+                info: {
+                  default:
+                    "Protocol used by the device when transmitting radio frames",
+                  [RadioProtocol.Lorawan]:
+                    "Adds the LoRaWAN network and security headers",
+                  [RadioProtocol.RawLora]:
+                    "Transmits the payload as a raw LoRa frame without LoRaWAN headers",
+                },
+                required: true,
+              }),
+              selectField({
+                value: RadioReceiveMode.Lorawan,
+                name: "radioReceiveMode",
+                label: "Radio Receive Mode",
+                error: null,
+                options: [
+                  {
+                    value: RadioReceiveMode.Lorawan,
+                    displayed: <>LoRaWAN</>,
+                  },
+                  {
+                    value: RadioReceiveMode.RawLora,
+                    displayed: <>Raw LoRa</>,
+                  },
+                  { value: RadioReceiveMode.Auto, displayed: <>Auto</> },
+                ],
+                info: {
+                  default:
+                    "Frame protocols accepted by the device while receiving",
+                  [RadioReceiveMode.Lorawan]:
+                    "Accepts only structurally valid LoRaWAN frames",
+                  [RadioReceiveMode.RawLora]:
+                    "Accepts only raw LoRa frames",
+                  [RadioReceiveMode.Auto]:
+                    "Accepts LoRaWAN frames and falls back to raw LoRa",
+                },
+                required: true,
               }),
               textField({
                 name: "joinEUI",

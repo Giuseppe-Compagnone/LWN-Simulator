@@ -2,6 +2,7 @@
 
 import {
   DeviceRegion,
+  RadioProtocol,
   SimulationMACCommand,
   SimulationMACCommandType,
 } from "@lwn-simulator/contracts";
@@ -163,6 +164,7 @@ const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
     [availableDevices],
   );
   const selectedDevice = availableDevices.find((device) => device.id === selectedDeviceID) ?? availableDevices[0];
+  const isRawLoRaDevice = selectedDevice?.radioProtocol === RadioProtocol.RawLora;
   const selectedRegion = selectedDevice?.locationConfig.region ?? DeviceRegion.EU868;
   const regionalDataRates = REGION_DATA_RATES[selectedRegion];
   const dataRateOptions = useMemo(
@@ -256,7 +258,7 @@ const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
           setValidationError("Enter a downlink payload");
           return;
         }
-        if (!Number.isInteger(fPort) || fPort < 1 || fPort > 223) {
+        if (!isRawLoRaDevice && (!Number.isInteger(fPort) || fPort < 1 || fPort > 223)) {
           setValidationError("FPort must be an integer between 1 and 223");
           return;
         }
@@ -287,7 +289,7 @@ const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
         response = await props.onQueueDownlink({
           deviceID: selectedDeviceID,
           payload: isPayloadBase64 ? payload : encodeUTF8(payload),
-          fPort,
+          ...(isRawLoRaDevice ? {} : { fPort }),
           ...(dataRate === undefined ? {} : { dataRate }),
           confirmed: Boolean(values.confirmed),
           ack: Boolean(values.ack),
@@ -373,24 +375,28 @@ const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
             setIsPayloadBase64(Boolean(logic.fieldsState.payloadBase64.value));
           },
         }),
-        textField({
-          name: "fPort",
-          label: "FPort",
-          value: "1",
-          error: null,
-          required: true,
-          format: numericFormat,
-          info: {
-            default:
-              "Application port. Valid LoRaWAN application ports range from 1 to 223.",
-          },
-          validations: [
-            {
-              rule: /^(?:[1-9]|[1-9]\d|1\d\d|2[0-1]\d|22[0-3])$/,
-              error: "FPort must be an integer between 1 and 223",
-            },
-          ],
-        }),
+        ...(!isRawLoRaDevice
+          ? [
+              textField({
+                name: "fPort",
+                label: "FPort",
+                value: "1",
+                error: null,
+                required: true,
+                format: numericFormat,
+                info: {
+                  default:
+                    "Application port. Valid LoRaWAN application ports range from 1 to 223.",
+                },
+                validations: [
+                  {
+                    rule: /^(?:[1-9]|[1-9]\d|1\d\d|2[0-1]\d|22[0-3])$/,
+                    error: "FPort must be an integer between 1 and 223",
+                  },
+                ],
+              }),
+            ]
+          : []),
         selectField({
           name: "dataRate",
           label: "Data rate",
@@ -480,6 +486,7 @@ const SimulationCommandPanel = (props: SimulationCommandPanelProps) => {
     availableDevices,
     deviceOptions,
     isPayloadBase64,
+    isRawLoRaDevice,
     macCommandType,
     macFields,
     mode,
