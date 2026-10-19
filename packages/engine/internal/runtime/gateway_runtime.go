@@ -11,6 +11,7 @@ import (
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/Giuseppe-Compagnone/lwn-engine/lorawan"
+	"github.com/Giuseppe-Compagnone/lwn-engine/protocol"
 	"github.com/Giuseppe-Compagnone/lwn-engine/regional"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 	"github.com/google/uuid"
@@ -222,7 +223,7 @@ func (e *Engine) handleGatewayPacket(packet types.GatewayPacket) {
 	}
 	events := []contracts.SimulationEvent{event}
 	if packet.Kind == types.GatewayPacketDownlink || packet.Kind == types.GatewayPacketClassBDownlink {
-		if decoded, err := lorawan.Parse(packet.Payload); err == nil {
+		if decoded, err := lorawanHandler.Decode(packet.Payload); err == nil {
 			events = append(events, e.processExternalDownlinkLocked(packet, decoded)...)
 		} else {
 			events = append(events, e.newPacketEventLocked(
@@ -231,7 +232,7 @@ func (e *Engine) handleGatewayPacket(packet types.GatewayPacket) {
 				"", packet.GatewayID, "", uuid.NewString(),
 			))
 		}
-	} else if decoded, err := lorawan.Parse(packet.Payload); err == nil {
+	} else if decoded, err := lorawanHandler.Decode(packet.Payload); err == nil {
 		events = append(events, e.processRealUplinkLocked(packet, decoded)...)
 	}
 	pendingPackets := e.takeGatewayPacketsLocked(packet.GatewayID)
@@ -263,7 +264,7 @@ func (e *Engine) processExternalDownlinkLocked(packet types.GatewayPacket, decod
 			"", packet.GatewayID, "", uuid.NewString(),
 		)}
 	}
-	if len(session.NwkSKey) != 16 || !lorawan.VerifyDataMIC(decoded, session.NwkSKey, 1) {
+	if len(session.NwkSKey) != 16 || !lorawanHandler.VerifyDataMIC(decoded, session.NwkSKey, 1) {
 		e.metrics.FrameCounterErrors++
 		return []contracts.SimulationEvent{e.newPacketEventLocked(
 			contracts.DeviceDownlinkDropped,
@@ -293,7 +294,7 @@ func (e *Engine) processExternalDownlinkLocked(packet types.GatewayPacket, decod
 		if *decoded.FPort == 0 {
 			key = session.NwkSKey
 		}
-		payload, err := lorawan.DecryptPayload(decoded, key, 1)
+		payload, err := lorawanHandler.DecryptPayload(decoded, key, 1)
 		if err != nil {
 			return []contracts.SimulationEvent{e.newPacketEventLocked(
 				contracts.DeviceDownlinkDropped,
@@ -499,7 +500,7 @@ func (e *Engine) processRealUplinkLocked(packet types.GatewayPacket, decoded lor
 	if session == nil {
 		return nil
 	}
-	if len(session.NwkSKey) == 16 && !lorawan.VerifyDataMIC(decoded, session.NwkSKey, 0) {
+	if len(session.NwkSKey) == 16 && !lorawanHandler.VerifyDataMIC(decoded, session.NwkSKey, 0) {
 		return []contracts.SimulationEvent{e.newPacketEventLocked(
 			contracts.PacketDropped,
 			"real gateway uplink has an invalid MIC",
@@ -511,7 +512,7 @@ func (e *Engine) processRealUplinkLocked(packet types.GatewayPacket, decoded lor
 		if *decoded.FPort == 0 {
 			key = session.NwkSKey
 		}
-		if _, err := lorawan.DecryptPayload(decoded, key, 0); err != nil {
+		if _, err := lorawanHandler.DecryptPayload(decoded, key, 0); err != nil {
 			return []contracts.SimulationEvent{e.newPacketEventLocked(
 				contracts.PacketDropped,
 				"real gateway uplink payload could not be decrypted",
@@ -574,7 +575,7 @@ func (e *Engine) processRealUplinkLocked(packet types.GatewayPacket, decoded lor
 	if decoded.FPort != nil && *decoded.FPort == 0 {
 		decodeKey = session.NwkSKey
 	}
-	decodedPayload, decodeErr := lorawan.DecryptPayload(decoded, decodeKey, 0)
+	decodedPayload, decodeErr := lorawanHandler.DecryptPayload(decoded, decodeKey, 0)
 	if decoded.FPort != nil && len(decoded.FRMPayload) > 0 && decodeErr == nil {
 		decorateDecodedPayload(&events[0], device, decodedPayload, int(*decoded.FPort))
 		e.eventLog[len(e.eventLog)-1] = events[0]
@@ -648,7 +649,7 @@ func (e *Engine) queueRealACKLocked(packet types.GatewayPacket, device contracts
 		return false
 	}
 	devAddr := binary.BigEndian.Uint32(devAddrBytes)
-	payload, err := lorawan.BuildDataFrame(lorawan.DataFrameOptions{
+	payload, err := lorawanHandler.EncodeDataFrame(protocol.DataFrame{
 		DevAddr:   devAddr,
 		FCnt:      uint32(session.FrameCounterDown + 1),
 		Direction: 1,
@@ -689,7 +690,7 @@ func (e *Engine) queueRealJoinAcceptLocked(packet types.GatewayPacket, device co
 		return false
 	}
 	devAddr := binary.BigEndian.Uint32(devAddrBytes)
-	payload, err := lorawan.BuildJoinAccept(lorawan.JoinAcceptOptions{
+	payload, err := lorawanHandler.EncodeJoinAccept(protocol.JoinAccept{
 		AppNonce:          0,
 		NetID:             0,
 		DevAddr:           devAddr,

@@ -7,8 +7,11 @@ import (
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/Giuseppe-Compagnone/lwn-engine/lorawan"
+	"github.com/Giuseppe-Compagnone/lwn-engine/protocol"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 )
+
+var lorawanHandler protocol.Handler = protocol.LoRaWANHandler{}
 
 // buildUplinkPayloadLocked creates the PHYPayload that a virtual gateway
 // exposes to an external Gateway Bridge. The simulator keeps its radio model
@@ -41,7 +44,7 @@ func (e *Engine) buildUplinkPayloadLocked(
 		if err != nil {
 			return nil
 		}
-		payload, err := lorawan.BuildJoinRequest(lorawan.JoinRequestOptions{
+		payload, err := lorawanHandler.EncodeJoinRequest(protocol.JoinRequest{
 			JoinEUI:  joinEUI,
 			DevEUI:   devEUI,
 			DevNonce: session.DevNonce,
@@ -77,7 +80,7 @@ func (e *Engine) buildUplinkPayloadLocked(
 		}
 	}
 	devAddr := binary.BigEndian.Uint32(devAddrBytes)
-	frame, err := lorawan.BuildDataFrame(lorawan.DataFrameOptions{
+	frame, err := lorawanHandler.EncodeDataFrame(protocol.DataFrame{
 		DevAddr:   devAddr,
 		FCnt:      uint32(maxInt64(frameCounter, 0)),
 		FPort:     fPort,

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
-	"github.com/Giuseppe-Compagnone/lwn-engine/lorawan"
+	"github.com/Giuseppe-Compagnone/lwn-engine/protocol"
 	"github.com/Giuseppe-Compagnone/lwn-engine/regional"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 )
@@ -112,11 +112,11 @@ func (e *Engine) queueDataDownlinkLocked(
 		value := byte(downlink.FPort)
 		fPort = &value
 	}
-	macCommands, err := lorawan.EncodeMACCommands(downlink.MACCommands)
+	macCommands, err := lorawanHandler.EncodeMACCommands(downlink.MACCommands)
 	if err != nil {
 		return
 	}
-	payload, err := lorawan.BuildDataFrame(lorawan.DataFrameOptions{
+	payload, err := lorawanHandler.EncodeDataFrame(protocol.DataFrame{
 		DevAddr:   address,
 		FCnt:      uint32(session.FrameCounterDown),
 		FPort:     fPort,

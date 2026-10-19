@@ -538,7 +538,7 @@ func (e *Engine) QueueDownlink(downlink types.Downlink) (string, error) {
 			return "", fmt.Errorf("validate MAC command %d: %w", index, err)
 		}
 	}
-	if _, err := lorawan.EncodeMACCommands(downlink.MACCommands); err != nil {
+	if _, err := lorawanHandler.EncodeMACCommands(downlink.MACCommands); err != nil {
 		e.mu.Unlock()
 		return "", fmt.Errorf("encode MAC commands: %w", err)
 	}

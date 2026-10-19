@@ -2,7 +2,6 @@ package runtime
 
 import (
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
-	"github.com/Giuseppe-Compagnone/lwn-engine/lorawan"
 	"github.com/Giuseppe-Compagnone/lwn-engine/payloadcodec"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 )
@@ -26,7 +25,7 @@ func decorateDecodedRadioPayload(event *contracts.SimulationEvent, device contra
 	if session == nil {
 		return
 	}
-	packet, err := lorawan.Parse(transmission.Payload)
+	packet, err := lorawanHandler.Decode(transmission.Payload)
 	if err != nil || packet.FPort == nil || len(packet.FRMPayload) == 0 {
 		return
 	}
@@ -34,7 +33,7 @@ func decorateDecodedRadioPayload(event *contracts.SimulationEvent, device contra
 	if *packet.FPort == 0 {
 		key = session.NwkSKey
 	}
-	payload, err := lorawan.DecryptPayload(packet, key, 0)
+	payload, err := lorawanHandler.DecryptPayload(packet, key, 0)
 	if err != nil {
 		message := err.Error()
 		event.Error = &message
