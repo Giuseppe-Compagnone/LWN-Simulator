@@ -81,6 +81,23 @@ func TestClassifyRejectsEmptyFrameInRawMode(t *testing.T) {
 	}
 }
 
+func TestClassifyEnforcesStrictReceiveModes(t *testing.T) {
+	tests := []struct {
+		name    string
+		payload []byte
+		mode    contracts.RadioReceiveMode
+	}{
+		{name: "raw frame in LoRaWAN mode", payload: []byte{0xde, 0xad}, mode: contracts.ReceiveLoRaWAN},
+	}
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			if _, err := Classify(testCase.payload, testCase.mode); err == nil {
+				t.Fatal("expected strict receive mode to reject incompatible frame")
+			}
+		})
+	}
+}
+
 func bytePointer(value byte) *byte {
 	return &value
 }
