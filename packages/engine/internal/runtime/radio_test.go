@@ -76,6 +76,9 @@ func TestPhaseFourRadioEventsExposeLinkMetrics(t *testing.T) {
 	if started.RSSI == nil || started.SNR == nil {
 		t.Fatal("expected RSSI and SNR metadata on radio event")
 	}
+	if started.RadioFrame == nil || started.RadioFrame.Protocol != contracts.LoRaWAN {
+		t.Fatalf("expected an explicit LoRaWAN radio frame, got %+v", started.RadioFrame)
+	}
 
 	received := waitForEventType(t, engine.Events(), contracts.GatewayPacketReceived)
 	if received.RSSI == nil || received.SNR == nil || received.RadioLossReason != nil {

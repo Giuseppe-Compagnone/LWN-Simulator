@@ -30,7 +30,9 @@ func TestRealGatewayPayloadIsDecodedAfterDecryption(t *testing.T) {
 		t.Fatalf("build uplink: %v", err)
 	}
 	event := contracts.SimulationEvent{}
-	decorateDecodedRadioPayload(&event, device, &types.RadioTransmission{Payload: frame}, session)
+	decorateDecodedRadioPayload(&event, device, &types.RadioTransmission{
+		RadioFrame: types.RadioFrame{Payload: frame},
+	}, session)
 	if event.DecodedPayload == nil || (*event.DecodedPayload)["first"] != float64(42) {
 		t.Fatalf("unexpected decoded real-gateway payload: %+v", event.DecodedPayload)
 	}

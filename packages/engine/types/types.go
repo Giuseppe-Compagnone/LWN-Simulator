@@ -340,27 +340,40 @@ type RegionalPlan struct {
 	DataRates         map[int]DataRateProfile
 }
 
+// RadioFrame contains the radio-level data shared by every modulation
+// protocol. Protocol-specific encoders populate the payload and protocol,
+// while the radio medium uses the modulation parameters to model airtime,
+// range, and collisions.
+type RadioFrame struct {
+	Protocol          contracts.RadioProtocol
+	Payload           []byte
+	ChannelFrequency  int64
+	Bandwidth         int64
+	SpreadingFactor   int
+	DataRate          int
+	TransmissionPower float64
+}
+
+// RadioTransmission tracks a frame while it is in flight through the radio
+// medium. RadioFrame is embedded so the existing runtime can access common
+// radio properties without coupling them to LoRaWAN session state.
 type RadioTransmission struct {
-	PacketID         string
-	DeviceID         string
-	FrameCounter     int64
-	Attempt          int
-	Confirmed        bool
-	StartAt          time.Duration
-	EndAt            time.Duration
-	ChannelFrequency int64
-	Bandwidth        int64
-	SpreadingFactor  int
-	DataRate         int
-	FPort            int
-	PayloadSize      int
-	FragmentIndex    int
-	FragmentCount    int
-	Airtime          time.Duration
-	RSSI             float64
-	SNR              float64
-	GatewayIDs       []string
-	Collision        bool
-	FPendingPoll     bool
-	Payload          []byte
+	RadioFrame
+	PacketID      string
+	DeviceID      string
+	FrameCounter  int64
+	Attempt       int
+	Confirmed     bool
+	StartAt       time.Duration
+	EndAt         time.Duration
+	FPort         int
+	PayloadSize   int
+	FragmentIndex int
+	FragmentCount int
+	Airtime       time.Duration
+	RSSI          float64
+	SNR           float64
+	GatewayIDs    []string
+	Collision     bool
+	FPendingPoll  bool
 }

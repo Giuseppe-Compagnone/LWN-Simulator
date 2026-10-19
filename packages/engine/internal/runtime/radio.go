@@ -19,6 +19,13 @@ const (
 	radioBandwidthHz      = 125_000
 )
 
+func optionalString(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
 func (e *Engine) startRadioTransmissionLocked(
 	device contracts.Device,
 	scheduled types.ScheduledEvent,
@@ -42,27 +49,31 @@ func (e *Engine) startRadioTransmissionLocked(
 	rssi, snr := calculateSignal(device, gateways, channel.Frequency, transmitPower)
 	payload := e.buildUplinkPayloadLocked(device, session, frameCounter, confirmed, scheduled.FragmentIndex, dataRate)
 	transmission := &types.RadioTransmission{
-		PacketID:         packetID,
-		DeviceID:         device.ID,
-		FrameCounter:     frameCounter,
-		Attempt:          scheduled.Attempt,
-		Confirmed:        confirmed,
-		StartAt:          scheduled.At,
-		EndAt:            scheduled.At + airtime,
-		ChannelFrequency: channel.Frequency,
-		Bandwidth:        channel.Bandwidth,
-		SpreadingFactor:  channel.SpreadingFactor,
-		DataRate:         dataRate,
-		FPort:            device.FrameConfig.FPort,
-		PayloadSize:      payloadSize,
-		FragmentIndex:    scheduled.FragmentIndex,
-		FragmentCount:    scheduled.FragmentCount,
-		FPendingPoll:     scheduled.FPendingPoll,
-		Airtime:          airtime,
-		RSSI:             rssi,
-		SNR:              snr,
-		GatewayIDs:       gatewayIDs(gateways),
-		Payload:          append([]byte(nil), payload...),
+		RadioFrame: types.RadioFrame{
+			Protocol:          contracts.LoRaWAN,
+			Payload:           append([]byte(nil), payload...),
+			ChannelFrequency:  channel.Frequency,
+			Bandwidth:         channel.Bandwidth,
+			SpreadingFactor:   channel.SpreadingFactor,
+			DataRate:          dataRate,
+			TransmissionPower: transmitPower,
+		},
+		PacketID:      packetID,
+		DeviceID:      device.ID,
+		FrameCounter:  frameCounter,
+		Attempt:       scheduled.Attempt,
+		Confirmed:     confirmed,
+		StartAt:       scheduled.At,
+		EndAt:         scheduled.At + airtime,
+		FPort:         device.FrameConfig.FPort,
+		PayloadSize:   payloadSize,
+		FragmentIndex: scheduled.FragmentIndex,
+		FragmentCount: scheduled.FragmentCount,
+		FPendingPoll:  scheduled.FPendingPoll,
+		Airtime:       airtime,
+		RSSI:          rssi,
+		SNR:           snr,
+		GatewayIDs:    gatewayIDs(gateways),
 	}
 	for _, active := range e.radio {
 		if active.EndAt > transmission.StartAt &&
@@ -334,6 +345,19 @@ func (e *Engine) newRadioEventLocked(eventType contracts.SimulationEventType, me
 	event.RSSI = &rssi
 	event.SNR = &snr
 	event.Collision = &collision
+	event.RadioFrame = &contracts.RadioFrame{
+		Protocol:              transmission.Protocol,
+		Payload:               append([]byte(nil), transmission.Payload...),
+		Frequency:             transmission.ChannelFrequency,
+		Bandwidth:             transmission.Bandwidth,
+		SpreadingFactor:       int32(transmission.SpreadingFactor),
+		CodingRate:            "4/5",
+		TransmissionPower:     int32(transmission.TransmissionPower),
+		SenderID:              transmission.DeviceID,
+		GatewayID:             optionalString(gatewayID),
+		TimestampMilliseconds: transmission.StartAt.Milliseconds(),
+		AirtimeMilliseconds:   &airtimeMilliseconds,
+	}
 	device, ok := e.registry.Device(deviceID)
 	if ok {
 		decorateDecodedRadioPayload(&event, device, transmission, e.sessions[deviceID])
