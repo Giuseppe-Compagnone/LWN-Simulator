@@ -119,6 +119,8 @@ func validCreateDeviceJSON() string {
 		"devEUI": "0102030405060708",
 		"name": "test-device",
 		"activation": "oota",
+		"radioProtocol": "lorawan",
+		"radioReceiveMode": "lorawan",
 		"active": true,
 		"class": "class-a",
 		"OOTAConfig": {
@@ -239,6 +241,8 @@ func validUpdateDeviceJSON(id, devEUI, name string, active bool) string {
 			"devEUI": "%s",
 			"name": "%s",
 			"activation": "oota",
+			"radioProtocol": "raw-lora",
+			"radioReceiveMode": "auto",
 			"active": %t,
 			"class": "class-a",
 			"OOTAConfig": {
@@ -441,6 +445,20 @@ func TestDeviceHandler_CreateDevice(t *testing.T) {
 			wantCalls:      0,
 		},
 		{
+			name:           "returns bad request for an unsupported radio protocol",
+			body:           strings.Replace(validCreateDeviceJSON(), `"radioProtocol": "lorawan"`, `"radioProtocol": "unsupported"`, 1),
+			service:        &mockDeviceService{},
+			wantStatusCode: http.StatusBadRequest,
+			wantCalls:      0,
+		},
+		{
+			name:           "returns bad request for an unsupported receive mode",
+			body:           strings.Replace(validCreateDeviceJSON(), `"radioReceiveMode": "lorawan"`, `"radioReceiveMode": "unsupported"`, 1),
+			service:        &mockDeviceService{},
+			wantStatusCode: http.StatusBadRequest,
+			wantCalls:      0,
+		},
+		{
 			name: "returns internal server error",
 			body: validCreateDeviceJSON(),
 			service: &mockDeviceService{
@@ -505,6 +523,14 @@ func TestDeviceHandler_CreateDevice(t *testing.T) {
 						got.Class,
 						contracts.ClassA,
 					)
+				}
+
+				if got.RadioProtocol == nil || *got.RadioProtocol != contracts.LoRaWAN {
+					t.Errorf("CreateDevice() RadioProtocol = %v, want %q", got.RadioProtocol, contracts.LoRaWAN)
+				}
+
+				if got.RadioReceiveMode == nil || *got.RadioReceiveMode != contracts.ReceiveLoRaWAN {
+					t.Errorf("CreateDevice() RadioReceiveMode = %v, want %q", got.RadioReceiveMode, contracts.ReceiveLoRaWAN)
 				}
 			}
 		})
@@ -822,6 +848,14 @@ func TestDeviceHandler_UpdateDevice(t *testing.T) {
 						got.Device.DevEUI,
 						"1122334455667788",
 					)
+				}
+
+				if got.Device.RadioProtocol == nil || *got.Device.RadioProtocol != contracts.RawLoRa {
+					t.Errorf("UpdateDevice() Device.RadioProtocol = %v, want %q", got.Device.RadioProtocol, contracts.RawLoRa)
+				}
+
+				if got.Device.RadioReceiveMode == nil || *got.Device.RadioReceiveMode != contracts.ReceiveAuto {
+					t.Errorf("UpdateDevice() Device.RadioReceiveMode = %v, want %q", got.Device.RadioReceiveMode, contracts.ReceiveAuto)
 				}
 			}
 		})
