@@ -426,6 +426,10 @@ func (e *Engine) processExternalDownlinkLocked(packet types.GatewayPacket, decod
 			device.ID, packet.GatewayID, "", uuid.NewString(),
 		)}
 	}
+	if decoded.ACK && !e.externalACKMatchesUplink(device, session, packet) {
+		return []contracts.SimulationEvent{e.newPacketEventLocked(contracts.DeviceDownlinkDropped,
+			"external ACK is outside the pending uplink receive windows", device.ID, packet.GatewayID, "", uuid.NewString())}
+	}
 	if session.ExternalDownlinkFrameCounterSet && decoded.FCnt <= session.LastExternalDownlinkFrameCounter {
 		e.metrics.FrameCounterErrors++
 		return []contracts.SimulationEvent{e.newProtocolEventLocked(
@@ -529,6 +533,7 @@ func (e *Engine) completeExternalUplinkACKLocked(device contracts.Device, sessio
 }
 
 func (e *Engine) processExternalJoinAcceptLocked(packet types.GatewayPacket, decoded lorawan.Packet) []contracts.SimulationEvent {
+	matchedCandidate := false
 	for _, device := range e.registry.ActiveDevices() {
 		if device.OOTAConfig == nil {
 			continue
@@ -546,13 +551,10 @@ func (e *Engine) processExternalJoinAcceptLocked(packet types.GatewayPacket, dec
 				device.ID, packet.GatewayID, "", uuid.NewString(),
 			)}
 		}
+		matchedCandidate = true
 		joinAccept, err := lorawan.DecodeJoinAccept(decoded.Raw, appKey)
 		if err != nil {
-			return []contracts.SimulationEvent{e.newPacketEventLocked(
-				contracts.DeviceDownlinkDropped,
-				"external Join-Accept was rejected because its MIC is invalid",
-				device.ID, packet.GatewayID, "", uuid.NewString(),
-			)}
+			continue
 		}
 		if !packet.TransmitAt.IsZero() && !session.PendingJoinRequest.RequestedAt.IsZero() && packet.TransmitAt.Before(session.PendingJoinRequest.RequestedAt) {
 			return []contracts.SimulationEvent{e.newPacketEventLocked(
@@ -586,6 +588,10 @@ func (e *Engine) processExternalJoinAcceptLocked(packet types.GatewayPacket, dec
 			device.ID, packet.GatewayID, "", packetID, -1, 1, false, nil,
 		)}
 		return append(events, e.scheduleUplinkLocked(device, e.clock.Now())...)
+	}
+	if matchedCandidate {
+		return []contracts.SimulationEvent{e.newPacketEventLocked(contracts.DeviceDownlinkDropped,
+			"external Join-Accept was rejected because its MIC is invalid", "", packet.GatewayID, "", uuid.NewString())}
 	}
 	return []contracts.SimulationEvent{e.newPacketEventLocked(
 		contracts.DeviceDownlinkDropped,
@@ -1140,4 +1146,34 @@ func (e *Engine) dispatchGatewayPackets(packets []types.GatewayPacket) {
 		_ = e.sendGatewayPacket(ctx, packet)
 		cancel()
 	}
+}
+
+// Timed packet-forwarder responses can arrive before their radio transmission.
+// Match the requested transmission time against the current uplink, not arrival.
+func (e *Engine) externalACKMatchesUplink(device contracts.Device, session *types.DeviceSession, packet types.GatewayPacket) bool {
+	pending := session.PendingUplink
+	if pending == nil || packet.TransmitAt.IsZero() {
+		return true
+	}
+	base := pending.SentAt
+	if base.IsZero() {
+		base = time.Now().Add(pending.TransmissionAt + session.LastAirtime - e.clock.Now())
+	}
+	if packet.TransmitAt.Before(base) {
+		return false
+	}
+	if device.Class == contracts.ClassC {
+		return true
+	}
+	rx1 := durationMilliseconds(device.RX1Config.Delay)
+	rx2 := durationMilliseconds(device.RX2Config.Delay)
+	if session.ReceiveDelay > 0 {
+		if session.ReceiveDelay != rx1 {
+			rx2 = session.ReceiveDelay + time.Second
+		}
+		rx1 = session.ReceiveDelay
+	}
+	delay := packet.TransmitAt.Sub(base)
+	return (delay >= rx1 && delay <= rx1+windowDuration(device, contracts.RX1)) ||
+		(delay >= rx2 && delay <= rx2+windowDuration(device, contracts.RX2))
 }

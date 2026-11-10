@@ -251,6 +251,7 @@ func (e *Engine) completeRadioSuccessLocked(transmission *types.RadioTransmissio
 		}
 		return nil
 	}
+	session.PendingUplink.SentAt = time.Now()
 	session.PendingUplink.GatewayIDs = append([]string(nil), transmission.GatewayIDs...)
 	if transmission.Confirmed {
 		return []contracts.SimulationEvent{e.scheduleWindowLocked(device, radioWindowSource(transmission), contracts.RX1, transmission.PacketID, transmission.FrameCounter, true)}

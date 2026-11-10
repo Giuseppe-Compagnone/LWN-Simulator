@@ -9,6 +9,7 @@ import {
   SimulationRunStatus,
 } from "@lwn-simulator/contracts";
 import {
+  useProfileService,
   useSimulationService,
   useWebSocketService,
 } from "@lwn-simulator/sdk";
@@ -32,6 +33,7 @@ const labelStatus = (value: SimulationRunStatus): string =>
 
 const LogsPage = () => {
   const simulation = useSimulationService();
+  const { activeProfileID } = useProfileService();
   const getLogs = simulation.getLogs;
   const { connectionState, subscribe } = useWebSocketService();
   const hasConnectedRef = useRef(false);
@@ -93,6 +95,7 @@ const LogsPage = () => {
       subscribe((rawMessage) => {
         try {
           const message = JSON.parse(rawMessage) as RealtimeWebSocketMessage;
+          if (message.profileID && message.profileID !== activeProfileID) return;
           if (
             (message.type === RealtimeWebSocketMessageType.SimulationRunCreated ||
               message.type === RealtimeWebSocketMessageType.SimulationRunUpdated) &&
@@ -123,7 +126,7 @@ const LogsPage = () => {
           // Ignore messages owned by other realtime consumers.
         }
       }),
-    [subscribe],
+    [activeProfileID, subscribe],
   );
 
   return (

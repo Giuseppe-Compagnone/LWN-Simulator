@@ -280,6 +280,8 @@ type MACCommand struct {
 type ClassBDownlink = Downlink
 
 type PendingUplink struct {
+	// SentAt is the wall-clock completion time of the latest radio attempt.
+	SentAt         time.Time
 	PacketID       string
 	FrameCounter   int64
 	Attempt        int
