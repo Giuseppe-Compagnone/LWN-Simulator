@@ -553,10 +553,22 @@ func TestVirtualGatewayBridgeJoinAcceptCompletesExternalOTAAJoin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build external Join-Accept: %v", err)
 	}
+	requestTime := engine.Checkpoint().Sessions[device.ID].PendingJoinRequest.RequestedAt
 	adapter.packets <- types.GatewayPacket{
-		GatewayID: gateway.ID,
-		Kind:      types.GatewayPacketDownlink,
-		Payload:   joinAccept,
+		GatewayID:  gateway.ID,
+		Kind:       types.GatewayPacketDownlink,
+		Payload:    joinAccept,
+		TransmitAt: requestTime.Add(-time.Second),
+	}
+	waitForEventType(t, engine.Events(), contracts.DeviceDownlinkDropped)
+	if engine.Snapshot().Devices[0].Joined {
+		t.Fatal("a delayed Join-Accept from an older attempt completed the current join")
+	}
+	adapter.packets <- types.GatewayPacket{
+		GatewayID:  gateway.ID,
+		Kind:       types.GatewayPacketDownlink,
+		Payload:    joinAccept,
+		TransmitAt: requestTime.Add(5 * time.Second),
 	}
 	joinEvent := waitForEventType(t, engine.Events(), contracts.JoinAcceptReceived)
 	if !strings.Contains(joinEvent.Message, "external network server") {

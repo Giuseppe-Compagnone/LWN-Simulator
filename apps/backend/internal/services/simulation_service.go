@@ -273,7 +273,7 @@ func (s *SimulationService) Start(
 			objects = append(objects, contracts.SimulationLogObject{Id: gateway.ID, Name: gateway.Name, Kind: contracts.SimulationLogObjectKindGateway, Identifier: gateway.GatewayEUI})
 		}
 		seed := config.Seed
-		run := contracts.SimulationRun{Summary: contracts.SimulationRunSummary{Id: runID, StartedAtMilliseconds: runStartedAtMilliseconds, Status: contracts.SimulationRunStatusRunning, Speed: config.Speed, Seed: seed, DeviceCount: int32(len(devices.Devices)), GatewayCount: int32(len(gateways.Gateways))}, Objects: objects}
+		run := contracts.SimulationRun{Summary: contracts.SimulationRunSummary{Id: runID, StartedAtMilliseconds: runStartedAtMilliseconds, Status: contracts.SimulationRunStatusRunning, Speed: runtime.Snapshot().State.Speed, Seed: seed, DeviceCount: int32(len(devices.Devices)), GatewayCount: int32(len(gateways.Gateways))}, Objects: objects}
 		if err := s.logStore.Create(run); err != nil {
 			s.resetRuntimeAfterStartFailure(runtime)
 			return contracts.SimulationSnapshot{}, fmt.Errorf("create simulation log: %w", err)

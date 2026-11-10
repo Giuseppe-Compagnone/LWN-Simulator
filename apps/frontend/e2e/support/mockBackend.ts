@@ -4,6 +4,7 @@ export type MockBackendOptions = {
   logs?: "success" | "empty" | "error";
   devices?: "empty" | "active" | "raw";
   deviceCodec?: "configured" | "empty" | "absent";
+  bridgeEnabled?: boolean;
 };
 
 const profile = { id: "profile-1", name: "Default profile" };
@@ -123,7 +124,7 @@ export const mockBackend = async (
 ): Promise<void> => {
   const hasDevices = options.devices === "active" || options.devices === "raw";
   let gatewayBridge = {
-    enabled: false,
+    enabled: options.bridgeEnabled ?? false,
     address: "0.0.0.0",
     port: 1700,
   };

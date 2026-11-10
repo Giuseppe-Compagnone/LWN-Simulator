@@ -295,6 +295,8 @@ type PendingUplink struct {
 }
 
 type PendingJoinRequest struct {
+	// RequestedAt identifies the wall-clock attempt for timed external Join-Accepts.
+	RequestedAt    time.Time
 	PacketID       string
 	JoinEUI        string
 	GatewayIDs     []string

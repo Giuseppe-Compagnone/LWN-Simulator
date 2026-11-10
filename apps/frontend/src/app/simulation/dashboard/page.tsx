@@ -95,6 +95,9 @@ const SimulationDashboardPage = () => {
     () => gatewayService.gateways ?? [],
     [gatewayService.gateways],
   );
+  const requiresRealtime =
+    profileConfiguration.gatewayBridgeConfig?.enabled === true ||
+    gateways.some((gateway) => gateway.type === GatewayType.Real);
   const mapLogic = useSensorMap({});
   const [controlError, setControlError] = useState<string | null>(null);
   const [isLoadingSnapshot, setIsLoadingSnapshot] = useState(true);
@@ -264,7 +267,7 @@ const SimulationDashboardPage = () => {
             profileConfiguration.gatewayBridgeConfig ?? defaultGatewayBridgeConfig,
           );
         await simulation.start({
-          speed,
+          speed: gatewayBridge.enabled || gateways.some((gateway) => gateway.type === GatewayType.Real) ? 1 : speed,
           ...(seed ? { seed: Number(seed) } : {}),
           gatewayBridge,
         });
@@ -300,6 +303,7 @@ const SimulationDashboardPage = () => {
         min: 0.1,
         max: 10,
         step: 0.1,
+        disabled: requiresRealtime,
         formatValue: (value: string) => `${Number(value).toFixed(1)}x`,
         onChange: (logic) => {
           const value = Number(logic.fieldsState.speed.value);
@@ -319,7 +323,7 @@ const SimulationDashboardPage = () => {
         format: (raw: string) => raw.replace(/[^0-9]/g, ""),
       }),
     ],
-    [canStart, isPaused, isRunning, updateSpeed],
+    [canStart, isPaused, isRunning, requiresRealtime, updateSpeed],
   );
 
   return (
@@ -349,6 +353,7 @@ const SimulationDashboardPage = () => {
         fields={controlFields}
         status={status}
         canStart={canStart}
+        requiresRealtime={requiresRealtime}
         devicesLoaded={devicesLoaded}
         hasActiveDevices={hasActiveDevices}
         activeSimulationIsElsewhere={activeSimulationIsElsewhere}

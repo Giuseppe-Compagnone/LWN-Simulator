@@ -833,3 +833,44 @@ func waitHeartbeat(t *testing.T, events <-chan types.GatewayAdapterEvent) {
 		}
 	}
 }
+
+func TestVirtualGatewayDecodesConcentratorDownlinkTime(t *testing.T) {
+	for _, delay := range []time.Duration{-5 * time.Second, 5 * time.Second, 6 * time.Second} {
+		t.Run(delay.String(), func(t *testing.T) {
+			adapter := &udpAdapter{virtual: true}
+			target := time.Now().Add(delay)
+			timestamp := uint32(target.UnixMicro())
+			body, err := json.Marshal(struct {
+				TXPK txPacket `json:"txpk"`
+			}{TXPK: txPacket{Timestamp: &timestamp, Data: "AQ==", Size: 1, Modulation: "LORA"}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			packet, err := adapter.decodePullResponse(body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if difference := packet.TransmitAt.Sub(target); difference < -time.Microsecond || difference > time.Microsecond {
+				t.Fatalf("wrong concentrator time: got %s, want %s", packet.TransmitAt, target)
+			}
+			if packet.ReceivedAt.IsZero() {
+				t.Fatal("missing reception timestamp")
+			}
+		})
+	}
+}
+
+func TestGatewayConcentratorTimestampDoesNotOverrideImmediateOrPhysicalClock(t *testing.T) {
+	for _, virtual := range []bool{false, true} {
+		adapter := &udpAdapter{virtual: virtual}
+		packet, err := adapter.decodePullResponse([]byte(`{"txpk":{"tmst":42,"imme":true,"data":"AQ=="}}`))
+		if err != nil || !packet.TransmitAt.IsZero() {
+			t.Fatalf("immediate packet gained a transmission deadline: %+v %v", packet, err)
+		}
+	}
+	adapter := &udpAdapter{}
+	packet, err := adapter.decodePullResponse([]byte(`{"txpk":{"tmst":42,"data":"AQ=="}}`))
+	if err != nil || !packet.TransmitAt.IsZero() {
+		t.Fatalf("physical concentrator clock was interpreted as local wall time: %+v %v", packet, err)
+	}
+}

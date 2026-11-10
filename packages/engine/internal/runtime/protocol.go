@@ -52,6 +52,7 @@ func (e *Engine) processJoinRequestLocked(scheduled types.ScheduledEvent) []cont
 	e.metrics.JoinRequests++
 	gateways := e.coveredGateways(device)
 	session.PendingJoinRequest = &types.PendingJoinRequest{
+		RequestedAt:    time.Now(),
 		PacketID:       packetID,
 		JoinEUI:        device.OOTAConfig.JoinEUI,
 		GatewayIDs:     gatewayIDs(gateways),

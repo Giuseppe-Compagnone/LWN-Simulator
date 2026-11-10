@@ -74,9 +74,20 @@ func New(
 		return nil, fmt.Errorf("validate runtime registry: %w", err)
 	}
 
+	if requiresRealtimeTransport(registry.Gateways(), options.GatewayAdapterFactory) {
+		config.Speed = 1
+	}
+
 	clock := options.Clock
 	if clock == nil {
 		clock = types.NewRealClock(config.Speed)
+	}
+	if requiresRealtimeTransport(registry.Gateways(), options.GatewayAdapterFactory) {
+		if speedClock, ok := clock.(interface{ SetSpeed(float64) error }); ok {
+			if err := speedClock.SetSpeed(1); err != nil {
+				return nil, fmt.Errorf("set external transport clock speed: %w", err)
+			}
+		}
 	}
 
 	bufferSize := options.EventBuffer
@@ -153,7 +164,10 @@ func (e *Engine) restoreCheckpoint(checkpoint *types.EngineCheckpoint) error {
 	}
 	if checkpoint.Config.Speed > 0 {
 		e.config = checkpoint.Config
-		e.state.Speed = checkpoint.Config.Speed
+		if requiresRealtimeTransport(e.registry.Gateways(), e.gatewayAdapterFactory) {
+			e.config.Speed = 1
+		}
+		e.state.Speed = e.config.Speed
 		e.state.Seed = checkpoint.Config.Seed
 	}
 	if checkpoint.State.EventSequence > 0 || checkpoint.State.ElapsedMilliseconds > 0 {

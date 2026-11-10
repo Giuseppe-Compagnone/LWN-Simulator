@@ -23,6 +23,10 @@ func (e *Engine) SetSpeed(speed float64) error {
 		e.mu.Unlock()
 		return fmt.Errorf("%w: cannot change speed from %q", ErrInvalidTransition, status)
 	}
+	if speed != 1 && requiresRealtimeTransport(e.registry.Gateways(), e.gatewayAdapterFactory) {
+		e.mu.Unlock()
+		return fmt.Errorf("external gateway transports require simulation speed 1x")
+	}
 	e.config.Speed = speed
 	e.state.Speed = speed
 	clock := e.clock
@@ -163,6 +167,10 @@ func (e *Engine) RegisterGateway(gateway contracts.Gateway) error {
 		return fmt.Errorf("gateway %s is already registered", gateway.ID)
 	}
 	gateways := append(e.registry.Gateways(), gateway)
+	if e.state.Speed != 1 && requiresRealtimeTransport(gateways, e.gatewayAdapterFactory) {
+		e.mu.Unlock()
+		return fmt.Errorf("set simulation speed to 1x before adding an external gateway")
+	}
 	registry, err := NewRegistry(e.registry.Devices(), gateways)
 	if err != nil {
 		e.mu.Unlock()
@@ -297,6 +305,10 @@ func (e *Engine) UpdateGateway(updated contracts.Gateway) error {
 			gateways[index] = updated
 			break
 		}
+	}
+	if e.state.Speed != 1 && requiresRealtimeTransport(gateways, e.gatewayAdapterFactory) {
+		e.mu.Unlock()
+		return fmt.Errorf("set simulation speed to 1x before configuring an external gateway")
 	}
 	registry, err := NewRegistry(e.registry.Devices(), gateways)
 	if err != nil {

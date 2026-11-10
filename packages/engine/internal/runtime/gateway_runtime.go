@@ -17,6 +17,23 @@ import (
 	"github.com/google/uuid"
 )
 
+// External network servers use wall-clock receive windows and cannot follow
+// an accelerated or slowed simulation clock.
+func requiresRealtimeTransport(gateways []contracts.Gateway, factory types.GatewayAdapterFactory) bool {
+	if factory == nil {
+		return false
+	}
+	if virtualFactory, ok := factory.(types.VirtualGatewayAdapterFactory); ok && virtualFactory.SupportsVirtualGateways() {
+		return true
+	}
+	for _, gateway := range gateways {
+		if gateway.Type == contracts.Real {
+			return true
+		}
+	}
+	return false
+}
+
 func (e *Engine) startGatewayAdapters(ctx context.Context) {
 	if e.gatewayAdapterFactory == nil {
 		return
@@ -534,6 +551,13 @@ func (e *Engine) processExternalJoinAcceptLocked(packet types.GatewayPacket, dec
 			return []contracts.SimulationEvent{e.newPacketEventLocked(
 				contracts.DeviceDownlinkDropped,
 				"external Join-Accept was rejected because its MIC is invalid",
+				device.ID, packet.GatewayID, "", uuid.NewString(),
+			)}
+		}
+		if !packet.TransmitAt.IsZero() && !session.PendingJoinRequest.RequestedAt.IsZero() && packet.TransmitAt.Before(session.PendingJoinRequest.RequestedAt) {
+			return []contracts.SimulationEvent{e.newPacketEventLocked(
+				contracts.DeviceDownlinkDropped,
+				"external Join-Accept belongs to an expired join attempt",
 				device.ID, packet.GatewayID, "", uuid.NewString(),
 			)}
 		}

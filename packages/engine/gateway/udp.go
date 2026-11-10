@@ -855,7 +855,13 @@ func (adapter *udpAdapter) decodePullResponse(body []byte) (*types.GatewayPacket
 	if payload.TXPK.Size > 0 && payload.TXPK.Size != len(decoded) {
 		return nil, fmt.Errorf("downlink payload size mismatch: declared %d, decoded %d", payload.TXPK.Size, len(decoded))
 	}
+	receivedAt := time.Now()
 	var transmitAt time.Time
+	if adapter.virtual && payload.TXPK.Timestamp != nil && !payload.TXPK.Immediate {
+		nowTimestamp := uint32(receivedAt.UnixMicro())
+		delta := int32(*payload.TXPK.Timestamp - nowTimestamp)
+		transmitAt = receivedAt.Add(time.Duration(delta) * time.Microsecond)
+	}
 	if payload.TXPK.Time != "" {
 		transmitAt, err = time.Parse(time.RFC3339Nano, payload.TXPK.Time)
 		if err != nil {
@@ -872,7 +878,7 @@ func (adapter *udpAdapter) decodePullResponse(body []byte) (*types.GatewayPacket
 		Power:           payload.TXPK.Power,
 		DataRate:        payload.TXPK.DataRate,
 		TransmitAt:      transmitAt,
-		ReceivedAt:      time.Now(),
+		ReceivedAt:      receivedAt,
 	}, nil
 }
 

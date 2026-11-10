@@ -76,13 +76,16 @@ func TestEngineVirtualGatewayBridgeOTAAOverSemtechUDP(t *testing.T) {
 	gatewayConfig := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c91")
 	clock := types.NewManualClock(0)
 	engine, err := New(
-		contracts.SimulationConfig{Speed: 1},
+		contracts.SimulationConfig{Speed: 10},
 		[]contracts.Device{device},
 		[]contracts.Gateway{gatewayConfig},
 		types.Options{Clock: clock, EventBuffer: 256, GatewayAdapterFactory: factory},
 	)
 	if err != nil {
 		t.Fatalf("create bridge engine: %v", err)
+	}
+	if engine.Snapshot().State.Speed != 1 {
+		t.Fatal("external UDP bridge must use a real-time clock")
 	}
 	startEngine(t, engine)
 	defer stopEngine(t, engine)

@@ -9,6 +9,8 @@ export interface SimulationDashboardControlsProps {
   status: SimulationStatus;
   /** Whether the current profile can start a simulation. */
   canStart: boolean;
+  /** Whether external gateway connections require the real-time simulation clock. */
+  requiresRealtime?: boolean;
   /** Whether the device collection has finished loading. */
   devicesLoaded: boolean;
   /** Whether the current profile has at least one active device. */

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
+	"github.com/Giuseppe-Compagnone/lwn-engine/gateway"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 	"lwn-simulator-backend/internal/apperrors"
 )
@@ -293,4 +294,30 @@ func TestSimulationServiceRestoresAndClearsPersistedLifecycle(t *testing.T) {
 			t.Fatal("checkpoint load error should be returned")
 		}
 	})
+}
+
+func TestSimulationServicePersistsEffectiveExternalTransportSpeed(t *testing.T) {
+	factory := gateway.NewUDPFactory(gateway.UDPOptions{LocalAddress: "127.0.0.1:0"})
+	defer factory.Close()
+	logStore := NewFileSimulationLogStore(t.TempDir() + "/simulation-logs.json")
+	service := NewSimulationService(simulationDeviceSource{}, simulationGatewaySource{}, types.Options{GatewayAdapterFactory: factory}, nil, logStore)
+	defer service.Close()
+	snapshot, err := service.Start(t.Context(), contracts.SimulationConfig{
+		Speed:         10,
+		GatewayBridge: &contracts.GatewayBridgeConfig{Enabled: true, Address: "127.0.0.1", Port: 1700},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer service.Stop(t.Context())
+	if snapshot.State.Speed != 1 {
+		t.Fatal("bridge simulation did not start at real-time speed")
+	}
+	if _, err := service.SetSpeed(10); err == nil {
+		t.Fatal("API accepted accelerated external transport")
+	}
+	logs, err := service.ListLogs()
+	if err != nil || len(logs.Runs) != 1 || logs.Runs[0].Summary.Speed != 1 {
+		t.Fatalf("logs did not record effective speed: %+v %v", logs, err)
+	}
 }
