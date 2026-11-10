@@ -7,11 +7,15 @@ const reuseExport = process.env.PLAYWRIGHT_REUSE_EXPORT === "true";
 const crossBrowser = process.env.PLAYWRIGHT_CROSS_BROWSER === "true";
 const playwrightPort = process.env.PLAYWRIGHT_PORT ?? "3000";
 const playwrightBaseURL = `http://127.0.0.1:${playwrightPort}`;
+const chromiumChannel = process.env.PLAYWRIGHT_CHROMIUM_CHANNEL;
 
 const projects = [
   {
     name: "chromium",
-    use: { ...devices["Desktop Chrome"] },
+    use: {
+      ...devices["Desktop Chrome"],
+      ...(chromiumChannel ? { channel: chromiumChannel } : {}),
+    },
   },
 ];
 

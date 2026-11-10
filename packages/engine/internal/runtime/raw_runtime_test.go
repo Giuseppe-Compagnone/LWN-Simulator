@@ -6,6 +6,7 @@ import (
 	"time"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
+	"github.com/Giuseppe-Compagnone/lwn-engine/lorawan"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 )
 
@@ -198,6 +199,41 @@ func TestRawDownlinkTravelsThroughConnectedGateway(t *testing.T) {
 
 func receiveModePointer(mode contracts.RadioReceiveMode) *contracts.RadioReceiveMode {
 	return &mode
+}
+
+func TestLoRaWANUplinkRespectsDeviceReceiveMode(t *testing.T) {
+	for _, mode := range []contracts.RadioReceiveMode{contracts.ReceiveLoRaWAN, contracts.ReceiveRawLoRa, contracts.ReceiveAuto} {
+		t.Run(string(mode), func(t *testing.T) {
+			device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000214")
+			configureABP(&device)
+			device.RadioReceiveMode = &mode
+			engine, err := New(contracts.SimulationConfig{Speed: 1}, []contracts.Device{device}, nil, types.Options{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			session := newDeviceSession(device)
+			port := byte(1)
+			frame, err := lorawan.BuildDataFrame(lorawan.DataFrameOptions{DevAddr: 0x26011bda, FCnt: 1, FPort: &port, Payload: []byte{21, 50}, NwkSKey: session.NwkSKey, AppSKey: session.AppSKey})
+			if err != nil {
+				t.Fatal(err)
+			}
+			decoded, err := lorawan.Parse(frame)
+			if err != nil {
+				t.Fatal(err)
+			}
+			events := engine.processRealUplinkLocked(types.GatewayPacket{GatewayID: "gateway", Payload: frame}, decoded)
+			if len(events) == 0 {
+				t.Fatal("missing reception outcome")
+			}
+			if mode == contracts.ReceiveRawLoRa {
+				if events[0].Type != contracts.PacketDropped || engine.Snapshot().Metrics.SuccessfulUplinks != 0 {
+					t.Fatal("LoRaWAN traffic was accepted by a raw-only receiver")
+				}
+			} else if events[0].Type != contracts.DeviceUplinkTransmitted || engine.Snapshot().Metrics.SuccessfulUplinks != 1 {
+				t.Fatalf("LoRaWAN traffic was not accepted in mode %s: %+v", mode, events)
+			}
+		})
+	}
 }
 
 func TestRawGatewayReceptionModesAndDeviceFailures(t *testing.T) {

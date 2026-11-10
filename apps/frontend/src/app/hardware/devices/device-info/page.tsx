@@ -1,6 +1,6 @@
 "use client";
 
-import { Device } from "@lwn-simulator/contracts";
+import { Device, RadioProtocol, RadioReceiveMode } from "@lwn-simulator/contracts";
 import { useDeviceService } from "@lwn-simulator/sdk";
 import {
   Button,
@@ -42,7 +42,7 @@ const getDeviceSections = (device: Device): Array<EntityDetailSection> => {
     {
       title: "Device overview",
       icon: "memory",
-      description: "Identity, state and LoRaWAN operating profile",
+      description: "Identity, state and radio operating profile",
       layout: EntityDetailsSectionLayout.Full,
       metrics: [
         {
@@ -73,6 +73,8 @@ const getDeviceSections = (device: Device): Array<EntityDetailSection> => {
         { label: "Name", value: device.name },
         { label: "Device ID", value: device.id, mono: true },
         { label: "DevEUI", value: device.devEUI, mono: true },
+        { label: "Radio Protocol", value: device.radioProtocol === RadioProtocol.RawLora ? "Raw LoRa" : "LoRaWAN" },
+        { label: "Radio Receive Mode", value: device.radioReceiveMode === RadioReceiveMode.Auto ? "Auto" : device.radioReceiveMode === RadioReceiveMode.RawLora ? "Raw LoRa" : "LoRaWAN" },
       ],
     },
     {
@@ -166,6 +168,15 @@ const getDeviceSections = (device: Device): Array<EntityDetailSection> => {
         {
           label: "Base64 encoded",
           value: displayBoolean(device.payloadConfig.base64Encoded),
+        },
+        {
+          label: "Payload Codec",
+          value: displayBoolean(device.payloadConfig.payloadCodec?.enabled ?? false),
+        },
+        {
+          label: "JavaScript Payload Codec",
+          value: displayValue(device.payloadConfig.payloadCodec?.script),
+          mono: true,
         },
       ],
     },

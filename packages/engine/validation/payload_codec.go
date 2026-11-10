@@ -1,15 +1,13 @@
 package validation
 
 import (
-	"regexp"
 	"strings"
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
+	"github.com/dop251/goja/ast"
 	"github.com/dop251/goja/parser"
 )
-
-var payloadDecoderDeclaration = regexp.MustCompile(`(?m)\b(function\s+decodeUplink\s*\(|(const|let|var)\s+decodeUplink\s*=\s*(function\s*\(|(\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>))`)
 
 func validatePayloadCodec(issues *types.ValidationErrors, prefix string, codec *contracts.PayloadCodec) {
 	if codec == nil || !codec.Enabled {
@@ -22,12 +20,41 @@ func validatePayloadCodec(issues *types.ValidationErrors, prefix string, codec *
 		return
 	}
 
-	if _, err := parser.ParseFile(nil, "payload-codec.js", script, 0); err != nil {
+	program, err := parser.ParseFile(nil, "payload-codec.js", script, 0)
+	if err != nil {
 		issues.Add(prefix+".script", "invalid_javascript", "payload codec script contains invalid JavaScript syntax")
 		return
 	}
 
-	if !payloadDecoderDeclaration.MatchString(script) {
-		issues.Add(prefix+".script", "missing_decoder", "payload codec script must define decodeUplink(input)")
+	for _, statement := range program.Body {
+		var bindings []*ast.Binding
+		switch declaration := statement.(type) {
+		case *ast.FunctionDeclaration:
+			function := declaration.Function
+			if function.Name != nil && function.Name.Name == "decodeUplink" && !function.Async && !function.Generator {
+				return
+			}
+		case *ast.VariableStatement:
+			bindings = declaration.List
+		case *ast.LexicalDeclaration:
+			bindings = declaration.List
+		}
+		for _, binding := range bindings {
+			identifier, ok := binding.Target.(*ast.Identifier)
+			if !ok || identifier.Name != "decodeUplink" {
+				continue
+			}
+			switch function := binding.Initializer.(type) {
+			case *ast.FunctionLiteral:
+				if !function.Async && !function.Generator {
+					return
+				}
+			case *ast.ArrowFunctionLiteral:
+				if !function.Async {
+					return
+				}
+			}
+		}
 	}
+	issues.Add(prefix+".script", "missing_decoder", "payload codec script must define a synchronous top-level decodeUplink(input) function")
 }

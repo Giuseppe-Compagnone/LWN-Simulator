@@ -59,13 +59,20 @@ func (LoRaWANHandler) EncodeMACCommands(commands []types.MACCommand) ([]byte, er
 }
 
 func (LoRaWANHandler) Decode(payload []byte) (lorawan.Packet, error) {
+	if len(payload) > 0 && payload[0]&0x1f != 0 {
+		return lorawan.Packet{}, fmt.Errorf("unsupported LoRaWAN header version or reserved bits")
+	}
 	packet, err := lorawan.Parse(payload)
 	if err != nil {
 		return lorawan.Packet{}, err
 	}
 	switch packet.MType {
+	case lorawan.MTypeJoinAccept:
+		if len(payload) != 17 && len(payload) != 33 {
+			return lorawan.Packet{}, fmt.Errorf("LoRaWAN Join-Accept must contain 17 or 33 bytes")
+		}
+		return packet, nil
 	case lorawan.MTypeJoinRequest,
-		lorawan.MTypeJoinAccept,
 		lorawan.MTypeUnconfirmedDataUp,
 		lorawan.MTypeUnconfirmedDataDown,
 		lorawan.MTypeConfirmedDataUp,

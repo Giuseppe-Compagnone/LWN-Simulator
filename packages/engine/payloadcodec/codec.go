@@ -44,23 +44,36 @@ func DecodeWithTimeout(script string, input Input, timeout time.Duration) (map[s
 	if !ok {
 		return nil, fmt.Errorf("payload codec does not expose decodeUplink")
 	}
+	bytes := make([]interface{}, len(input.Bytes))
+	for index, value := range input.Bytes {
+		bytes[index] = int(value)
+	}
 
 	value, err := decoder(goja.Undefined(), runtime.ToValue(map[string]interface{}{
-		"bytes": input.Bytes,
+		"bytes": runtime.NewArray(bytes...),
 		"fPort": input.FPort,
 	}))
 	if err != nil {
 		return nil, fmt.Errorf("decodeUplink failed: %w", err)
 	}
 
-	encoded, err := json.Marshal(value.Export())
+	if err := runtime.Set("__payloadCodecResult", value); err != nil {
+		return nil, fmt.Errorf("prepare decoded payload: %w", err)
+	}
+	encoded, err := runtime.RunString("JSON.stringify(__payloadCodecResult)")
 	if err != nil {
 		return nil, fmt.Errorf("encode decoded payload: %w", err)
 	}
 
 	var result map[string]interface{}
-	if err := json.Unmarshal(encoded, &result); err != nil {
+	if err := json.Unmarshal([]byte(encoded.String()), &result); err != nil {
 		return nil, fmt.Errorf("decoded payload must be a JSON object: %w", err)
+	}
+	if result == nil {
+		return nil, fmt.Errorf("decoded payload must be a JSON object")
+	}
+	if errors, ok := result["errors"].([]interface{}); ok && len(errors) > 0 {
+		return nil, fmt.Errorf("decodeUplink reported errors: %v", errors)
 	}
 	if data, exists := result["data"]; exists {
 		decodedData, ok := data.(map[string]interface{})

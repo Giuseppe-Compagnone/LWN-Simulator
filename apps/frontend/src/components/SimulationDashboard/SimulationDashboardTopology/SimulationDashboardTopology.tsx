@@ -85,6 +85,7 @@ export const SimulationDashboardTopology = (
                   {event.message}
                   {decodedPayload ? ` · Decoded ${decodedPayload}` : ""}
                   {rawPayload ? ` · ${rawPayload}` : ""}
+                  {event.error ? ` · Error: ${event.error}` : ""}
                 </span>
               </div>
             );

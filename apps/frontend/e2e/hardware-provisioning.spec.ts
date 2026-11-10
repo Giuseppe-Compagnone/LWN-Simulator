@@ -234,6 +234,42 @@ test("prevents saving a payload codec with invalid JavaScript", async ({
   await expect(page).toHaveURL(/deviceId=device-1/);
 });
 
+for (const script of [
+  '// function decodeUplink(input) {}\nconst unrelated = 1;',
+  'const description = "function decodeUplink(input) {}";',
+  'async function decodeUplink(input) { return { data: {} }; }',
+]) {
+  test(`rejects a codec without a synchronous top-level decoder: ${script}`, async ({ page }) => {
+    await mockBackend(page);
+    await page.goto("/hardware/devices");
+    await page.goto("/hardware/devices/new?deviceId=device-1");
+    await page.getByLabel("JavaScript Payload Codec").fill(script);
+    await expect(page.getByText("Define a decodeUplink(input) function", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
+    await page.getByLabel("JavaScript Payload Codec").fill("const decodeUplink = input => ({ data: { first: input.bytes[0] } });");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page).toHaveURL(/\/hardware\/devices\/?$/);
+    await page.goto("/hardware/devices/new?deviceId=device-1");
+    await expect(page.getByLabel("JavaScript Payload Codec")).toHaveValue("const decodeUplink = input => ({ data: { first: input.bytes[0] } });");
+  });
+}
+
+test("creates a Raw LoRa device and preserves its receive mode", async ({ page }) => {
+  await mockBackend(page);
+  await page.goto("/hardware/devices/new");
+  await fillDeviceLocationAndRadioFields(page, "Raw LoRa demonstration");
+  await selectRadioOption(page, "activation-abp");
+  await page.getByLabel("DevAddr").fill("26011BDA");
+  await page.getByLabel("NwkSKey").fill("00000000000000000000000000000002");
+  await page.getByLabel("AppSKey").fill("00000000000000000000000000000003");
+  await selectFormOption(page, "Radio Protocol", "Raw LoRa");
+  await selectFormOption(page, "Radio Receive Mode", "Auto");
+  const submitted = page.waitForRequest(request => request.url().endsWith("/device/create-device") && request.method() === "POST");
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  expect((await submitted).postDataJSON()).toMatchObject({ radioProtocol: "raw-lora", radioReceiveMode: "auto" });
+  await expect(page).toHaveURL(/\/hardware\/devices\/?$/);
+});
+
 for (const deviceCodec of ["empty", "absent"] as const) {
   test(`loads the default codec when the saved codec is ${deviceCodec}`, async ({
     page,

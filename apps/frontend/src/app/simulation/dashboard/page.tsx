@@ -86,6 +86,10 @@ const SimulationDashboardPage = () => {
     [deviceService.devices],
   );
   const devicesLoaded = deviceService.devices !== null;
+  const deviceProtocols = useMemo(
+    () => Object.fromEntries(devices.map((device) => [device.id, device.radioProtocol])),
+    [devices],
+  );
   const hasActiveDevices = devices.some((device) => device.active);
   const gateways = useMemo(
     () => gatewayService.gateways ?? [],
@@ -381,6 +385,7 @@ const SimulationDashboardPage = () => {
 
       <SimulationDashboardRuntime
         devices={snapshot?.devices ?? []}
+        deviceProtocols={deviceProtocols}
         gateways={snapshot?.gateways ?? []}
         formatState={formatEventType}
       />

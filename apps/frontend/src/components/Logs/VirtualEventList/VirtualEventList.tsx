@@ -97,12 +97,13 @@ export const VirtualEventList = (props: VirtualEventListProps) => {
                 <small>{formatSimulationTime(event.timestampMilliseconds)}</small>
               </time>
               <span>{formatEventType(event.type)}</span>
-              <small title={rawPayload ?? undefined}>
+              <small title={[event.message, decodedPayload ? `Decoded ${decodedPayload}` : null, rawPayload, event.error ? `Error: ${event.error}` : null].filter(Boolean).join(" · ")}>
                 {event.message}
-                {event.gatewayID ? ` · Gateway ${event.gatewayID}` : ""}
-                {event.deviceID ? ` · Device ${event.deviceID}` : ""}
                 {decodedPayload ? ` · Decoded ${decodedPayload}` : ""}
                 {rawPayload ? ` · ${rawPayload}` : ""}
+                {event.error ? ` · Error: ${event.error}` : ""}
+                {event.gatewayID ? ` · Gateway ${event.gatewayID}` : ""}
+                {event.deviceID ? ` · Device ${event.deviceID}` : ""}
               </small>
             </div>
           );

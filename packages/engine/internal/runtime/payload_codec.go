@@ -22,7 +22,7 @@ func decorateDecodedPayload(event *contracts.SimulationEvent, device contracts.D
 }
 
 func decorateDecodedRadioPayload(event *contracts.SimulationEvent, device contracts.Device, transmission *types.RadioTransmission, session *types.DeviceSession) {
-	if session == nil {
+	if session == nil || transmission.Protocol == contracts.RawLoRa {
 		return
 	}
 	packet, err := lorawanHandler.Decode(transmission.Payload)

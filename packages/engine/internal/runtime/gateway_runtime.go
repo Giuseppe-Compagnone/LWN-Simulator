@@ -588,7 +588,7 @@ func pendingJoinGateway(pending *types.PendingJoinRequest, gatewayID string) boo
 func (e *Engine) processRealUplinkLocked(packet types.GatewayPacket, decoded lorawan.Packet) []contracts.SimulationEvent {
 	if decoded.MType == lorawan.MTypeJoinRequest {
 		for _, device := range e.registry.ActiveDevices() {
-			if device.OOTAConfig == nil || !sameEUI(device.OOTAConfig.JoinEUI, decoded.JoinEUI) || !sameEUI(device.DevEUI, decoded.DevEUI) {
+			if !acceptsRadioProtocol(device, contracts.LoRaWAN) || device.OOTAConfig == nil || !sameEUI(device.OOTAConfig.JoinEUI, decoded.JoinEUI) || !sameEUI(device.DevEUI, decoded.DevEUI) {
 				continue
 			}
 			appKey, keyErr := lorawan.DecodeHex(device.OOTAConfig.AppKey)
@@ -636,6 +636,12 @@ func (e *Engine) processRealUplinkLocked(packet types.GatewayPacket, decoded lor
 	device, session := e.realDeviceSessionLocked(decoded.DevAddr)
 	if session == nil {
 		return nil
+	}
+	if !device.Active || !acceptsRadioProtocol(device, contracts.LoRaWAN) {
+		return []contracts.SimulationEvent{e.newPacketEventLocked(
+			contracts.PacketDropped, "LoRaWAN uplink was rejected because the device is inactive or does not accept LoRaWAN",
+			device.ID, packet.GatewayID, "", uuid.NewString(),
+		)}
 	}
 	if len(session.NwkSKey) == 16 && !lorawanHandler.VerifyDataMIC(decoded, session.NwkSKey, 0) {
 		return []contracts.SimulationEvent{e.newPacketEventLocked(

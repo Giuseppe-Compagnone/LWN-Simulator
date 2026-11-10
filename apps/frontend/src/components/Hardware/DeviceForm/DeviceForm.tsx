@@ -4,6 +4,7 @@ import { SensorMap, SensorMapMode, useSensorMap } from "@/components/SensorMap";
 import {
   estimateRegion,
   getAltitude,
+  hasPayloadDecoder,
   isValidJavaScript,
   latValidation,
   lngValidation,
@@ -1065,7 +1066,8 @@ export const DeviceForm = (props: DeviceFormProps) => {
                     error: "Enter valid JavaScript syntax",
                   },
                   {
-                    rule: /(?:function\s+decodeUplink\s*\(|(?:const|let|var)\s+decodeUplink\s*=\s*(?:function\s*\(|(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>))/,
+                    rule: (value: FormValue) =>
+                      !isValidJavaScript(String(value)) || hasPayloadDecoder(String(value)),
                     error: "Define a decodeUplink(input) function",
                     realtime: true,
                   },

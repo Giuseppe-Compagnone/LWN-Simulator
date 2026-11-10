@@ -130,3 +130,19 @@ func TestClassifyExplicitRawModePreservesLoRaWANShapedBytes(t *testing.T) {
 		t.Fatalf("default mode must retain LoRaWAN compatibility: %+v, %v", classified, err)
 	}
 }
+
+func TestAutoDoesNotMistakeMalformedLoRaWANHeadersForValidFrames(t *testing.T) {
+	for _, payload := range [][]byte{
+		[]byte("Hello LoRa world"),
+		{0x20, 1, 2, 3, 4},
+		{0x41, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	} {
+		classified, err := Classify(payload, contracts.ReceiveAuto)
+		if err != nil || classified.Protocol != contracts.RawLoRa || !bytes.Equal(classified.Raw, payload) {
+			t.Fatalf("invalid LoRaWAN structure was not preserved as raw: %+v, %v", classified, err)
+		}
+		if _, err := Classify(payload, contracts.ReceiveLoRaWAN); err == nil {
+			t.Fatalf("strict LoRaWAN mode accepted malformed frame: %x", payload)
+		}
+	}
+}

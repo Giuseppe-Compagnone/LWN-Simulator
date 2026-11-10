@@ -152,6 +152,26 @@ func TestValidatePayloadCodec(t *testing.T) {
 	}
 }
 
+func TestCodecDeclarationValidationRejectsMisleadingOrAsynchronousScripts(t *testing.T) {
+	for _, script := range []string{
+		`// function decodeUplink(input) {}\nconst unrelated = 1;`,
+		`const description = "function decodeUplink(input) {}";`,
+		`function wrapper() { function decodeUplink(input) { return { data: {} }; } }`,
+		`const decodeUplink = 42;`,
+		`async function decodeUplink(input) { return { data: {} }; }`,
+		`const decodeUplink = async input => ({ data: {} });`,
+		`function* decodeUplink(input) { yield input; }`,
+	} {
+		t.Run(script, func(t *testing.T) {
+			device := validationDevice()
+			device.PayloadConfig.PayloadCodec = &contracts.PayloadCodec{Enabled: true, Script: script}
+			if err := ValidateHardware([]contracts.Device{device}, nil); err == nil {
+				t.Fatal("unavailable or asynchronous decoder was accepted")
+			}
+		})
+	}
+}
+
 func TestValidateHardwareCoversDeviceAndGatewayRules(t *testing.T) {
 	tests := []struct {
 		name   string
