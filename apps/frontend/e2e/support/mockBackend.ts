@@ -344,6 +344,16 @@ export const mockBackend = async (
       return;
     }
 
+    if (path.endsWith("/simulation/logs/export")) {
+      await route.fulfill({ status: 200, contentType: "application/zip", body: Buffer.from("PK-test-archive") });
+      return;
+    }
+
+    if (/\/simulation\/logs\/[^/]+\/export$/.test(path)) {
+      await route.fulfill(json({ run: runs[0], events: [{ id: "event-1", sequence: 1, type: "device-uplink-transmitted", message: "Exported uplink", timestampMilliseconds: 0 }] }));
+      return;
+    }
+
     if (path.endsWith("/simulation/logs")) {
       if (options.logs === "error") {
         await route.fulfill({
@@ -361,6 +371,16 @@ export const mockBackend = async (
       }
 
       await route.fulfill(json({ runs, total: runs.length }));
+      return;
+    }
+
+    if (/\/simulation\/logs\/[^/]+\/events$/.test(path)) {
+      await route.fulfill(json({ events: [], lastSequence: 0 }));
+      return;
+    }
+
+    if (/\/simulation\/logs\/[^/]+$/.test(path)) {
+      await route.fulfill(json(runs.find((run) => path.endsWith(`/${run.summary.id}`)) ?? runs[0]));
       return;
     }
 

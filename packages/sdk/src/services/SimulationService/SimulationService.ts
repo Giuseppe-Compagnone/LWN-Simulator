@@ -62,6 +62,9 @@ export class SimulationService extends BaseService {
   public getMetrics = async (): Promise<string> =>
     this.apiCaller.get<string>("/metrics", { responseType: "text" });
 
+  public getLogExportURL = (id?: string): string =>
+    this.apiCaller.buildUrl(id ? `/logs/${encodeURIComponent(id)}/export` : "/logs/export");
+
   public getLogs = async (): Promise<SimulationRunsResponse> =>
     this.apiCaller.get<SimulationRunsResponse>("/logs");
 

@@ -22,3 +22,12 @@ describe("SimulationService event collection", () => {
     ).toEqual([event("one", 2)]);
   });
 });
+
+
+describe("simulation log export URLs", () => {
+  it("keeps downloads scoped to the current profile and encodes run identifiers", () => {
+    const service = new SimulationService("http://localhost:8080/api/profiles/profile-1");
+    expect(service.getLogExportURL()).toBe("http://localhost:8080/api/profiles/profile-1/simulation/logs/export");
+    expect(service.getLogExportURL("run/1")).toBe("http://localhost:8080/api/profiles/profile-1/simulation/logs/run%2F1/export");
+  });
+});

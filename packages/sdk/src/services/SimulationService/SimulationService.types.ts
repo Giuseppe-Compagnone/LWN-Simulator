@@ -78,6 +78,9 @@ export interface SimulationServiceContent {
     options?: GetSimulationEventsOptions,
   ) => Promise<SimulationEventsResponse>;
 
+  /** Builds the profile-scoped JSON download URL for a run, or the ZIP URL for all runs. */
+  getLogExportURL: (id?: string) => string;
+
   /** Retrieves stored simulation runs. */
   getLogs: () => Promise<SimulationRunsResponse>;
 

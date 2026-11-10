@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
 	"sync"
 	"time"
@@ -428,6 +429,10 @@ func (s *ProfileSimulationService) Subscribe() (SimulationSubscription, error) {
 
 func (s *ProfileSimulationService) ListLogs() (contracts.SimulationRunsResponse, error) {
 	return s.inner.ListLogs()
+}
+
+func (s *ProfileSimulationService) ExportLogs(ctx context.Context, id string, destination io.Writer) error {
+	return s.inner.ExportLogs(ctx, id, destination)
 }
 
 func (s *ProfileSimulationService) GetLog(id string) (contracts.SimulationRun, []contracts.SimulationEvent, error) {

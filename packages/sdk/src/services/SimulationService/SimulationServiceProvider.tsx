@@ -252,6 +252,7 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
     return response;
   }, [service]);
 
+  const getLogExportURL = useCallback((id?: string) => service.getLogExportURL(id), [service]);
   const getLogs = useCallback(() => service.getLogs(), [service]);
   const getLog = useCallback((id: string) => service.getLog(id), [service]);
   const getLogEvents = useCallback(
@@ -317,6 +318,7 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
       queueMACCommand,
       getEvents,
       getMetrics,
+      getLogExportURL,
       getLogs,
       getLog,
       getLogEvents,
@@ -339,6 +341,7 @@ const SimulationServiceProvider = (props: SimulationServiceProviderProps) => {
       queueMACCommand,
       getEvents,
       getMetrics,
+      getLogExportURL,
       getLogs,
       getLog,
       getLogEvents,
