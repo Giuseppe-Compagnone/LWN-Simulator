@@ -239,6 +239,11 @@ func (e *Engine) handleGatewayPacket(packet types.GatewayPacket) {
 		event.SNR = &snr
 	}
 	classified, classificationErr := classifyGatewayPacket(packet)
+	if packet.Protocol == "" && packet.DeviceID != "" {
+		if device, exists := e.registry.Device(packet.DeviceID); exists {
+			classified, classificationErr = protocol.Classify(packet.Payload, deviceReceiveMode(device))
+		}
+	}
 	if classificationErr == nil {
 		packet.Protocol = classified.Protocol
 		if classified.Protocol == contracts.RawLoRa {
@@ -357,6 +362,9 @@ func (e *Engine) processRawDownlinkLocked(packet types.GatewayPacket) []contract
 		device, session, downlink, "",
 	)
 	event.GatewayID = &packet.GatewayID
+	event.FPort = nil
+	event.FrameCounter = nil
+	event.Confirmed = nil
 	event.RadioFrame = radioFrameFromGatewayPacket(packet, packet.GatewayID, event.TimestampMilliseconds)
 	e.eventLog[len(e.eventLog)-1] = event
 	return []contracts.SimulationEvent{event}
@@ -535,7 +543,7 @@ func (e *Engine) completeExternalUplinkACKLocked(device contracts.Device, sessio
 func (e *Engine) processExternalJoinAcceptLocked(packet types.GatewayPacket, decoded lorawan.Packet) []contracts.SimulationEvent {
 	matchedCandidate := false
 	for _, device := range e.registry.ActiveDevices() {
-		if device.OOTAConfig == nil {
+		if device.OOTAConfig == nil || !acceptsRadioProtocol(device, contracts.LoRaWAN) {
 			continue
 		}
 		session := e.sessions[device.ID]
