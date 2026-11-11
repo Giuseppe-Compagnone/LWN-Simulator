@@ -167,7 +167,27 @@ const (
 	ClassBPingSlotPeriod = time.Second
 )
 
+// NetworkChannel is an indexed channel installed by a LoRaWAN network server.
+type NetworkChannel struct {
+	// Frequency is the uplink frequency in hertz; zero removes the channel.
+	Frequency int64
+	// MinimumDataRate and MaximumDataRate bound the permitted uplink data rates.
+	MinimumDataRate, MaximumDataRate int
+	// DownlinkFrequency overrides RX1 when a DLChannelReq is accepted.
+	DownlinkFrequency int64
+}
+
 type DeviceSession struct {
+	// PendingMACResponses contains complete uplink MAC responses waiting for transmission.
+	PendingMACResponses [][]byte
+	// NetworkChannels overrides the regional channel table by channel index.
+	NetworkChannels map[int]NetworkChannel
+	// DisabledChannels records channels disabled by a network channel mask.
+	DisabledChannels map[int]bool
+	// PendingDownlinkACK acknowledges a confirmed downlink on the next new uplink.
+	PendingDownlinkACK bool
+	// ExternalADR leaves ADR decisions to the connected network server.
+	ExternalADR                      bool
 	Joined                           bool
 	FrameCounterUp                   int64
 	LastExternalFrameCounter         uint32
@@ -282,6 +302,12 @@ type MACCommand struct {
 type ClassBDownlink = Downlink
 
 type PendingUplink struct {
+	// WirePayload preserves the entire frame, including MAC responses, across retries.
+	WirePayload []byte
+	// WireFragmentIndex identifies the fragment represented by WirePayload.
+	WireFragmentIndex int
+	// ReservedFOpts freezes application fragment capacity while a message is in flight.
+	ReservedFOpts int
 	// PayloadConfig freezes the application data for retries and remaining fragments.
 	PayloadConfig *contracts.PayloadConfig
 	// SentAt is the wall-clock completion time of the latest radio attempt.

@@ -72,6 +72,9 @@ func (e *Engine) buildUplinkPayloadLocked(
 		return payload
 	}
 
+	if pending := session.PendingUplink; pending != nil && pending.FrameCounter == frameCounter && len(pending.WirePayload) > 0 && pending.WireFragmentIndex == fragmentIndex {
+		return append([]byte(nil), pending.WirePayload...)
+	}
 	devAddrBytes, err := hex.DecodeString(session.DeviceAddress)
 	if err != nil || len(devAddrBytes) != 4 || len(session.NwkSKey) != 16 || len(session.AppSKey) != 16 {
 		return nil
@@ -82,7 +85,7 @@ func (e *Engine) buildUplinkPayloadLocked(
 		fPort = &port
 	}
 	payload := payloadBytes(device)
-	maximum := maximumPayloadSize(device.LocationConfig.Region, dataRate)
+	maximum := applicationPayloadCapacity(device, dataRate, session)
 	if maximum > 0 && len(payload) > maximum {
 		start := fragmentIndex * maximum
 		if start >= len(payload) {
@@ -95,9 +98,20 @@ func (e *Engine) buildUplinkPayloadLocked(
 			payload = payload[start:end]
 		}
 	}
+	var options []byte
+	consumed := 0
+	for _, response := range session.PendingMACResponses {
+		if len(options)+len(response) > uplinkMACReserve(session) {
+			break
+		}
+		options = append(options, response...)
+		consumed++
+	}
 	devAddr := binary.BigEndian.Uint32(devAddrBytes)
 	frame, err := lorawanHandler.EncodeDataFrame(protocol.DataFrame{
 		DevAddr:   devAddr,
+		FOpts:     options,
+		ACK:       session.PendingDownlinkACK,
 		FCnt:      uint32(maxInt64(frameCounter, 0)),
 		FPort:     fPort,
 		Payload:   payload,
@@ -109,6 +123,12 @@ func (e *Engine) buildUplinkPayloadLocked(
 	})
 	if err != nil {
 		return nil
+	}
+	session.PendingMACResponses = session.PendingMACResponses[consumed:]
+	session.PendingDownlinkACK = false
+	if pending := session.PendingUplink; pending != nil && pending.FrameCounter == frameCounter {
+		pending.WirePayload = append([]byte(nil), frame...)
+		pending.WireFragmentIndex = fragmentIndex
 	}
 	return frame
 }

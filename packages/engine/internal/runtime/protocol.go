@@ -88,7 +88,7 @@ func (e *Engine) processUplinkLocked(scheduled types.ScheduledEvent) []contracts
 	dataRate := session.CurrentDataRate
 	fragmentCount := scheduled.FragmentCount
 	if fragmentCount < 1 {
-		fragmentCount = payloadFragmentCount(device, dataRate)
+		fragmentCount = payloadFragmentCount(device, dataRate, session)
 	}
 	fragmentIndex := scheduled.FragmentIndex
 	isFragmentContinuation := attempt == 1 && packetID != "" && session.PendingUplink != nil && session.PendingUplink.PacketID == packetID
@@ -105,7 +105,7 @@ func (e *Engine) processUplinkLocked(scheduled types.ScheduledEvent) []contracts
 			session.FrameCounterUp = frameCounter
 		}
 	}
-	payloadSize := payloadSizeForFragment(device, dataRate, fragmentIndex)
+	payloadSize := payloadSizeForFragment(device, dataRate, fragmentIndex, session)
 	if attempt == 1 && !isFragmentContinuation {
 		if frameCounter == 0 {
 			session.FrameCounterUp++
@@ -117,6 +117,7 @@ func (e *Engine) processUplinkLocked(scheduled types.ScheduledEvent) []contracts
 			payloadConfig := device.PayloadConfig
 			session.PendingUplink = &types.PendingUplink{
 				PayloadConfig: &payloadConfig,
+				ReservedFOpts: uplinkMACReserve(session),
 				PacketID:      packetID, FrameCounter: frameCounter, Attempt: attempt,
 				Confirmed: confirmed, TransmissionAt: scheduled.At, FPort: device.FrameConfig.FPort,
 				PayloadSize: payloadSize, DataRate: dataRate,
@@ -138,7 +139,7 @@ func (e *Engine) processUplinkLocked(scheduled types.ScheduledEvent) []contracts
 		dataRate = pending.DataRate
 		fragmentIndex = pending.FragmentIndex
 		fragmentCount = pending.FragmentCount
-		payloadSize = payloadSizeForFragment(device, dataRate, fragmentIndex)
+		payloadSize = payloadSizeForFragment(device, dataRate, fragmentIndex, session)
 		pending.Attempt = attempt
 		if attempt > 1 {
 			e.metrics.Retransmissions++
@@ -251,6 +252,7 @@ func (e *Engine) processReceiveWindowLocked(scheduled types.ScheduledEvent) []co
 		e.eventLog[len(e.eventLog)-1] = events[len(events)-1]
 		if pending.FragmentIndex+1 < pending.FragmentCount {
 			pending.FragmentIndex++
+			pending.WirePayload = nil
 			pending.Attempt = 1
 			pending.GatewayIDs = nil
 			next := types.ScheduledEvent{
@@ -325,8 +327,13 @@ func (e *Engine) gatewaysUseExternalTransportLocked(gatewayIDs []string) bool {
 }
 
 func (e *Engine) applyADRLocked(device contracts.Device, session *types.DeviceSession) {
-	if !device.AdvancedConfig.ADREnabled || session == nil {
+	if !device.AdvancedConfig.ADREnabled || session == nil || session.ExternalADR {
 		return
+	}
+	for _, gateway := range e.coveredGateways(device) {
+		if _, external := e.gatewayAdapters[gateway.ID]; external {
+			return
+		}
 	}
 	plan := regional.MustPlan(device.LocationConfig.Region)
 	if session.LastSNR > 10 && session.CurrentDataRate < plan.MaximumDataRate {
@@ -375,6 +382,14 @@ func (e *Engine) scheduleWindowLocked(device contracts.Device, source types.Sche
 	kind := types.ScheduledEventRX1Window
 	dataRate := currentDeviceDataRate(e.sessions[device.ID], device)
 	frequency := source.ChannelFrequency
+	if window == contracts.RX1 && session != nil {
+		for _, ch := range session.NetworkChannels {
+			if ch.Frequency == frequency && ch.DownlinkFrequency > 0 {
+				frequency = ch.DownlinkFrequency
+				break
+			}
+		}
+	}
 	if window == contracts.RX2 {
 		delay = durationMilliseconds(device.RX2Config.Delay)
 		configuredRX1Delay := durationMilliseconds(device.RX1Config.Delay)

@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -604,3 +605,48 @@ func parseIntegrationEUI(t *testing.T, value string) uint64 {
 }
 
 func stringPointer(value string) *string { return &value }
+
+func TestEngineExternalMACNegotiationOverSemtechUDP(t *testing.T) {
+	bridge := listenIntegrationUDP(t)
+	address := bridge.LocalAddr().(*net.UDPAddr)
+	factory := gateway.NewUDPFactory(gateway.UDPOptions{LocalAddress: "127.0.0.1:0", Timeout: 3 * time.Second})
+	if err := factory.ConfigureGatewayBridge(contracts.GatewayBridgeConfig{Enabled: true, Address: "127.0.0.1", Port: int32(address.Port)}); err != nil {
+		t.Fatal(err)
+	}
+	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000998")
+	configureABP(&device)
+	device.Class = contracts.ClassA
+	device.PayloadConfig.MType = contracts.UnconfirmedDataUp
+	gw := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7998")
+	clock := types.NewManualClock(0)
+	engine, err := New(contracts.SimulationConfig{Speed: 1}, []contracts.Device{device}, []contracts.Gateway{gw}, types.Options{GatewayAdapterFactory: factory, Clock: clock, EventBuffer: 512})
+	if err != nil {
+		t.Fatal(err)
+	}
+	commands := append(newChannelCommand(3, 867100000), 3, 0x51, 15, 0, 1)
+	request := externalTestFrame(t, engine.sessions[device.ID], true, commands, 1)
+	startEngine(t, engine)
+	defer stopEngine(t, engine)
+	keepalive := readIntegrationPacket(t, bridge, semtechPullData)
+	writeIntegrationPacket(t, bridge, keepalive.remote, semtechPullAck, keepalive.token, nil)
+	waitForEventType(t, engine.Events(), contracts.GatewayConnected)
+	if err := clock.Advance(2 * time.Second); err != nil {
+		t.Fatal(err)
+	}
+	readIntegrationPacket(t, bridge, semtechPushData)
+	writeIntegrationPullResponse(t, bridge, keepalive.remote, [2]byte{0x71, 0x72}, request.Raw)
+	readIntegrationPacket(t, bridge, semtechTxAck)
+	waitForEventType(t, engine.Events(), contracts.DeviceDownlinkTransmitted)
+	if _, err := engine.QueueUplink(device.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := clock.Advance(time.Second); err != nil {
+		t.Fatal(err)
+	}
+	uplink := readIntegrationPacket(t, bridge, semtechPushData)
+	wire := decodeIntegrationUplink(t, uplink.body, gw.GatewayEUI)
+	response, err := lorawan.Parse(wire)
+	if err != nil || !bytes.Equal(response.FOpts, []byte{7, 3, 3, 7}) {
+		t.Fatalf("MAC responses did not reach UDP bridge: %x %v", response.FOpts, err)
+	}
+}

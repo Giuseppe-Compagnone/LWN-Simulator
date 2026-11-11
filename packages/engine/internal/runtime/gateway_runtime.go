@@ -470,6 +470,14 @@ func (e *Engine) processExternalDownlinkLocked(packet types.GatewayPacket, decod
 		}
 		downlink.Payload = payload
 	}
+	commands, err := externalMACCommands(decoded, downlink.Payload)
+	if err != nil {
+		return []contracts.SimulationEvent{e.newPacketEventLocked(contracts.DeviceDownlinkDropped, "invalid external MAC commands: "+err.Error(), device.ID, packet.GatewayID, "", uuid.NewString())}
+	}
+	e.applyExternalMACLocked(device, session, commands)
+	if decoded.Confirmed {
+		session.PendingDownlinkACK = true
+	}
 	session.LastExternalDownlinkFrameCounter = decoded.FCnt
 	session.ExternalDownlinkFrameCounterSet = true
 	session.FrameCounterDown = int64(decoded.FCnt)
@@ -518,6 +526,7 @@ func (e *Engine) completeExternalUplinkACKLocked(device contracts.Device, sessio
 	)}
 	if pending.FragmentIndex+1 < pending.FragmentCount {
 		pending.FragmentIndex++
+		pending.WirePayload = nil
 		pending.Attempt = 1
 		pending.GatewayIDs = nil
 		next := types.ScheduledEvent{
@@ -587,6 +596,17 @@ func (e *Engine) processExternalJoinAcceptLocked(packet types.GatewayPacket, dec
 		session.RX1DataRateOffset = joinAccept.RX1DataRateOffset
 		session.RX2DataRate = joinAccept.RX2DataRate
 		session.ReceiveDelay = joinAcceptReceiveDelay(joinAccept.RXDelay)
+		if len(joinAccept.CFList) == 16 && joinAccept.CFList[15] == 0 && device.LocationConfig.Region != contracts.US915 && device.LocationConfig.Region != contracts.AU915 {
+			session.NetworkChannels = make(map[int]types.NetworkChannel)
+			start := len(regionalChannels(device.LocationConfig.Region, 0))
+			for i := 0; i < 5; i++ {
+				b := joinAccept.CFList[i*3:]
+				frequency := int64(uint32(b[0])|uint32(b[1])<<8|uint32(b[2])<<16) * 100
+				if frequency > 0 && externalFrequencyValid(device.LocationConfig.Region, frequency) {
+					session.NetworkChannels[start+i] = types.NetworkChannel{Frequency: frequency, MinimumDataRate: 0, MaximumDataRate: 5}
+				}
+			}
+		}
 		session.FrameCounterDown = 0
 		packetID := uuid.NewString()
 		e.metrics.JoinAccepts++

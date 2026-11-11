@@ -7,6 +7,7 @@ import (
 
 	contracts "github.com/Giuseppe-Compagnone/lwn-contracts/generated"
 	"github.com/Giuseppe-Compagnone/lwn-engine/geometry"
+	"github.com/Giuseppe-Compagnone/lwn-engine/lorawan"
 	"github.com/Giuseppe-Compagnone/lwn-engine/regional"
 	"github.com/Giuseppe-Compagnone/lwn-engine/types"
 	"github.com/google/uuid"
@@ -38,9 +39,8 @@ func (e *Engine) startRadioTransmissionLocked(
 	if scheduled.DataRate > 0 {
 		dataRate = regional.ClampDataRate(device.LocationConfig.Region, scheduled.DataRate)
 	}
-	payloadSize := payloadSizeForFragment(device, dataRate, scheduled.FragmentIndex)
+	payloadSize := payloadSizeForFragment(device, dataRate, scheduled.FragmentIndex, session)
 	channel := selectRadioChannelAtDataRate(device, session, frameCounter, dataRate)
-	airtime := calculateAirtimeForPayload(payloadSize, channel.SpreadingFactor, channel.Bandwidth)
 	gateways := e.coveredGateways(device)
 	transmitPower := radioTransmitPowerDBm
 	if session != nil {
@@ -48,6 +48,11 @@ func (e *Engine) startRadioTransmissionLocked(
 	}
 	rssi, snr := calculateSignal(device, gateways, channel.Frequency, transmitPower)
 	payload := e.buildUplinkPayloadLocked(device, session, frameCounter, confirmed, scheduled.FragmentIndex, dataRate)
+	airtimeSize := payloadSize
+	if deviceRadioProtocol(device) == contracts.LoRaWAN && len(payload) >= 8 && (payload[0]>>5 == lorawan.MTypeUnconfirmedDataUp || payload[0]>>5 == lorawan.MTypeConfirmedDataUp) {
+		airtimeSize += int(payload[5] & 15)
+	}
+	airtime := calculateAirtimeForPayload(airtimeSize, channel.SpreadingFactor, channel.Bandwidth)
 	transmission := &types.RadioTransmission{
 		RadioFrame: types.RadioFrame{
 			Protocol:          deviceRadioProtocol(device),
@@ -429,6 +434,20 @@ func selectRadioChannel(device contracts.Device, frameCounter int64) types.Radio
 }
 
 func selectRadioChannelAtDataRate(device contracts.Device, session *types.DeviceSession, frameCounter int64, dataRate int) types.RadioChannel {
+	if session != nil && (len(session.NetworkChannels) > 0 || len(session.DisabledChannels) > 0) {
+		var channels []types.RadioChannel
+		profile := regional.Profile(device.LocationConfig.Region, dataRate)
+		table := externalChannelTable(device, session)
+		for i := 0; i < 256; i++ {
+			ch, ok := table[i]
+			if ok && !session.DisabledChannels[i] && dataRate >= ch.MinimumDataRate && dataRate <= ch.MaximumDataRate {
+				channels = append(channels, types.RadioChannel{Frequency: ch.Frequency, DataRate: dataRate, Bandwidth: profile.Bandwidth, SpreadingFactor: profile.SpreadingFactor})
+			}
+		}
+		if len(channels) > 0 {
+			return channels[int(maxInt64(frameCounter, 0))%len(channels)]
+		}
+	}
 	channels := regionalChannels(device.LocationConfig.Region, dataRate)
 	if session != nil {
 		for _, channel := range session.AdditionalChannels {
@@ -470,18 +489,18 @@ func effectivePayloadSize(device contracts.Device, dataRate int) int {
 	return payloadSizeForFragment(device, dataRate, 0)
 }
 
-func payloadFragmentCount(device contracts.Device, dataRate int) int {
+func payloadFragmentCount(device contracts.Device, dataRate int, sessions ...*types.DeviceSession) int {
 	payloadSize := len(payloadBytes(device))
-	maximum := maximumPayloadSize(device.LocationConfig.Region, dataRate)
+	maximum := applicationPayloadCapacity(device, dataRate, sessions...)
 	if payloadSize <= maximum || device.PayloadConfig.OversizedPayloadBehavior != contracts.Fragment {
 		return 1
 	}
 	return (payloadSize + maximum - 1) / maximum
 }
 
-func payloadSizeForFragment(device contracts.Device, dataRate, fragmentIndex int) int {
+func payloadSizeForFragment(device contracts.Device, dataRate, fragmentIndex int, sessions ...*types.DeviceSession) int {
 	payloadSize := len(payloadBytes(device))
-	maximum := maximumPayloadSize(device.LocationConfig.Region, dataRate)
+	maximum := applicationPayloadCapacity(device, dataRate, sessions...)
 	if payloadSize <= maximum {
 		return payloadSize
 	}

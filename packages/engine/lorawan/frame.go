@@ -149,8 +149,11 @@ func BuildDataFrame(options DataFrameOptions) ([]byte, error) {
 	if options.Direction > 1 {
 		return nil, fmt.Errorf("%w: direction must be 0 or 1", ErrInvalidFrame)
 	}
-	if options.FPort != nil && (*options.FPort == 0 || *options.FPort > 223) {
-		return nil, fmt.Errorf("%w: FPort must be between 1 and 223", ErrInvalidFrame)
+	if options.FPort != nil && *options.FPort > 223 {
+		return nil, fmt.Errorf("%w: FPort must be between 0 and 223", ErrInvalidFrame)
+	}
+	if options.FPort != nil && *options.FPort == 0 && (len(options.FOpts) > 0 || len(options.Payload) == 0) {
+		return nil, fmt.Errorf("%w: FPort 0 requires MAC payload and empty FOpts", ErrInvalidFrame)
 	}
 	if len(options.FOpts) > 15 {
 		return nil, fmt.Errorf("%w: FOpts cannot exceed 15 bytes", ErrInvalidFrame)
@@ -193,7 +196,11 @@ func BuildDataFrame(options DataFrameOptions) ([]byte, error) {
 		}
 		frame = append(frame, *options.FPort)
 		if len(options.Payload) > 0 {
-			encrypted, err := cryptPayload(options.AppSKey, options.Direction, options.DevAddr, options.FCnt, options.Payload)
+			key := options.AppSKey
+			if *options.FPort == 0 {
+				key = options.NwkSKey
+			}
+			encrypted, err := cryptPayload(key, options.Direction, options.DevAddr, options.FCnt, options.Payload)
 			if err != nil {
 				return nil, err
 			}

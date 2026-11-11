@@ -187,6 +187,7 @@ func (e *Engine) restoreCheckpoint(checkpoint *types.EngineCheckpoint) error {
 				pending := *session.PendingUplink
 				pending.GatewayIDs = append([]string(nil), pending.GatewayIDs...)
 				pending.PayloadConfig = cloneRuntimePointer(pending.PayloadConfig)
+				pending.WirePayload = append([]byte(nil), pending.WirePayload...)
 				copySession.PendingUplink = &pending
 			}
 			if session.PendingJoinRequest != nil {
@@ -198,6 +199,9 @@ func (e *Engine) restoreCheckpoint(checkpoint *types.EngineCheckpoint) error {
 			copySession.PendingClassADownlinks = cloneDownlinks(session.PendingClassADownlinks)
 			copySession.PendingClassCDownlinks = cloneDownlinks(session.PendingClassCDownlinks)
 			copySession.AdditionalChannels = append([]types.RadioChannel(nil), session.AdditionalChannels...)
+			copySession.PendingMACResponses = cloneMACResponses(session.PendingMACResponses)
+			copySession.NetworkChannels = cloneSessionMap(session.NetworkChannels)
+			copySession.DisabledChannels = cloneSessionMap(session.DisabledChannels)
 			copySession.NwkSKey = append([]byte(nil), session.NwkSKey...)
 			copySession.AppSKey = append([]byte(nil), session.AppSKey...)
 			e.sessions[deviceID] = &copySession
@@ -698,6 +702,7 @@ func (e *Engine) Checkpoint() types.EngineCheckpoint {
 			pending := *session.PendingUplink
 			pending.GatewayIDs = append([]string(nil), pending.GatewayIDs...)
 			pending.PayloadConfig = cloneRuntimePointer(pending.PayloadConfig)
+			pending.WirePayload = append([]byte(nil), pending.WirePayload...)
 			copySession.PendingUplink = &pending
 		}
 		if session.PendingJoinRequest != nil {
@@ -709,6 +714,9 @@ func (e *Engine) Checkpoint() types.EngineCheckpoint {
 		copySession.PendingClassADownlinks = cloneDownlinks(session.PendingClassADownlinks)
 		copySession.PendingClassCDownlinks = cloneDownlinks(session.PendingClassCDownlinks)
 		copySession.AdditionalChannels = append([]types.RadioChannel(nil), session.AdditionalChannels...)
+		copySession.PendingMACResponses = cloneMACResponses(session.PendingMACResponses)
+		copySession.NetworkChannels = cloneSessionMap(session.NetworkChannels)
+		copySession.DisabledChannels = cloneSessionMap(session.DisabledChannels)
 		copySession.NwkSKey = append([]byte(nil), session.NwkSKey...)
 		copySession.AppSKey = append([]byte(nil), session.AppSKey...)
 		checkpoint.Sessions[deviceID] = copySession
@@ -1082,4 +1090,25 @@ func (e *Engine) signalWake() {
 	case e.wake <- struct{}{}:
 	default:
 	}
+}
+
+func cloneMACResponses(responses [][]byte) [][]byte {
+	if responses == nil {
+		return nil
+	}
+	result := make([][]byte, len(responses))
+	for i, r := range responses {
+		result[i] = append([]byte(nil), r...)
+	}
+	return result
+}
+func cloneSessionMap[V any](source map[int]V) map[int]V {
+	if source == nil {
+		return nil
+	}
+	result := make(map[int]V, len(source))
+	for k, v := range source {
+		result[k] = v
+	}
+	return result
 }
