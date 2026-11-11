@@ -75,6 +75,9 @@ func (e *Engine) processUplinkLocked(scheduled types.ScheduledEvent) []contracts
 		return []contracts.SimulationEvent{e.newEventLocked(contracts.PacketDropped, "uplink dropped because the device has not joined", scheduled.DeviceID, "", scheduled.ID)}
 	}
 
+	if pending := session.PendingUplink; pending != nil && pending.PacketID == scheduled.PacketID && pending.PayloadConfig != nil {
+		device.PayloadConfig = *pending.PayloadConfig
+	}
 	attempt := scheduled.Attempt
 	if attempt < 1 {
 		attempt = 1
@@ -111,8 +114,10 @@ func (e *Engine) processUplinkLocked(scheduled types.ScheduledEvent) []contracts
 		packetID = uuid.NewString()
 		e.metrics.TotalUplinks++
 		if confirmed || fragmentCount > 1 || session.UnconfirmedRepetitions > 1 {
+			payloadConfig := device.PayloadConfig
 			session.PendingUplink = &types.PendingUplink{
-				PacketID: packetID, FrameCounter: frameCounter, Attempt: attempt,
+				PayloadConfig: &payloadConfig,
+				PacketID:      packetID, FrameCounter: frameCounter, Attempt: attempt,
 				Confirmed: confirmed, TransmissionAt: scheduled.At, FPort: device.FrameConfig.FPort,
 				PayloadSize: payloadSize, DataRate: dataRate,
 				FragmentIndex: fragmentIndex, FragmentCount: fragmentCount,

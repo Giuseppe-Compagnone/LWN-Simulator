@@ -23,6 +23,7 @@ type DeviceRuntimeSynchronizer interface {
 	AcquireHardwareMutation() func()
 	RegisterDeviceLocked(contracts.Device) error
 	UpdateDeviceLocked(contracts.Device) error
+	ValidateDeviceUpdateLocked(contracts.Device) error
 	RemoveDeviceLocked(string) error
 }
 
@@ -226,6 +227,11 @@ func (s *DeviceService) UpdateDevice(
 	device := req.Device
 	device.ID = req.ID
 
+	if s.runtime != nil {
+		if err := s.runtime.ValidateDeviceUpdateLocked(device); err != nil {
+			return contracts.UpdateDeviceResponse{}, err
+		}
+	}
 	if err := s.repository.Update(device); err != nil {
 		return contracts.UpdateDeviceResponse{}, wrapDeviceRepositoryError(
 			"update device",

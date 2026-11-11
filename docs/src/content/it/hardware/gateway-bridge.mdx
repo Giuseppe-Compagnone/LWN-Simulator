@@ -44,3 +44,61 @@ LoRaWAN deve comunque superare i normali controlli di sessione e MIC: Auto non
 li disattiva. Il bridge trasporta byte raw, ma questo non implica che
 ChirpStack li interpreti come traffico applicativo LoRaWAN. Verifica
 separatamente il supporto ai frame raw del servizio esterno.
+
+## Inviare frame da uno script Python
+
+I collegamenti hanno due direzioni distinte:
+
+- **Gateway virtuale → bridge esterno**: indirizzo e porta in **Hardware → Gateway Bridge** identificano il servizio esterno che riceve il traffico del simulatore. È quel servizio a dover ascoltare su tale porta.
+- **Script esterno → simulatore**: lo script invia pacchetti Semtech UDP al listener del backend, normalmente sulla porta UDP `1700`. Per cambiarne indirizzo o porta, imposta `LWN_GATEWAY_UDP_LISTEN_ADDR` prima di avviare il backend. Questo listener è distinto dalla destinazione del bridge e dalla porta HTTP `8080`.
+
+Per provare sullo stesso computer:
+
+1. In **Hardware → Gateways**, crea un gateway **Real** attivo con EUI `A840410001000101`, IPv4 `127.0.0.1` e porta `1701`. Compila gli altri campi obbligatori. In questo esempio la stazione esterna è lo script Python; il gateway fisico è facoltativo.
+2. Lascia disattivato il bridge. Crea almeno un device attivo per poter avviare la simulazione; va bene un device Raw LoRa.
+3. Salva lo script seguente come `send_sensor.py` ed esegui `python3 send_sensor.py`.
+4. Avvia la simulazione nello stesso profilo. Ogni cinque secondi lo script invia i byte binari `FF AA`. In **Engine activity** o nella run in **Logs**, cerca **Raw LoRa · HEX FF AA** associato al gateway.
+
+Lo script occupa la porta `1701`; il backend ascolta sulla `1700`. Per computer diversi, imposta in `SIMULATOR` l'indirizzo raggiungibile del backend e nel gateway l'IPv4 del computer dello script. L'EUI nello script e nella UI deve coincidere.
+
+```python
+import base64
+import json
+import secrets
+import socket
+import time
+
+SIMULATOR = ("127.0.0.1", 1700)
+GATEWAY_EUI = bytes.fromhex("A840410001000101")
+PAYLOAD = bytes.fromhex("FF AA")
+
+with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+    sock.bind(("0.0.0.0", 1701))
+    sock.settimeout(1)
+    try:
+        while True:
+            sock.sendto(bytes([2]) + secrets.token_bytes(2) + bytes([2])
+                        + GATEWAY_EUI, SIMULATOR)
+            body = {"rxpk": [{
+                "tmst": (time.monotonic_ns() // 1000) & 0xFFFFFFFF,
+                "freq": 868.1, "chan": 0, "rfch": 0, "stat": 1,
+                "modu": "LORA", "datr": "SF7BW125", "codr": "4/5",
+                "rssi": -60, "lsnr": 7, "size": len(PAYLOAD),
+                "data": base64.b64encode(PAYLOAD).decode("ascii")
+            }]}
+            sock.sendto(bytes([2]) + secrets.token_bytes(2) + bytes([0])
+                        + GATEWAY_EUI + json.dumps(body).encode(), SIMULATOR)
+            print("Sent:", PAYLOAD.hex(" ").upper(), flush=True)
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                try:
+                    packet, _ = sock.recvfrom(65535)
+                    if len(packet) >= 4:
+                        print("UDP response type:", hex(packet[3]), flush=True)
+                except socket.timeout:
+                    pass
+    except KeyboardInterrupt:
+        pass
+```
+
+Interrompi con Ctrl+C. Le risposte `0x1` e `0x4` confermano la ricezione UDP; verifica il frame effettivo in Logs. L’esempio invia byte raw. Per LoRaWAN occorrono un frame completo valido e un device registrato con identificativi e credenziali corrispondenti. Un testo arbitrario non costituisce un frame LoRaWAN.

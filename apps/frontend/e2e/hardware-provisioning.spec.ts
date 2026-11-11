@@ -291,7 +291,7 @@ for (const deviceCodec of ["empty", "absent"] as const) {
   });
 }
 
-test("disables and re-enables a device while the simulation is running", async ({ page }) => {
+test("updates status and payload while locking other device settings during simulation", async ({ page }) => {
   await mockBackend(page, { devices: "active" });
   await page.goto("/simulation/dashboard");
 
@@ -307,6 +307,9 @@ test("disables and re-enables a device while the simulation is running", async (
   await expect(activeField).toBeChecked();
   await expect(page.getByLabel("Name")).toBeDisabled();
   await expect(page.getByLabel("Latitude")).toBeDisabled();
+  await expect(page.getByRole("textbox", { name: "Payload*" })).toBeEnabled();
+  await expect(page.locator('input[name="base64Encoded"]')).toBeEnabled();
+  await page.getByRole("textbox", { name: "Payload*" }).fill("TmV3IHBheWxvYWQ=");
   await expect(activeField).toBeEnabled();
   await activeControl.locator(".box").click();
   await expect(activeField).not.toBeChecked();
@@ -317,12 +320,21 @@ test("disables and re-enables a device while the simulation is running", async (
 
   await page.goto("/hardware/devices/new?deviceId=device-1");
   await expect(activeField).not.toBeChecked();
+  await expect(page.getByRole("textbox", { name: "Payload*" })).toHaveValue("TmV3IHBheWxvYWQ=");
+  const base64Field = page.locator('input[name="base64Encoded"]');
+  await expect(base64Field).toBeChecked();
+  await page.locator(".boolean-checkbox-form-field").filter({ has: base64Field }).locator(".box").click();
+  await expect(base64Field).not.toBeChecked();
+  await page.getByRole("textbox", { name: "Payload*" }).fill("Live reading");
   await activeControl.locator(".box").click();
   await expect(activeField).toBeChecked();
   await page.getByRole("button", { name: "Save" }).click();
 
   await expect(page).toHaveURL(/\/hardware\/devices\/?$/);
   await expect(page.getByText("active", { exact: true })).toBeVisible();
+  await page.goto("/hardware/devices/new?deviceId=device-1");
+  await expect(page.getByRole("textbox", { name: "Payload*" })).toHaveValue("Live reading");
+  await expect(base64Field).not.toBeChecked();
   await page.goto("/simulation/dashboard");
   await expect(page.getByText("Running", { exact: true })).toBeVisible();
 });

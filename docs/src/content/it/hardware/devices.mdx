@@ -101,3 +101,38 @@ payload LoRaWAN.
 ## Consigli
 
 Usa DevEUI diversi per ogni device. Per ABP compila tutti i parametri di sessione; per OTAA verifica AppEUI e AppKey. Un intervallo più breve produce più traffico e più eventi.
+
+## Cambiare il payload durante una simulazione
+
+Quando la simulazione di questo profilo è in esecuzione o in pausa, **Edit Device** permette di modificare **Active**, **Payload** e **Base64 Encoded**. Gli altri campi sono disabilitati. Usa Active per simulare un guasto e Payload per cambiare temperatura, umidità o altri dati applicativi. Attiva Base64 Encoded per inviare byte binari esatti.
+
+La modifica del payload vale dal prossimo nuovo messaggio applicativo. Ritrasmissioni e frammenti di un messaggio già iniziato mantengono i byte originali. La modifica conserva sessione LoRaWAN, chiavi e contatori. Disattivare un device annulla il suo traffico in sospeso.
+
+Un comando da terminale o uno script esterno può usare `PUT /api/profiles/{profileID}/device/update-device/{deviceID}`. Invia l'oggetto device completo nella proprietà `device`, mantenendo invariati tutti i campi tranne `active`, `payloadConfig.payload` e `payloadConfig.base64Encoded`. Il server rifiuta le altre modifiche mentre la simulazione è in esecuzione o in pausa. Dopo averla fermata, la normale modifica del device torna disponibile.
+
+Questo esempio Python 3 legge la configurazione corrente e aggiorna il payload. Sostituisci `PROFILE_UUID` e `DEVICE_UUID` con gli ID del profilo e del device. Ripeti con valori diversi per rappresentare letture variabili. Il codec JavaScript decodifica i dati ricevuti; questo script fornisce quelli da trasmettere.
+
+```python
+import json
+from urllib.request import Request, urlopen
+
+BASE = "http://127.0.0.1:8080/api/profiles/PROFILE_UUID"
+DEVICE_ID = "DEVICE_UUID"
+
+with urlopen(f"{BASE}/device/get-device/{DEVICE_ID}") as response:
+    device = json.load(response)["device"]
+
+device["payloadConfig"]["payload"] = json.dumps({
+    "temperature": 23.5,
+    "humidity": 48
+})
+device["payloadConfig"]["base64Encoded"] = False
+request = Request(
+    f"{BASE}/device/update-device/{DEVICE_ID}",
+    data=json.dumps({"device": device}).encode("utf-8"),
+    headers={"Content-Type": "application/json"},
+    method="PUT",
+)
+with urlopen(request) as response:
+    print(response.read().decode("utf-8"))
+```

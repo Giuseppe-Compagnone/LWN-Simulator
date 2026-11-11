@@ -248,6 +248,10 @@ func (e *Engine) UpdateDevice(updated contracts.Device) error {
 		e.mu.Unlock()
 		return fmt.Errorf("%w: %s", ErrDeviceNotFound, updated.ID)
 	}
+	if err := validateRunningDeviceUpdate(current, updated, e.state.Status); err != nil {
+		e.mu.Unlock()
+		return err
+	}
 	devices := e.registry.Devices()
 	for index := range devices {
 		if devices[index].ID == updated.ID {
@@ -262,6 +266,10 @@ func (e *Engine) UpdateDevice(updated contracts.Device) error {
 	}
 	identityChanged := deviceIdentityChanged(current, updated)
 	runtimeChanged := identityChanged || current.Class != updated.Class
+	if pending := e.sessions[updated.ID].PendingUplink; pending != nil && pending.PayloadConfig == nil {
+		payloadConfig := current.PayloadConfig
+		pending.PayloadConfig = &payloadConfig
+	}
 	e.registry = registry
 	e.metrics.ActiveDevices = int64(len(registry.ActiveDevices()))
 	if !updated.Active || runtimeChanged {
@@ -446,4 +454,30 @@ func (e *Engine) scheduleGatewayRuntimeLocked(gateway contracts.Gateway) {
 func deviceIdentityChanged(left, right contracts.Device) bool {
 	return left.DevEUI != right.DevEUI || left.Activation != right.Activation ||
 		!reflect.DeepEqual(left.OOTAConfig, right.OOTAConfig) || !reflect.DeepEqual(left.ABPConfig, right.ABPConfig)
+}
+
+// ValidateDeviceUpdate checks a hardware edit before it is persisted. Callers
+// serialize validation and update with other hardware mutations.
+func (e *Engine) ValidateDeviceUpdate(updated contracts.Device) error {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	current, exists := e.registry.Device(updated.ID)
+	if !exists {
+		return fmt.Errorf("%w: %s", ErrDeviceNotFound, updated.ID)
+	}
+	return validateRunningDeviceUpdate(current, updated, e.state.Status)
+}
+
+func validateRunningDeviceUpdate(current, updated contracts.Device, status contracts.SimulationStatus) error {
+	if !runtimeControlStatus(status) {
+		return nil
+	}
+	allowed := current
+	allowed.Active = updated.Active
+	allowed.PayloadConfig.Payload = updated.PayloadConfig.Payload
+	allowed.PayloadConfig.Base64Encoded = updated.PayloadConfig.Base64Encoded
+	if !reflect.DeepEqual(allowed, updated) {
+		return fmt.Errorf("only active, payload and Base64 encoding can change while a simulation is running or paused")
+	}
+	return nil
 }

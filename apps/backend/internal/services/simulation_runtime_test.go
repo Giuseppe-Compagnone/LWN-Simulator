@@ -111,7 +111,7 @@ func TestSimulationRuntimeSynchronizesHardwareRegistry(t *testing.T) {
 	if err != nil || snapshot.State.DeviceCount != 2 || snapshot.State.GatewayCount != 1 {
 		t.Fatalf("unexpected synchronized snapshot: %+v, %v", snapshot.State, err)
 	}
-	device.Name = "Updated runtime device"
+	device.PayloadConfig.Payload = "Updated runtime payload"
 	if err := service.UpdateDevice(device); err != nil {
 		t.Fatalf("update device: %v", err)
 	}

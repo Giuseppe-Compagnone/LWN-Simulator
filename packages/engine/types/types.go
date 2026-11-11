@@ -282,6 +282,8 @@ type MACCommand struct {
 type ClassBDownlink = Downlink
 
 type PendingUplink struct {
+	// PayloadConfig freezes the application data for retries and remaining fragments.
+	PayloadConfig *contracts.PayloadConfig
 	// SentAt is the wall-clock completion time of the latest radio attempt.
 	SentAt         time.Time
 	PacketID       string

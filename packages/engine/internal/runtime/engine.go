@@ -186,6 +186,7 @@ func (e *Engine) restoreCheckpoint(checkpoint *types.EngineCheckpoint) error {
 			if session.PendingUplink != nil {
 				pending := *session.PendingUplink
 				pending.GatewayIDs = append([]string(nil), pending.GatewayIDs...)
+				pending.PayloadConfig = cloneRuntimePointer(pending.PayloadConfig)
 				copySession.PendingUplink = &pending
 			}
 			if session.PendingJoinRequest != nil {
@@ -696,6 +697,7 @@ func (e *Engine) Checkpoint() types.EngineCheckpoint {
 		if session.PendingUplink != nil {
 			pending := *session.PendingUplink
 			pending.GatewayIDs = append([]string(nil), pending.GatewayIDs...)
+			pending.PayloadConfig = cloneRuntimePointer(pending.PayloadConfig)
 			copySession.PendingUplink = &pending
 		}
 		if session.PendingJoinRequest != nil {

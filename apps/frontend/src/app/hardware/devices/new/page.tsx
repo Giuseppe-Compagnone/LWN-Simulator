@@ -33,7 +33,9 @@ const NewDevicePage = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const deviceId = searchParams.get("deviceId");
-  const simulationActive = profileService.simulationActivity?.active === true;
+  const simulationActive = profileService.simulationActivity?.active === true &&
+    (!profileService.simulationActivity.profileID ||
+      profileService.simulationActivity.profileID === profileService.activeProfileID);
   const editLocked = editingDevice !== null && simulationActive;
 
   // Effects
@@ -70,7 +72,15 @@ const NewDevicePage = () => {
       try {
         await deviceService.updateDevice({
           id: editingDevice.id,
-          device: { ...editingDevice, active: values.active as boolean },
+          device: {
+            ...editingDevice,
+            active: values.active as boolean,
+            payloadConfig: {
+              ...editingDevice.payloadConfig,
+              payload: values.payload as string,
+              base64Encoded: values.base64Encoded as boolean,
+            },
+          },
         });
         NotificationHandler.instance.success("Device updated");
         router.back();
@@ -202,7 +212,7 @@ const NewDevicePage = () => {
         title={editingDevice ? "Edit Device" : "Create new Device"}
         subTitle={
           editLocked
-            ? "Simulation is active. Only the device status can be changed."
+            ? "Simulation is active. You can change Active, Payload and Base64 Encoded."
             : undefined
         }
       />

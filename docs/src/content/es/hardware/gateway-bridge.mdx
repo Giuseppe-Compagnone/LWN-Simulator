@@ -34,3 +34,61 @@ LoRaWAN sigue pasando por las comprobaciones habituales de sesión y MIC: Auto
 no las desactiva. El bridge transporta bytes raw, pero eso no implica que
 ChirpStack los interprete como tráfico de aplicación LoRaWAN. Comprueba por
 separado el soporte de tramas raw del servicio externo.
+
+## Enviar tramas desde un script Python
+
+Las conexiones tienen dos direcciones diferentes:
+
+- **Gateway virtual → bridge externo**: la dirección y el puerto de **Hardware → Gateway Bridge** identifican el servicio externo que recibe el tráfico del simulador. Ese servicio debe escuchar en dicho puerto.
+- **Script externo → simulador**: el script envía paquetes Semtech UDP al puerto de escucha del backend, normalmente UDP `1700`. Para cambiar su dirección o puerto, configura `LWN_GATEWAY_UDP_LISTEN_ADDR` antes de iniciar el backend. Este puerto es independiente del destino del bridge y del puerto HTTP `8080`.
+
+Para probarlo en un mismo equipo:
+
+1. En **Hardware → Gateways**, crea un gateway **Real** activo con EUI `A840410001000101`, IPv4 `127.0.0.1` y puerto `1701`. Completa los demás campos obligatorios. El script Python representa la estación externa; el gateway físico es opcional.
+2. Deja desactivado el bridge. Crea al menos un dispositivo activo para iniciar la simulación; puede ser Raw LoRa.
+3. Guarda el siguiente script como `send_sensor.py` y ejecuta `python3 send_sensor.py`.
+4. Inicia la simulación en el mismo perfil. El script envía los bytes binarios `FF AA` cada cinco segundos. En **Engine activity** o en la ejecución de **Logs**, busca **Raw LoRa · HEX FF AA** asociado al gateway.
+
+El script utiliza el puerto `1701`; el backend escucha en `1700`. Si usas equipos diferentes, cambia `SIMULATOR` por la dirección accesible del backend y configura el gateway con la IPv4 del equipo del script. La EUI del script y de la interfaz deben coincidir.
+
+```python
+import base64
+import json
+import secrets
+import socket
+import time
+
+SIMULATOR = ("127.0.0.1", 1700)
+GATEWAY_EUI = bytes.fromhex("A840410001000101")
+PAYLOAD = bytes.fromhex("FF AA")
+
+with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+    sock.bind(("0.0.0.0", 1701))
+    sock.settimeout(1)
+    try:
+        while True:
+            sock.sendto(bytes([2]) + secrets.token_bytes(2) + bytes([2])
+                        + GATEWAY_EUI, SIMULATOR)
+            body = {"rxpk": [{
+                "tmst": (time.monotonic_ns() // 1000) & 0xFFFFFFFF,
+                "freq": 868.1, "chan": 0, "rfch": 0, "stat": 1,
+                "modu": "LORA", "datr": "SF7BW125", "codr": "4/5",
+                "rssi": -60, "lsnr": 7, "size": len(PAYLOAD),
+                "data": base64.b64encode(PAYLOAD).decode("ascii")
+            }]}
+            sock.sendto(bytes([2]) + secrets.token_bytes(2) + bytes([0])
+                        + GATEWAY_EUI + json.dumps(body).encode(), SIMULATOR)
+            print("Sent:", PAYLOAD.hex(" ").upper(), flush=True)
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                try:
+                    packet, _ = sock.recvfrom(65535)
+                    if len(packet) >= 4:
+                        print("UDP response type:", hex(packet[3]), flush=True)
+                except socket.timeout:
+                    pass
+    except KeyboardInterrupt:
+        pass
+```
+
+Detén el script con Ctrl+C. Las respuestas `0x1` y `0x4` confirman la recepción UDP; verifica la trama en Logs. El ejemplo envía bytes raw. Para LoRaWAN necesitas una trama completa válida y un dispositivo registrado con identificadores y claves coincidentes. Un texto arbitrario no constituye una trama LoRaWAN.

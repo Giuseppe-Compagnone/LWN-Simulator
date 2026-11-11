@@ -90,3 +90,38 @@ después de descifrar el payload LoRaWAN.
 </Callout>
 
 Usa un DevEUI distinto para cada dispositivo. Completa todos los parámetros de sesión para ABP y verifica AppEUI y AppKey para OTAA.
+
+## Cambiar el payload durante una simulación
+
+Mientras la simulación de este perfil está en ejecución o en pausa, **Edit Device** permite modificar **Active**, **Payload** y **Base64 Encoded**. Los demás campos quedan desactivados. Usa Active para simular un fallo y Payload para cambiar la temperatura, la humedad u otros datos de aplicación. Activa Base64 Encoded para enviar bytes binarios exactos.
+
+El cambio se aplica al siguiente mensaje de aplicación nuevo. Las retransmisiones y los fragmentos de un mensaje ya iniciado conservan sus bytes originales. Se mantienen la sesión LoRaWAN, las claves y los contadores. Desactivar un dispositivo cancela su tráfico pendiente.
+
+Un terminal o script externo puede usar `PUT /api/profiles/{profileID}/device/update-device/{deviceID}`. Envía el objeto completo en la propiedad `device`, manteniendo todos los campos salvo `active`, `payloadConfig.payload` y `payloadConfig.base64Encoded`. El servidor rechaza otros cambios durante la ejecución o la pausa. Después de detener la simulación, vuelve a estar disponible la edición normal.
+
+Este ejemplo Python 3 lee la configuración actual y actualiza el payload. Sustituye `PROFILE_UUID` y `DEVICE_UUID` por los identificadores del perfil y del dispositivo. Repítelo con otros valores para representar mediciones variables. El codec JavaScript decodifica los datos recibidos; este script proporciona los datos que se transmitirán.
+
+```python
+import json
+from urllib.request import Request, urlopen
+
+BASE = "http://127.0.0.1:8080/api/profiles/PROFILE_UUID"
+DEVICE_ID = "DEVICE_UUID"
+
+with urlopen(f"{BASE}/device/get-device/{DEVICE_ID}") as response:
+    device = json.load(response)["device"]
+
+device["payloadConfig"]["payload"] = json.dumps({
+    "temperature": 23.5,
+    "humidity": 48
+})
+device["payloadConfig"]["base64Encoded"] = False
+request = Request(
+    f"{BASE}/device/update-device/{DEVICE_ID}",
+    data=json.dumps({"device": device}).encode("utf-8"),
+    headers={"Content-Type": "application/json"},
+    method="PUT",
+)
+with urlopen(request) as response:
+    print(response.read().decode("utf-8"))
+```
