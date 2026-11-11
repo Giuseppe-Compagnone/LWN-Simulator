@@ -175,6 +175,8 @@ func (e *Engine) processRadioTransmissionCompletedLocked(scheduled types.Schedul
 				if _, connected := e.gatewayAdapters[gatewayID]; connected {
 					e.gatewayPackets = append(e.gatewayPackets, types.GatewayPacket{
 						GatewayID:       gatewayID,
+						RSSI:            transmission.RSSI,
+						SNR:             transmission.SNR,
 						DeviceID:        transmission.DeviceID,
 						Kind:            types.GatewayPacketUplink,
 						Protocol:        transmission.Protocol,

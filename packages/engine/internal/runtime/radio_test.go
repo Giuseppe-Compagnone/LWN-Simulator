@@ -233,3 +233,32 @@ func TestPhaseFourRegionalChannelsAndAirtime(t *testing.T) {
 		t.Fatalf("expected SF12 airtime to exceed SF7: sf7=%s sf12=%s", sf7, sf12)
 	}
 }
+
+func TestBridgeUplinkPreservesCalculatedSignal(t *testing.T) {
+	for _, protocol := range []contracts.RadioProtocol{contracts.LoRaWAN, contracts.RawLoRa} {
+		t.Run(string(protocol), func(t *testing.T) {
+			device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000207")
+			configureABP(&device)
+			device.RadioProtocol = &protocol
+			gateway := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c09")
+			engine, err := New(contracts.SimulationConfig{Speed: 1}, []contracts.Device{device}, []contracts.Gateway{gateway}, types.Options{Clock: types.NewManualClock(0)})
+			if err != nil {
+				t.Fatal(err)
+			}
+			engine.gatewayAdapters[gateway.ID] = newFakeGatewayAdapter()
+			engine.startRadioTransmissionLocked(device, types.ScheduledEvent{DeviceID: device.ID, Attempt: 1}, "signal-test", 1, false)
+			transmission := engine.radio["signal-test"]
+			if transmission == nil {
+				t.Fatal("missing radio transmission")
+			}
+			engine.processRadioTransmissionCompletedLocked(types.ScheduledEvent{PacketID: transmission.PacketID, DeviceID: device.ID, At: transmission.EndAt})
+			if len(engine.gatewayPackets) != 1 {
+				t.Fatalf("expected a bridge uplink, got %d", len(engine.gatewayPackets))
+			}
+			packet := engine.gatewayPackets[0]
+			if packet.RSSI != transmission.RSSI || packet.SNR != transmission.SNR {
+				t.Fatalf("calculated signal lost on bridge uplink: packet=%+v RSSI=%v SNR=%v", packet, transmission.RSSI, transmission.SNR)
+			}
+		})
+	}
+}

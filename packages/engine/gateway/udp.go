@@ -558,7 +558,7 @@ func (adapter *udpAdapter) SendUplink(ctx context.Context, packet types.GatewayP
 		Data: base64.StdEncoding.EncodeToString(packet.Payload), Frequency: frequency,
 		Timestamp: &timestamp, Channel: 0, RFChannel: 0, Status: 1,
 		DataRate: dataRate, Modulation: "LORA", CodingRate: "4/5",
-		RSSI: -60, SNR: 7, Size: len(packet.Payload),
+		RSSI: int(math.Round(packet.RSSI)), SNR: packet.SNR, Size: len(packet.Payload),
 	}}})
 	if err != nil {
 		return fmt.Errorf("encode gateway uplink: %w", err)
@@ -1098,8 +1098,8 @@ type rxPacket struct {
 	DataRate   string  `json:"datr"`
 	Modulation string  `json:"modu,omitempty"`
 	CodingRate string  `json:"codr,omitempty"`
-	RSSI       int     `json:"rssi,omitempty"`
-	SNR        float64 `json:"lsnr,omitempty"`
+	RSSI       int     `json:"rssi"`
+	SNR        float64 `json:"lsnr"`
 	Size       int     `json:"size,omitempty"`
 }
 

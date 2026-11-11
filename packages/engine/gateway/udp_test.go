@@ -695,6 +695,32 @@ func TestUDPVirtualGatewaySendsKeepaliveAndUplinkToBridge(t *testing.T) {
 		t.Fatalf("unexpected virtual uplink payload: %q (%v)", decoded, err)
 	}
 
+	for _, signal := range []struct {
+		rssi     float64
+		snr      float64
+		wireRSSI int
+	}{
+		{-103.7, -6.25, -104},
+		{-75.2, 12.5, -75},
+		{-90, 0, -90},
+		{0, 0, 0},
+	} {
+		uplink.RSSI, uplink.SNR = signal.rssi, signal.snr
+		if err := adapter.(types.GatewayUplinkAdapter).SendUplink(ctx, uplink); err != nil {
+			t.Fatalf("send signal metadata: %v", err)
+		}
+		packet := readSemtechPacket(t, bridgeSocket, pushDataType)
+		var wire struct {
+			RXPK []map[string]any `json:"rxpk"`
+		}
+		if err := json.Unmarshal(packet[12:], &wire); err != nil {
+			t.Fatal(err)
+		}
+		if len(wire.RXPK) != 1 || wire.RXPK[0]["rssi"] != float64(signal.wireRSSI) || wire.RXPK[0]["lsnr"] != signal.snr {
+			t.Fatalf("signal metadata lost or replaced for %+v: %+v", signal, wire.RXPK)
+		}
+	}
+
 	downlinkBody := []byte(`{"txpk":{"imme":true,"freq":869.525,"modu":"LORA","datr":"SF9BW125","size":8,"data":"ZG93bmxpbms="}}`)
 	downlink := append(packetHeader([2]byte{0x34, 0x56}, pullResponseType), downlinkBody...)
 	if _, err := bridgeSocket.WriteToUDP(downlink, mustUDPAddr(adapter)); err != nil {
