@@ -48,8 +48,10 @@ func TestUDPAdapterImplementsSemtechIngressAndEgress(t *testing.T) {
 	waitAdapterEvent(t, adapter.Events(), contracts.Connected)
 	waitHeartbeat(t, adapter.Events())
 
+	counter := uint32(491697203)
 	body, err := json.Marshal(pushDataPayload{RXPK: []rxPacket{{
-		Data: base64.StdEncoding.EncodeToString([]byte("uplink")), Frequency: 868.3, DataRate: "SF7BW125",
+		Timestamp: &counter,
+		Data:      base64.StdEncoding.EncodeToString([]byte("uplink")), Frequency: 868.3, DataRate: "SF7BW125",
 		Modulation: "LORA", CodingRate: "4/5", RSSI: -72, SNR: 5.5, Size: 6,
 	}}})
 	if err != nil {
@@ -61,8 +63,13 @@ func TestUDPAdapterImplementsSemtechIngressAndEgress(t *testing.T) {
 		t.Fatalf("send PUSH_DATA: %v", err)
 	}
 	readSemtechPacket(t, gatewaySocket, pushAckType)
+	var receivedPacket types.GatewayPacket
 	select {
 	case packet := <-adapter.Packets():
+		receivedPacket = packet
+		if packet.ConcentratorTimestamp == nil || *packet.ConcentratorTimestamp != counter {
+			t.Fatal("received concentrator timestamp was lost")
+		}
 		if string(packet.Payload) != "uplink" || packet.Frequency != 868300000 || packet.RSSI != -72 || packet.SNR != 5.5 {
 			t.Fatalf("unexpected ingress packet: %+v", packet)
 		}
@@ -118,11 +125,9 @@ func TestUDPAdapterImplementsSemtechIngressAndEgress(t *testing.T) {
 	if err := json.Unmarshal(timedResponse[4:], &timedBody); err != nil {
 		t.Fatalf("decode timed PULL_RESP: %v", err)
 	}
-	if timedBody.TXPK.Immediate || timedBody.TXPK.Time == "" {
-		t.Fatalf("expected timed packet-forwarder transmission: %+v", timedBody.TXPK)
-	}
-	if got, err := time.Parse(time.RFC3339Nano, timedBody.TXPK.Time); err != nil || !got.Equal(target) {
-		t.Fatalf("unexpected timed transmission timestamp: got=%q target=%s err=%v", timedBody.TXPK.Time, target, err)
+	wantTimestamp := counter + uint32(target.Sub(receivedPacket.ReceivedAt).Microseconds())
+	if timedBody.TXPK.Immediate || timedBody.TXPK.Time != "" || timedBody.TXPK.Timestamp == nil || *timedBody.TXPK.Timestamp != wantTimestamp {
+		t.Fatalf("timed transmission did not use the concentrator clock: %+v want=%d", timedBody.TXPK, wantTimestamp)
 	}
 	txAckBody := []byte(`{"txpk_ack":{"error":"TOO_LATE"}}`)
 	// Semtech TX_ACK includes the gateway EUI before its optional JSON body.

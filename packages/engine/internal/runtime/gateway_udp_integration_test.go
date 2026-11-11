@@ -27,6 +27,7 @@ const (
 )
 
 type semtechRXPacket struct {
+	Timestamp  *uint32 `json:"tmst,omitempty"`
 	Data       string  `json:"data"`
 	Frequency  float64 `json:"freq"`
 	DataRate   string  `json:"datr"`
@@ -39,13 +40,16 @@ type semtechPushDataPayload struct {
 }
 
 type semtechTXPacket struct {
-	Immediate  bool    `json:"imme"`
-	Frequency  float64 `json:"freq"`
-	Modulation string  `json:"modu"`
-	DataRate   string  `json:"datr"`
-	CodingRate string  `json:"codr"`
-	Size       int     `json:"size"`
-	Data       string  `json:"data"`
+	Timestamp      *uint32 `json:"tmst,omitempty"`
+	Time           string  `json:"time,omitempty"`
+	InvertPolarity bool    `json:"ipol"`
+	Immediate      bool    `json:"imme"`
+	Frequency      float64 `json:"freq"`
+	Modulation     string  `json:"modu"`
+	DataRate       string  `json:"datr"`
+	CodingRate     string  `json:"codr"`
+	Size           int     `json:"size"`
+	Data           string  `json:"data"`
 }
 
 type semtechPullResponse struct {
@@ -178,69 +182,106 @@ func TestEngineVirtualGatewayBridgeOTAAOverSemtechUDP(t *testing.T) {
 }
 
 func TestEngineRealGatewayOTAAOverSemtechUDP(t *testing.T) {
-	gatewaySocket := listenIntegrationUDP(t)
-	gatewayAddress := gatewaySocket.LocalAddr().(*net.UDPAddr)
-	enginePort := reserveIntegrationUDPPort(t)
-	factory := gateway.NewUDPFactory(gateway.UDPOptions{
-		LocalAddress:      net.JoinHostPort("127.0.0.1", strconv.Itoa(enginePort)),
-		HeartbeatInterval: time.Second,
-		Timeout:           3 * time.Second,
-	})
+	for _, counter := range []uint32{0, 491697203, ^uint32(0) - 1000} {
+		t.Run(strconv.FormatUint(uint64(counter), 10), func(t *testing.T) {
+			gatewaySocket := listenIntegrationUDP(t)
+			gatewayAddress := gatewaySocket.LocalAddr().(*net.UDPAddr)
+			enginePort := reserveIntegrationUDPPort(t)
+			factory := gateway.NewUDPFactory(gateway.UDPOptions{
+				LocalAddress:      net.JoinHostPort("127.0.0.1", strconv.Itoa(enginePort)),
+				HeartbeatInterval: time.Second,
+				Timeout:           3 * time.Second,
+			})
 
-	device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000092")
-	gatewayConfig := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c92")
-	gatewayConfig.Type = contracts.Real
-	gatewayConfig.KeepAlive = nil
-	gatewayConfig.GatewayIPv4 = stringPointer("127.0.0.1")
-	gatewayConfig.GatewayPort = int32Pointer(gatewayAddress.Port)
-	clock := types.NewManualClock(0)
-	engine, err := New(
-		contracts.SimulationConfig{Speed: 1},
-		[]contracts.Device{device},
-		[]contracts.Gateway{gatewayConfig},
-		types.Options{Clock: clock, EventBuffer: 256, GatewayAdapterFactory: factory},
-	)
-	if err != nil {
-		t.Fatalf("create real gateway engine: %v", err)
-	}
-	startEngine(t, engine)
-	defer stopEngine(t, engine)
+			device := validDevice("a1c6e32b-4f0d-4b50-9fc5-000000000092")
+			gatewayConfig := validGateway("6f0f1f30-7dc5-4bb3-a6f5-11b2ed9a7c92")
+			gatewayConfig.Type = contracts.Real
+			gatewayConfig.KeepAlive = nil
+			gatewayConfig.GatewayIPv4 = stringPointer("127.0.0.1")
+			gatewayConfig.GatewayPort = int32Pointer(gatewayAddress.Port)
+			clock := types.NewManualClock(0)
+			engine, err := New(
+				contracts.SimulationConfig{Speed: 1},
+				[]contracts.Device{device},
+				[]contracts.Gateway{gatewayConfig},
+				types.Options{Clock: clock, EventBuffer: 256, GatewayAdapterFactory: factory},
+			)
+			if err != nil {
+				t.Fatalf("create real gateway engine: %v", err)
+			}
+			startEngine(t, engine)
+			defer stopEngine(t, engine)
 
-	engineAddress := &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: enginePort}
-	eui, err := hex.DecodeString(gatewayConfig.GatewayEUI)
-	if err != nil {
-		t.Fatalf("decode gateway EUI: %v", err)
-	}
-	writeIntegrationPacket(t, gatewaySocket, engineAddress, semtechPullData, [2]byte{0x41, 0x42}, eui)
-	readIntegrationPacket(t, gatewaySocket, semtechPullAck)
-	waitForEventType(t, engine.Events(), contracts.GatewayConnected)
+			engineAddress := &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: enginePort}
+			eui, err := hex.DecodeString(gatewayConfig.GatewayEUI)
+			if err != nil {
+				t.Fatalf("decode gateway EUI: %v", err)
+			}
+			writeIntegrationPacket(t, gatewaySocket, engineAddress, semtechPullData, [2]byte{0x41, 0x42}, eui)
+			readIntegrationPacket(t, gatewaySocket, semtechPullAck)
+			waitForEventType(t, engine.Events(), contracts.GatewayConnected)
 
-	joinRequest, err := lorawan.BuildJoinRequest(lorawan.JoinRequestOptions{
-		JoinEUI:  parseIntegrationEUI(t, device.OOTAConfig.JoinEUI),
-		DevEUI:   parseIntegrationEUI(t, device.DevEUI),
-		DevNonce: 7,
-		AppKey:   mustAppKey(device),
-	})
-	if err != nil {
-		t.Fatalf("build real gateway Join Request: %v", err)
-	}
-	writeIntegrationPushData(t, gatewaySocket, engineAddress, [2]byte{0x43, 0x44}, eui, joinRequest)
-	readIntegrationPacket(t, gatewaySocket, semtechPushAck)
+			joinRequest, err := lorawan.BuildJoinRequest(lorawan.JoinRequestOptions{
+				JoinEUI:  parseIntegrationEUI(t, device.OOTAConfig.JoinEUI),
+				DevEUI:   parseIntegrationEUI(t, device.DevEUI),
+				DevNonce: 7,
+				AppKey:   mustAppKey(device),
+			})
+			if err != nil {
+				t.Fatalf("build real gateway Join Request: %v", err)
+			}
+			writeIntegrationPushData(t, gatewaySocket, engineAddress, [2]byte{0x43, 0x44}, eui, joinRequest, counter)
+			readIntegrationPacket(t, gatewaySocket, semtechPushAck)
 
-	pullResponse := readIntegrationPacket(t, gatewaySocket, semtechPullResp)
-	var response semtechPullResponse
-	if err := json.Unmarshal(pullResponse.body, &response); err != nil {
-		t.Fatalf("decode real gateway Join-Accept response: %v", err)
+			pullResponse := readIntegrationPacket(t, gatewaySocket, semtechPullResp)
+			var response semtechPullResponse
+			if err := json.Unmarshal(pullResponse.body, &response); err != nil {
+				t.Fatalf("decode real gateway Join-Accept response: %v", err)
+			}
+			want := counter + uint32(5_000_000)
+			if response.TXPK.Timestamp == nil || *response.TXPK.Timestamp != want || response.TXPK.Immediate || response.TXPK.Time != "" || !response.TXPK.InvertPolarity {
+				t.Fatalf("physical gateway would reject Join-Accept scheduling: %+v want tmst=%d", response.TXPK, want)
+			}
+			joinAccept, err := base64.StdEncoding.DecodeString(response.TXPK.Data)
+			if err != nil {
+				t.Fatalf("decode real gateway Join-Accept payload: %v", err)
+			}
+			decodedJoinAccept, err := lorawan.DecodeJoinAccept(joinAccept, mustAppKey(device))
+			if err != nil || decodedJoinAccept.DevAddr == 0 {
+				t.Fatalf("real gateway received an invalid Join-Accept: %+v error=%v", decodedJoinAccept, err)
+			}
+			waitForEventType(t, engine.Events(), contracts.JoinAcceptReceived)
+			nwkSKey, appSKey, err := lorawan.DeriveSessionKeys(mustAppKey(device), decodedJoinAccept.AppNonce, decodedJoinAccept.NetID, 7)
+			if err != nil {
+				t.Fatal(err)
+			}
+			port := byte(1)
+			uplink, err := lorawan.BuildDataFrame(lorawan.DataFrameOptions{DevAddr: decodedJoinAccept.DevAddr, FCnt: 1, FPort: &port, Payload: []byte("after join"), Confirmed: true, NwkSKey: nwkSKey, AppSKey: appSKey})
+			if err != nil {
+				t.Fatal(err)
+			}
+			uplinkCounter := counter + uint32(10_000_000)
+			writeIntegrationPushData(t, gatewaySocket, engineAddress, [2]byte{0x45, 0x46}, eui, uplink, uplinkCounter)
+			readIntegrationPacket(t, gatewaySocket, semtechPushAck)
+			ackResponse := readIntegrationPacket(t, gatewaySocket, semtechPullResp)
+			var ack semtechPullResponse
+			if err := json.Unmarshal(ackResponse.body, &ack); err != nil {
+				t.Fatal(err)
+			}
+			if ack.TXPK.Timestamp == nil || *ack.TXPK.Timestamp != uplinkCounter+uint32(1_000_000) || ack.TXPK.Time != "" || !ack.TXPK.InvertPolarity {
+				t.Fatalf("invalid physical ACK schedule: %+v", ack.TXPK)
+			}
+			ackBytes, err := base64.StdEncoding.DecodeString(ack.TXPK.Data)
+			if err != nil {
+				t.Fatal(err)
+			}
+			decodedACK, err := lorawan.Parse(ackBytes)
+			if err != nil || !decodedACK.ACK || !lorawan.VerifyDataMIC(decodedACK, nwkSKey, 1) {
+				t.Fatalf("physical node would reject ACK: %+v %v", decodedACK, err)
+			}
+
+		})
 	}
-	joinAccept, err := base64.StdEncoding.DecodeString(response.TXPK.Data)
-	if err != nil {
-		t.Fatalf("decode real gateway Join-Accept payload: %v", err)
-	}
-	decodedJoinAccept, err := lorawan.DecodeJoinAccept(joinAccept, mustAppKey(device))
-	if err != nil || decodedJoinAccept.DevAddr == 0 {
-		t.Fatalf("real gateway received an invalid Join-Accept: %+v error=%v", decodedJoinAccept, err)
-	}
-	waitForEventType(t, engine.Events(), contracts.JoinAcceptReceived)
 }
 
 func TestEngineObservesRawLoRaUplinkOverSemtechUDP(t *testing.T) {
@@ -495,10 +536,14 @@ func writeIntegrationPacket(t *testing.T, socket *net.UDPConn, remote *net.UDPAd
 	}
 }
 
-func writeIntegrationPushData(t *testing.T, socket *net.UDPConn, remote *net.UDPAddr, token [2]byte, eui, payload []byte) {
+func writeIntegrationPushData(t *testing.T, socket *net.UDPConn, remote *net.UDPAddr, token [2]byte, eui, payload []byte, counters ...uint32) {
 	t.Helper()
+	counter := uint32(491697203)
+	if len(counters) > 0 {
+		counter = counters[0]
+	}
 	body, err := json.Marshal(semtechPushDataPayload{RXPK: []semtechRXPacket{{
-		Data: base64.StdEncoding.EncodeToString(payload), Frequency: 868.1, DataRate: "SF7BW125", Modulation: "LORA", Size: len(payload),
+		Timestamp: &counter, Data: base64.StdEncoding.EncodeToString(payload), Frequency: 868.1, DataRate: "SF7BW125", Modulation: "LORA", Size: len(payload),
 	}}})
 	if err != nil {
 		t.Fatalf("encode PUSH_DATA payload: %v", err)

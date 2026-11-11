@@ -842,7 +842,7 @@ func (e *Engine) queueRealACKLocked(packet types.GatewayPacket, device contracts
 		return false
 	}
 	delay := durationMilliseconds(device.RX1Config.Delay)
-	transmitAt := time.Now().Add(time.Duration(float64(delay) / e.state.Speed))
+	transmitAt, timestamp := gatewayReplyTiming(packet, delay)
 	dataRate := gatewayPacketDataRate(device, packet)
 	if dataRate < 0 {
 		dataRate = currentDeviceDataRate(session, device)
@@ -850,15 +850,16 @@ func (e *Engine) queueRealACKLocked(packet types.GatewayPacket, device contracts
 	spreadingFactor := spreadingFactorForDataRate(device.LocationConfig.Region, dataRate)
 	bandwidth := gatewayPacketBandwidth(packet)
 	e.gatewayPackets = append(e.gatewayPackets, types.GatewayPacket{
-		GatewayID:       packet.GatewayID,
-		Kind:            types.GatewayPacketDownlink,
-		Payload:         payload,
-		Frequency:       packet.Frequency,
-		Bandwidth:       bandwidth,
-		SpreadingFactor: spreadingFactor,
-		Power:           classBBeaconPower,
-		DataRate:        fmt.Sprintf("SF%dBW%d", spreadingFactor, bandwidth/1000),
-		TransmitAt:      transmitAt,
+		GatewayID:             packet.GatewayID,
+		Kind:                  types.GatewayPacketDownlink,
+		Payload:               payload,
+		Frequency:             packet.Frequency,
+		Bandwidth:             bandwidth,
+		SpreadingFactor:       spreadingFactor,
+		Power:                 classBBeaconPower,
+		DataRate:              fmt.Sprintf("SF%dBW%d", spreadingFactor, bandwidth/1000),
+		TransmitAt:            transmitAt,
+		ConcentratorTimestamp: timestamp,
 	})
 	session.FrameCounterDown++
 	_ = uplink
@@ -883,19 +884,24 @@ func (e *Engine) queueRealJoinAcceptLocked(packet types.GatewayPacket, device co
 	if err != nil {
 		return false
 	}
-	delay := durationMilliseconds(device.RX1Config.Delay)
-	transmitAt := time.Now().Add(time.Duration(float64(delay) / e.state.Speed))
+	delay := 5 * time.Second
+	transmitAt, timestamp := gatewayReplyTiming(packet, delay)
+	dataRate := gatewayPacketDataRate(device, packet)
+	if dataRate < 0 {
+		dataRate = currentDeviceDataRate(session, device)
+	}
 	bandwidth := gatewayPacketBandwidth(packet)
 	e.gatewayPackets = append(e.gatewayPackets, types.GatewayPacket{
-		GatewayID:       packet.GatewayID,
-		Kind:            types.GatewayPacketDownlink,
-		Payload:         payload,
-		Frequency:       packet.Frequency,
-		Bandwidth:       bandwidth,
-		SpreadingFactor: spreadingFactorForDataRate(device.LocationConfig.Region, currentDeviceDataRate(session, device)),
-		Power:           classBBeaconPower,
-		DataRate:        fmt.Sprintf("SF%dBW%d", spreadingFactorForDataRate(device.LocationConfig.Region, currentDeviceDataRate(session, device)), bandwidth/1000),
-		TransmitAt:      transmitAt,
+		GatewayID:             packet.GatewayID,
+		Kind:                  types.GatewayPacketDownlink,
+		Payload:               payload,
+		Frequency:             packet.Frequency,
+		Bandwidth:             bandwidth,
+		SpreadingFactor:       spreadingFactorForDataRate(device.LocationConfig.Region, dataRate),
+		Power:                 classBBeaconPower,
+		DataRate:              fmt.Sprintf("SF%dBW%d", spreadingFactorForDataRate(device.LocationConfig.Region, dataRate), bandwidth/1000),
+		TransmitAt:            transmitAt,
+		ConcentratorTimestamp: timestamp,
 	})
 	return true
 }
@@ -1184,4 +1190,18 @@ func (e *Engine) externalACKMatchesUplink(device contracts.Device, session *type
 	delay := packet.TransmitAt.Sub(base)
 	return (delay >= rx1 && delay <= rx1+windowDuration(device, contracts.RX1)) ||
 		(delay >= rx2 && delay <= rx2+windowDuration(device, contracts.RX2))
+}
+
+// Replies use the originating RX counter so network and processing latency do
+// not shift the device's receive window. uint32 addition handles counter wrap.
+func gatewayReplyTiming(packet types.GatewayPacket, delay time.Duration) (time.Time, *uint32) {
+	receivedAt := packet.ReceivedAt
+	if receivedAt.IsZero() {
+		receivedAt = time.Now()
+	}
+	if packet.ConcentratorTimestamp == nil {
+		return receivedAt.Add(delay), nil
+	}
+	timestamp := *packet.ConcentratorTimestamp + uint32(delay.Microseconds())
+	return receivedAt.Add(delay), &timestamp
 }

@@ -933,6 +933,7 @@ func cloneGatewayPackets(packets []types.GatewayPacket) []types.GatewayPacket {
 	for index, packet := range packets {
 		cloned[index] = packet
 		cloned[index].Payload = append([]byte(nil), packet.Payload...)
+		cloned[index].ConcentratorTimestamp = cloneRuntimePointer(packet.ConcentratorTimestamp)
 	}
 	return cloned
 }

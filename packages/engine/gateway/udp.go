@@ -394,12 +394,14 @@ type udpAdapter struct {
 	virtual    bool
 	options    UDPOptions
 
-	mu       sync.Mutex
-	cancel   context.CancelFunc
-	conn     *net.UDPConn
-	started  bool
-	closed   bool
-	lastPeer *net.UDPAddr
+	mu              sync.Mutex
+	cancel          context.CancelFunc
+	conn            *net.UDPConn
+	started         bool
+	closed          bool
+	lastPeer        *net.UDPAddr
+	clockTimestamp  uint32
+	clockReceivedAt time.Time
 
 	inbound  chan udpDatagram
 	packets  chan types.GatewayPacket
@@ -460,6 +462,7 @@ func (adapter *udpAdapter) Send(ctx context.Context, packet types.GatewayPacket)
 		return errors.New("gateway packet context cannot be nil")
 	}
 	adapter.mu.Lock()
+	clockTimestamp, clockReceivedAt := adapter.clockTimestamp, adapter.clockReceivedAt
 	destination := adapter.lastPeer
 	if destination == nil {
 		destination = adapter.remote
@@ -475,17 +478,33 @@ func (adapter *udpAdapter) Send(ctx context.Context, packet types.GatewayPacket)
 		frequency = 868.1
 	}
 	txpk := txPacket{
-		Immediate:  packet.TransmitAt.IsZero(),
-		Frequency:  frequency,
-		Modulation: "LORA",
-		DataRate:   dataRate,
-		CodingRate: "4/5",
-		Power:      packet.Power,
-		Size:       len(packet.Payload),
-		Data:       base64.StdEncoding.EncodeToString(packet.Payload),
+		Immediate:      packet.TransmitAt.IsZero() && packet.ConcentratorTimestamp == nil,
+		InvertPolarity: packet.Protocol != contracts.RawLoRa && packet.Kind != types.GatewayPacketClassBBeacon,
+		Frequency:      frequency,
+		Modulation:     "LORA",
+		DataRate:       dataRate,
+		CodingRate:     "4/5",
+		Power:          packet.Power,
+		Size:           len(packet.Payload),
+		Data:           base64.StdEncoding.EncodeToString(packet.Payload),
 	}
-	if !packet.TransmitAt.IsZero() {
-		txpk.Time = packet.TransmitAt.UTC().Format(time.RFC3339Nano)
+	if packet.ConcentratorTimestamp != nil {
+		timestamp := *packet.ConcentratorTimestamp
+		txpk.Timestamp = &timestamp
+	} else if !packet.TransmitAt.IsZero() {
+		if adapter.virtual {
+			txpk.Time = packet.TransmitAt.UTC().Format(time.RFC3339Nano)
+		} else {
+			if clockReceivedAt.IsZero() {
+				return errors.New("cannot schedule gateway downlink without a concentrator timestamp")
+			}
+			delta := packet.TransmitAt.Sub(clockReceivedAt).Microseconds()
+			if time.Since(clockReceivedAt) > time.Duration(1<<31-1)*time.Microsecond || delta < -1<<31 || delta > 1<<31-1 {
+				return errors.New("concentrator timestamp reference is too old or transmission time is out of range")
+			}
+			timestamp := clockTimestamp + uint32(delta)
+			txpk.Timestamp = &timestamp
+		}
 	}
 	body, err := json.Marshal(struct {
 		TXPK txPacket `json:"txpk"`
@@ -504,6 +523,7 @@ func (adapter *udpAdapter) Send(ctx context.Context, packet types.GatewayPacket)
 		GatewayID: packet.GatewayID, DeviceID: packet.DeviceID, Kind: packet.Kind, Protocol: packet.Protocol,
 		Payload: append([]byte(nil), packet.Payload...), Frequency: packet.Frequency, Bandwidth: packet.Bandwidth,
 		SpreadingFactor: packet.SpreadingFactor, Power: packet.Power, DataRate: packet.DataRate, TransmitAt: packet.TransmitAt,
+		ConcentratorTimestamp: txpk.Timestamp,
 	}
 	adapter.mu.Unlock()
 	if err := adapter.send(frame, destination); err != nil {
@@ -923,16 +943,24 @@ func (adapter *udpAdapter) handlePushData(ctx context.Context, body []byte) erro
 		if received.Size > 0 && received.Size != len(decoded) {
 			return fmt.Errorf("gateway payload size mismatch: declared %d, decoded %d", received.Size, len(decoded))
 		}
+		receivedAt := time.Now()
+		if received.Timestamp != nil {
+			adapter.mu.Lock()
+			adapter.clockTimestamp = *received.Timestamp
+			adapter.clockReceivedAt = receivedAt
+			adapter.mu.Unlock()
+		}
 		packet := types.GatewayPacket{
-			GatewayID:       adapter.gatewayID,
-			Payload:         decoded,
-			Frequency:       int64(math.Round(received.Frequency * 1_000_000)),
-			Bandwidth:       parseBandwidth(received.DataRate),
-			SpreadingFactor: parseSpreadingFactor(received.DataRate),
-			RSSI:            float64(received.RSSI),
-			SNR:             received.SNR,
-			DataRate:        received.DataRate,
-			ReceivedAt:      time.Now(),
+			ConcentratorTimestamp: received.Timestamp,
+			GatewayID:             adapter.gatewayID,
+			Payload:               decoded,
+			Frequency:             int64(math.Round(received.Frequency * 1_000_000)),
+			Bandwidth:             parseBandwidth(received.DataRate),
+			SpreadingFactor:       parseSpreadingFactor(received.DataRate),
+			RSSI:                  float64(received.RSSI),
+			SNR:                   received.SNR,
+			DataRate:              received.DataRate,
+			ReceivedAt:            receivedAt,
 		}
 		select {
 		case adapter.packets <- packet:
@@ -1076,16 +1104,17 @@ type rxPacket struct {
 }
 
 type txPacket struct {
-	Immediate  bool    `json:"imme"`
-	Timestamp  *uint32 `json:"tmst,omitempty"`
-	Time       string  `json:"time,omitempty"`
-	Frequency  float64 `json:"freq"`
-	Modulation string  `json:"modu"`
-	DataRate   string  `json:"datr"`
-	CodingRate string  `json:"codr"`
-	Power      int     `json:"powe,omitempty"`
-	Size       int     `json:"size"`
-	Data       string  `json:"data"`
+	InvertPolarity bool    `json:"ipol"`
+	Immediate      bool    `json:"imme"`
+	Timestamp      *uint32 `json:"tmst,omitempty"`
+	Time           string  `json:"time,omitempty"`
+	Frequency      float64 `json:"freq"`
+	Modulation     string  `json:"modu"`
+	DataRate       string  `json:"datr"`
+	CodingRate     string  `json:"codr"`
+	Power          int     `json:"powe,omitempty"`
+	Size           int     `json:"size"`
+	Data           string  `json:"data"`
 }
 
 type txAckPayload struct {

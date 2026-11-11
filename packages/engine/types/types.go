@@ -22,6 +22,8 @@ type GatewayPacket struct {
 	SNR             float64
 	Power           int
 	DataRate        string
+	// ConcentratorTimestamp is the Semtech 32-bit microsecond counter at RX end or scheduled TX.
+	ConcentratorTimestamp *uint32
 	// TransmitAt requests a timed downlink. A zero value keeps the existing
 	// immediate-transmission behavior used by ordinary gateway packets.
 	TransmitAt time.Time
